@@ -1,0 +1,82 @@
+[
+  {
+    "codigo": "PK-0001",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-22 15:45:12.347",
+    "unidad": "Pichanaki",
+    "umbral": "Moderadamente lluvioso",
+    "estado": "Predicho"
+  },
+  {
+    "codigo": "PK-0002",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-21 15:45:12.347",
+    "unidad": "Pichanaki",
+    "umbral": "Muy lluvioso",
+    "estado": "En proceso de atencion"
+  },
+  {
+    "codigo": "PK-0003",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-22 15:45:12.347",
+    "unidad": "Pichanaki",
+    "umbral": "Moderadamente lluvioso",
+    "estado": "Atendido"
+  },
+  {
+    "codigo": "PK-0004",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-23 08:30:00.000",
+    "unidad": "Pichanaki",
+    "umbral": "Muy lluvioso",
+    "estado": "Predicho"
+  },
+  {
+    "codigo": "PK-0005",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-22 18:20:11.500",
+    "unidad": "Pichanaki",
+    "umbral": "Lluvioso",
+    "estado": "No confirmado"
+  },
+  {
+    "codigo": "PK-0006",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-20 12:15:00.123",
+    "unidad": "Pichanaki",
+    "umbral": "Moderadamente lluvioso",
+    "estado": "En espera de reporte"
+  },
+  {
+    "codigo": "PK-0007",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-22 10:05:45.000",
+    "unidad": "Pichanaki",
+    "umbral": "Lluvioso",
+    "estado": "Predicho"
+  },
+  {
+    "codigo": "PK-0008",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-21 22:11:04.999",
+    "unidad": "Pichanaki",
+    "umbral": "Moderadamente lluvioso",
+    "estado": "Atendido"
+  },
+  {
+    "codigo": "PK-0009",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-22 14:40:00.000",
+    "unidad": "Pichanaki",
+    "umbral": "Muy lluvioso",
+    "estado": "En proceso de atencion"
+  },
+  {
+    "codigo": "PK-0010",
+    "fenomeno": "Lluvia",
+    "fecha": "2026-06-23 01:15:00.000",
+    "unidad": "Pichanaki",
+    "umbral": "Muy lluvioso",
+    "estado": "No confirmado"
+  }
+]
