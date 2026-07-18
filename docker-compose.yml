@@ -19,8 +19,7 @@ services:
     networks:
       - eps_siac_network
     depends_on:
-      db_postgis:
-        condition: service_healthy
+      - db_postgis
 
   # =========== FRONTEND (REACT) =========== 
   frontend:

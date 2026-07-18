@@ -2,9 +2,9 @@ services:
   # =========== DATABASE =========== 
   db_postgis:
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
     # Indicamos la ruta del .env de produccion
     env_file:
       - ./backend/.env.prod
@@ -20,7 +20,7 @@ services:
   # =========== FRONTEND (REACT) =========== 
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend2
       target: prod
     ports:
       - "80:80"
@@ -30,7 +30,7 @@ services:
       - caddy_config:/config
     environment:
       # Utilizamos la variable declarada en el env_file del frontend
-      - SITE_ADDRESS=${SITE_ADDRESS}
+      - SITE_ADDRESS
     env_file:
       - ./frontend/.env.prod
 

@@ -102,8 +102,8 @@ DATABASES = {
         'NAME': 'eps_siac',
         'USER': 'postgres',
         'PASSWORD': 'postgres',
-        'HOST': 'localhost',
-        'PORT': '5435',
+        'HOST': 'db_postgis',
+        'PORT': '5432',
     }
 }
 
