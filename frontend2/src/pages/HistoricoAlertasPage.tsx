@@ -1,0 +1,190 @@
+import { useMemo, useState } from 'react';
+import { AlertsTable } from '@/features/alertas/components/AlertsTable';
+import { ESTADO_LABEL, type EstadoAlertaHistorica } from '@/features/alertas/types';
+import { mockAlertasHistoricas } from '@/features/alertas/data/mockAlertasHistoricas';
+import { cn } from '@/shared/lib/cn';
+
+/** Unidades operativas disponibles (para el select de filtro). */
+const UNIDADES = ['Todas', 'Pichanaqui', 'San Ramón', 'La Merced', 'Oxapampa', 'Satipo'];
+
+/** Estados se pueden filtrar individualmente (checkbox list). */
+const ESTADOS_FILTRABLES: EstadoAlertaHistorica[] = [
+  'predicho',
+  'en-espera-confirmacion',
+  'no-confirmado',
+  'confirmado',
+  'en-espera-reporte',
+  'en-proceso-atencion',
+  'atendido',
+];
+
+/** Color del badge por estado (para el indicador del checkbox). */
+const ESTADO_DOT: Record<EstadoAlertaHistorica, string> = {
+  'predicho': 'bg-alerts-status-predicho',
+  'en-espera-confirmacion': 'bg-alerts-status-en-espera-confirmacion',
+  'no-confirmado': 'bg-alerts-status-no-confirmado',
+  'confirmado': 'bg-alerts-status-confirmado-reporte',
+  'en-espera-reporte': 'bg-alerts-status-confirmado-reporte',
+  'en-proceso-atencion': 'bg-alerts-status-en-proceso-atencion',
+  'atendido': 'bg-alerts-status-atendido',
+};
+
+/**
+ * HistoricoAlertasPage — vista de tabla histórica con filtros.
+ *
+ * Filtros (en barra superior):
+ *   - Unidad operativa (select único; "Todas" = sin filtro).
+ *   - Estados (lista de checkboxes con dot de color).
+ *   - Intervalo de fechas: desde / hasta. La fecha de comparación es
+ *     `fechaCreacion` (cuando se generó la alerta histórica). Motivo
+ *     porque esa fecha inicia el ciclo de vida de la alerta y es
+ *     consistente para todos los estados. Si más tarde el backend
+ *     expone otras fechas relevantes (`fechaFinalizacion`), se puede
+ *     añadir un selector "Comparar por: creación / notificación / predicción / cierre".
+ */
+export function HistoricoAlertasPage() {
+  const [unidad, setUnidad] = useState<string>('Todas');
+  const [estadosSeleccionados, setEstadosSeleccionados] = useState<Set<EstadoAlertaHistorica>>(
+    () => new Set(ESTADOS_FILTRABLES),
+  );
+  const [desde, setDesde] = useState<string>('');
+  const [hasta, setHasta] = useState<string>('');
+
+  // ID seleccionado en la tabla (para resaltar fila si hace falta).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Aplicar filtros al mock.
+  const alertasFiltradas = useMemo(() => {
+    return mockAlertasHistoricas.filter((a) => {
+      if (unidad !== 'Todas' && a.unidadOperativa !== unidad) return false;
+      if (!estadosSeleccionados.has(a.estado)) return false;
+      const fechaCreacion = new Date(a.fechaCreacion).getTime();
+      if (desde) {
+        const desdeTs = new Date(`${desde}T00:00:00`).getTime();
+        if (fechaCreacion < desdeTs) return false;
+      }
+      if (hasta) {
+        const hastaTs = new Date(`${hasta}T23:59:59`).getTime();
+        if (fechaCreacion > hastaTs) return false;
+      }
+      return true;
+    });
+  }, [unidad, estadosSeleccionados, desde, hasta]);
+
+  return (
+    <div className="h-full overflow-y-auto p-6 text-text-primary">
+      <h1 className="text-h2 font-bold text-primary-main mb-4 font-sans">
+        Histórico de Alertas
+      </h1>
+
+      {/* ── Barra de filtros ───────────────────────────────────────────── */}
+      <div className="mb-5 flex flex-wrap items-end gap-6">
+        {/* Unidad Operativa */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-text-primary text-sm font-medium font-sans">Unidad Operativa</label>
+          <select
+            value={unidad}
+            onChange={(e) => setUnidad(e.target.value)}
+            className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
+                       focus:outline-2 focus:outline-primary-main"
+          >
+            {UNIDADES.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Estados (multi-select con checkboxes coloreados) */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-text-primary text-sm font-medium font-sans">Estados</label>
+          <div className="flex flex-wrap items-center gap-2 max-w-2xl">
+            {ESTADOS_FILTRABLES.map((est) => {
+              const isOn = estadosSeleccionados.has(est);
+              return (
+                <button
+                  key={est}
+                  type="button"
+                  onClick={() =>
+                    setEstadosSeleccionados((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(est)) next.delete(est);
+                      else next.add(est);
+                      return next;
+                    })
+                  }
+                  className={cn(
+                    'inline-flex items-center gap-2 px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] text-sm font-sans cursor-pointer transition-colors',
+                    isOn
+                      ? 'bg-primary-states-hover-main outline-primary-main text-primary-main font-bold'
+                      : 'bg-background-main outline-button-stroke text-text-primary hover:bg-primary-states-hover-main/30',
+                  )}
+                >
+                  <span className={`size-2.5 rounded-full ${ESTADO_DOT[est]}`} />
+                  {ESTADO_LABEL[est]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Fecha desde */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-text-primary text-sm font-medium font-sans">Desde</label>
+          <input
+            type="date"
+            value={desde}
+            onChange={(e) => setDesde(e.target.value)}
+            className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
+                       focus:outline-2 focus:outline-primary-main"
+          />
+        </div>
+
+        {/* Fecha hasta */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-text-primary text-sm font-medium font-sans">Hasta</label>
+          <input
+            type="date"
+            value={hasta}
+            onChange={(e) => setHasta(e.target.value)}
+            className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
+                       focus:outline-2 focus:outline-primary-main"
+          />
+        </div>
+
+        {/* Reset */}
+        <button
+          type="button"
+          onClick={() => {
+            setUnidad('Todas');
+            setEstadosSeleccionados(new Set(ESTADOS_FILTRABLES));
+            setDesde('');
+            setHasta('');
+          }}
+          className="px-4 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke text-text-primary text-sm font-medium font-sans
+                     hover:bg-primary-states-hover-main/30 transition-colors"
+        >
+          Limpiar filtros
+        </button>
+
+        <span className="px-2 py-2 text-text-secondary text-xs font-sans">
+          {alertasFiltradas.length} resultado{alertasFiltradas.length === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      {/* ── Tabla histórica ───────────────────────────────────────────── */}
+      <AlertsTable
+        alertas={alertasFiltradas}
+        selectedId={selectedId}
+        onToggleSelect={setSelectedId}
+        highlightSelected={false}
+      />
+
+      {/* Empty state si no hay resultados */}
+      {alertasFiltradas.length === 0 && (
+        <div className="mt-6 text-center text-text-secondary text-sm font-sans">
+          No hay alertas que coincidan con los filtros seleccionados.
+        </div>
+      )}
+    </div>
+  );
+}

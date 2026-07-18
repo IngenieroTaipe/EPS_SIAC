@@ -15,7 +15,12 @@ export default defineConfig({
     },
   },
   server: {
+<<<<<<< Updated upstream
     host: true, // Escucha en todas las interfaces de red (0.0.0.0)
     port: 5173, // Puerto estricto
   }
+=======
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app'],
+  },
+>>>>>>> Stashed changes
 });

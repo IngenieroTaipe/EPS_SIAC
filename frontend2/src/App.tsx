@@ -6,6 +6,8 @@ import { LoginPage } from '@/pages/LoginPage';
 import { MapaAlertasPage } from '@/pages/MapaAlertasPage';
 import { MapaComponentesPage } from '@/pages/MapaComponentesPage';
 import { MapaClimaticoPage } from '@/pages/MapaClimaticoPage';
+import { HistoricoAlertasPage } from '@/pages/HistoricoAlertasPage';
+import { GestionAlertasPage } from '@/pages/GestionAlertasPage';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 
 /**
@@ -46,7 +48,8 @@ function App() {
           <Route path="/climatico" element={<MapaClimaticoPage />} />
           <Route path="/componentes" element={<MapaComponentesPage />} />
           <Route path="/componentes/gestion" element={<PlaceholderPage />} />
-          <Route path="/alertas/gestion" element={<PlaceholderPage />} />
+          <Route path="/alertas/gestion" element={<HistoricoAlertasPage />} />
+          <Route path="/alertas/:id/editar" element={<GestionAlertasPage />} />
         </Route>
 
         {/* ── Fallback ────────────────────────────────────────────────── */}

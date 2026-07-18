@@ -35,14 +35,36 @@ import { cn } from '@/shared/lib/cn';
 export function TopBar() {
   const location = useLocation();
 
+  // Matching longest-prefix: la primera entrada en `topBarConfig` (en orden
+  // de precedencia) cuya ruta sea igual a la actual O la ruta actual empiece
+  // por ella + '/' (para soportar rutas dinámicas tipo `/alertas/PK-001/editar`
+  // macheando contra `/alertas/editar`).
+  // Para rutas más específicas, ponlas antes en el array `topBarConfig`.
+  function matches(pathname: string, route: string): boolean {
+    if (route === pathname) return true;
+    // Sustituir `:param` por un wildcard de comparación.
+    // Ruta configurada con `:id` → comparar por estructura de segmentos.
+    if (route.includes(':')) {
+      const rSeg = route.split('/');
+      const pSeg = pathname.split('/');
+      if (rSeg.length !== pSeg.length) return false;
+      return rSeg.every((s, i) => s === pSeg[i] || s.startsWith(':'));
+    }
+    // Caso general: ruta configurada es un prefijo del pathname.
+    return pathname === route || pathname.startsWith(route + '/');
+  }
+
+  // Encontrar el match más específico (más largo primero).
   const cfg: TopBarPageConfig =
-    topBarConfig.find((c) => c.route === location.pathname) ?? fallbackConfig;
+    topBarConfig.find((c) => matches(location.pathname, c.route)) ?? fallbackConfig;
 
   const isLogin = cfg.route === '/login';
   const subtitleWeight = cfg.subtitleWeight ?? 'normal';
   // En rutas de gestión (backoffice) no se muestra "Unidad Operativa".
-  const hideUnidadOperativa = HIDE_UNIDAD_OPERATIVA_ROUTES.includes(
-    location.pathname,
+  // Comparación por prefijo para cubrir también `/alertas/PK-001/editar`
+  // que se trata como gestión.
+  const hideUnidadOperativa = HIDE_UNIDAD_OPERATIVA_ROUTES.some(
+    (r) => location.pathname === r || location.pathname.startsWith(r + '/'),
   );
 
   return (

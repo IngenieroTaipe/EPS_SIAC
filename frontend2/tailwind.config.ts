@@ -47,6 +47,8 @@ const config: Config = {
         },
         background: {
           main: '#ffffff',
+          // Color de fila seleccionada en tablas (en mapa + histórico).
+          selected: '#fff7c7',
         },
 
         // ── Texto ─────────────────────────────────────────────────────────

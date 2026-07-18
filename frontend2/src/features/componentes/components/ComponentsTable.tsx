@@ -1,0 +1,82 @@
+import type { Componente } from '@/features/mapa/types/componente';
+import { ComponentRow } from './ComponentRow';
+
+/**
+ * ComponentsTable — tabla de componentes con header navy (`primary-extraLight`
+ * con `text-primary-main` bold) según Figma.
+ *
+ * Columnas:
+ *   Código | Tipo | Especificación | Unidad Operativa | Latitud | Longitud
+ *   | Criticidad | (acciones)
+ *
+ * Usada tanto por el panel deslizable del mapa (`MapComponentsPanel`) como por
+ * el histórico filtrable (`HistoricoComponentesPage`). El parámetro
+ * `sortSelectedFirst` permite reordenar poniendo la fila seleccionada primero
+ * (comportamiento requerido por el usuario).
+ */
+interface ComponentsTableProps {
+  componentes: Componente[];
+  selectedId: string | null;
+  onToggleSelect: (id: string) => void;
+  /** Si true (default), el row seleccionado se mueve al inicio. */
+  sortSelectedFirst?: boolean;
+  /** Anchura fija de celdas (más útil en histórico con espacio extra). */
+  fixedWidths?: boolean;
+}
+
+const HEADER_COLS = [
+  { label: 'Código', minWidth: 'min-w-24' },
+  { label: 'Tipo', minWidth: 'min-w-36' },
+  { label: 'Especificación', minWidth: 'min-w-48' },
+  { label: 'Unidad Operativa', minWidth: 'min-w-40' },
+  { label: 'Latitud', minWidth: 'min-w-28' },
+  { label: 'Longitud', minWidth: 'min-w-28' },
+  { label: 'Criticidad', minWidth: 'min-w-24' },
+];
+
+export function ComponentsTable({
+  componentes,
+  selectedId,
+  onToggleSelect,
+  sortSelectedFirst = true,
+  fixedWidths = false,
+}: ComponentsTableProps) {
+  // Ordenar: si hay seleccionado y sortSelectedFirst, ese va primero.
+  const ordered = sortSelectedFirst && selectedId
+    ? [
+        ...componentes.filter((c) => c.id === selectedId),
+        ...componentes.filter((c) => c.id !== selectedId),
+      ]
+    : componentes;
+
+  return (
+    <div className="self-stretch rounded-[10px] border border-input-stroke-main flex flex-col justify-start items-center gap-0.5 overflow-hidden">
+      {/* Header */}
+      <div className="self-stretch h-14 bg-primary-extra-light rounded-tl-[10px] rounded-tr-[10px] outline outline-1 outline-primary-main inline-flex justify-between items-center">
+        {HEADER_COLS.map((col) => (
+          <div
+            key={col.label}
+            className={`flex-1 h-14 ${col.minWidth} px-3.5 py-2.5 bg-primary-extra-light flex justify-center items-center gap-2.5`}
+          >
+            <span className="text-primary-main text-base font-semibold font-sans">
+              {col.label}
+            </span>
+          </div>
+        ))}
+        {/* Columna acciones vacía */}
+        <div className="flex-1 min-w-24" />
+      </div>
+
+      {/* Filas */}
+      {ordered.map((c) => (
+        <ComponentRow
+          key={c.id}
+          componente={c}
+          selected={selectedId === c.id}
+          onToggleSelect={onToggleSelect}
+          fixedWidths={fixedWidths}
+        />
+      ))}
+    </div>
+  );
+}

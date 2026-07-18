@@ -3,6 +3,8 @@ import { BaseMap } from './BaseMap';
 import { LayerControl, type LayerId } from './LayerControl';
 import { MapLegend } from './MapLegend';
 import { PrecipitationLayer } from './PrecipitationLayer';
+import { ComponentLayer } from './ComponentLayer';
+import { AlertLayer } from './AlertLayer';
 
 /**
  * MapPage — página con mapa Leaflet de pantalla completa (debajo del TopBar)
@@ -57,11 +59,8 @@ export function MapPage({ defaultLayers = [] }: MapPageProps) {
     <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
       <BaseMap key={mapKey}>
         {selected.has('precipitaciones') && <PrecipitationLayer />}
-        {/*
-          Capas futuras:
-          {selected.has('alertas')     && <AlertLayer />}
-          {selected.has('componentes') && <ComponentLayer />}
-        */}
+        {selected.has('componentes')     && <ComponentLayer />}
+        {selected.has('alertas')         && <AlertLayer />}
       </BaseMap>
 
       {/* Control de capas flotante (arriba-derecha). */}

@@ -112,7 +112,7 @@ export function LayerControl({
         <div
           role="menu"
           aria-label="Seleccione las capas a mostrar"
-          className="w-64 z-[1000] rounded-md bg-text-invert-primary border border-input-stroke-main overflow-hidden"
+          className="w-64 rounded-md bg-text-invert-primary border border-input-stroke-main overflow-hidden"
         >
           {options.map((option) => {
             const isOn = selected.has(option.id);
@@ -123,7 +123,11 @@ export function LayerControl({
                 role="menuitemcheckbox"
                 aria-checked={isOn}
                 onClick={() => onToggle(option.id)}
-                className="w-full h-14 px-3.5 py-[5px] bg-text-invert-primary border-b-[0.5px] border-input-stroke-main inline-flex justify-start items-center gap-2.5 transition-colors hover:bg-text-status-placeholder/40"
+                //className="w-full h-14 px-3.5 py-[5px] bg-text-invert-primary border-b-[0.5px] border-input-stroke-main inline-flex justify-start items-center gap-2.5 transition-colors hover:bg-primary-states-hover-light"
+                className={cn(
+                    'w-full h-14 px-3.5 py-[5px] border-b-[0.5px] border-input-stroke-main inline-flex justify-start items-center gap-2.5 transition-colors',
+                    isOn ? 'bg-primary-states-selected-light' : 'bg-text-invert-primary hover:bg-primary-states-hover-light',
+                  )}  
               >
                 {/* Checkbox */}
                 <span
