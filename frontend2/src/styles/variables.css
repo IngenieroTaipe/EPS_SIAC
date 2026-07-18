@@ -1,0 +1,105 @@
+/*
+ * Espejo CSS de los tokens de Figma (Design System EPS_SIAC).
+ * Útil para componentes que no pueden consumir Tailwind directamente,
+ * principalmente los popups de Leaflet (renderizados vía innerHTML).
+ * Mantiene las propiedades custom con el mismo valor que tailwind.config.ts.
+ *
+ * Espacio de nombres: --eps-<grupo>-<subgrupo>-<clave>
+ */
+
+:root {
+  /* ── Marca ───────────────────────────────────────────────────────── */
+  --eps-primary-main: #070b5b;
+  --eps-primary-light: #3238ab;
+  --eps-primary-dark: #32386d;
+  --eps-primary-extra-light: #696db8;
+  --eps-primary-hover-dark: #1f2347;
+  --eps-primary-states-hover-main: #070b5b66;
+  --eps-primary-states-hover-light: #3238ab66;
+  --eps-primary-states-selected-main: #070b5b80;
+  --eps-primary-states-selected-light: #3238ab80;
+
+  --eps-secondary-main: #ff0000;
+  --eps-secondary-background: #ff6262;
+  --eps-secondary-hover: #ff000033;
+
+  --eps-background-main: #ffffff;
+
+  /* ── Texto ───────────────────────────────────────────────────────── */
+  --eps-text-primary: #21272a;
+  --eps-text-invert-primary: #ffffff;
+  --eps-text-secondary: #6f6c8f;
+  --eps-text-terciary: #170f49;
+  --eps-text-status-placeholder: #d9dbe9;
+
+  /* ── Controles ───────────────────────────────────────────────────── */
+  --eps-input-stroke-main: #abb5be;
+  --eps-icon-main: #626262;
+  --eps-button-stroke: #abb5be;
+  --eps-button-fill: #f8fafc;
+
+  /* ── Estados semánticos ──────────────────────────────────────────── */
+  --eps-danger-main: #d32f2f;
+  --eps-danger-light: #ef5350;
+  --eps-danger-dark: #c62828;
+  --eps-danger-states-hover: #d32f2f4d;
+  --eps-danger-states-selected: #d32f2f66;
+  --eps-danger-states-focus-visible: #d32f2f80;
+  --eps-danger-states-outline-border: #d32f2f99;
+
+  --eps-warning-main: #ef6c00;
+  --eps-warning-light: #e3aa4e;
+  --eps-warning-dark: #cb5c00;
+  --eps-warning-states-hover: #ef6c004d;
+  --eps-warning-states-selected: #ef6c0066;
+  --eps-warning-states-focus-visible: #ef6c0080;
+  --eps-warning-states-outline-border: #ef6c0099;
+
+  --eps-success-main: #11b95a;
+  --eps-success-light: #78e09e;
+  --eps-success-dark: #00550c;
+  --eps-success-states-hover: #11b95a4d;
+  --eps-success-states-selected: #11b95a66;
+  --eps-success-states-focus-visible: #11b95a80;
+  --eps-success-states-outline-border: #11b95a99;
+
+  /* ── Dominio: alertas.status ────────────────────────────────────── */
+  --eps-alerts-status-predicho: #f9d800;
+  --eps-alerts-status-no-confirmado: #7b818a;
+  --eps-alerts-status-confirmado-reporte: #ff3737;
+  --eps-alerts-status-atendido: #1eff6b;
+  --eps-alerts-status-en-espera-confirmacion: #ffb03d;
+  --eps-alerts-status-en-proceso-atencion: #0daec9;
+  --eps-alerts-status-fill-predicho: #f9d80080;
+  --eps-alerts-status-fill-no-confirmado: #7b818a80;
+  --eps-alerts-status-fill-confirmado-reporte: #ff373780;
+  --eps-alerts-status-fill-atendido: #1eff6b80;
+  --eps-alerts-status-fill-en-espera-confirmacion: #ffb03d80;
+  --eps-alerts-status-fill-en-proceso-atencion: #0daec980;
+
+  /* ── Dominio: alertas.precipitaciones ───────────────────────────── */
+  --eps-alerts-precip-mod-llov: #77e5ff;
+  --eps-alerts-precip-llov: #252ad5;
+  --eps-alerts-precip-muy-llov: #59257d;
+  --eps-alerts-precip-ext-llov: #7a1a23;
+  --eps-alerts-precip-states-mod-llov-hover: #77e5ff66;
+  --eps-alerts-precip-states-llov: #252ad580;
+  --eps-alerts-precip-states-muy-llov: #59257d80;
+  --eps-alerts-precip-states-ext-llov: #5d030c80;
+
+  /* ── Tipografía ──────────────────────────────────────────────────── */
+  --eps-font-family-sans: "Instrument Sans", system-ui, sans-serif;
+  --eps-font-h1: 30px;
+  --eps-font-h2: 20px;
+  --eps-font-size-1rem: 10px;
+  --eps-font-size-2rem: 20px;
+  --eps-font-size-3rem: 30px;
+
+  /* ── Formato ─────────────────────────────────────────────────────── */
+  --eps-radius-default: 6px;
+  --eps-radius-button: 5px;
+  --eps-radius-section: 10px;
+  --eps-padding-button-x: 10px;
+  --eps-padding-table-x: 10px;
+  --eps-gap-table-y: 2px;
+}
