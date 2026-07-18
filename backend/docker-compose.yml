@@ -1,0 +1,35 @@
+services:
+  db_postgis:
+    image: postgis/postgis:18-3.6
+    container_name: eps_selva_central_db_postgis
+    volumes:
+      - eps_selva_central_data_db:/var/lib/postgresql
+    networks:
+      - eps_selva_central_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d eps_selva_central" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # api:
+  #   image: python:3.15.0b3-bookworm
+  #   container_name: eps_siac_api
+  #   ports:
+  #     - "8001:8000"
+  #   volumes:
+  #     - ./EPS_SelvaCentral
+  #   command: python manage.py runserver
+  #   env_file:
+  #     - ./EPS_SelvaCentral/.env
+  #   networks:
+  #     - eps_siac_network
+  #   depends_on:
+  #     db_postgis:
+  #       condition: service_healthy
+
+volumes:
+  eps_selva_central_data_db: # local por defecto
+
+networks:
+  eps_selva_central_network: # bridge por defecto
