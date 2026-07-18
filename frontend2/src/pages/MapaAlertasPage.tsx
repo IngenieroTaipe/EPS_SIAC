@@ -1,18 +1,12 @@
+import { MapPage } from '@/features/mapa/components/MapPage';
+
 /**
- * MapaAlertasPage — placeholder de la página interna "Mapa de Alertas Climáticas".
+ * MapaAlertasPage — vista "Mapa de Alertas Climáticas".
  *
- * Se renderiza dentro de `<AppLayout>` (con Sidebar + TopBar). Aquí vivirá
- * el mapa con la capa de alertas cuando se maquete esa interfaz.
+ * Renderiza el mapa leaflet a pantalla completa (debajo del TopBar) con
+ * la capa de alertas activa por defecto. El usuario puede activar más
+ * capas desde el control flotante (LayerControl).
  */
 export function MapaAlertasPage() {
-  return (
-    <div className="text-text-primary">
-      <p className="text-2xl font-bold text-primary-main font-sans">
-        Mapa de Alertas Climáticas
-      </p>
-      <p className="mt-2 text-text-secondary text-sm">
-        Aquí se renderizará el mapa Leaflet con la capa de alertas activas.
-      </p>
-    </div>
-  );
+  return <MapPage defaultLayers={['alertas']} />;
 }

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/shared/context/AuthContext.hooks';
 
@@ -9,15 +9,16 @@ import { useAuth } from '@/shared/context/AuthContext.hooks';
  * Layout según Figma:
  *   [Form (left) | Image placeholder (right)]
  *
+ * Esta página no usa `GuestLayout` (no muestra TopBar) porque el login no
+ * necesita encabezado: el propio título "Inicio de Sesión" actúa como
+ * encabezado visual. Si el usuario ya está autenticado y entra a `/login`
+ * manualmente, se redirige a `/alertas`.
+ *
  * Derecha: <div> vacío con fondo placeholder donde el usuario colocará
  * una imagen (hero del login) cuando la elija.
  *
  * Tras autenticar correctamente, redirige a `/alertas` (Mapa de Alertas
  * Climáticas), según los requisitos del usuario.
- *
- * El header lo provee `GuestLayout` (mismo TopBar que las demás páginas).
- * Como el botón "Iniciar Sesión" no tiene sentido en la propia página de
- * login, la config de TopBar para `/login` no lleva widgets derechos.
  */
 
 const PRIMARY = 'bg-primary-main outline outline-2 outline-offset-[-2px] outline-primary-main';
@@ -26,12 +27,15 @@ const INPUT_BASE =
 const LABEL = 'text-zinc-800 text-sm font-normal font-sans leading-5';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { isAuthenticated, login } = useAuth();
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Si ya está autenticado, redirige a /alertas (no tiene caso ver el login).
+  if (isAuthenticated) return <Navigate to="/alertas" replace />;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,10 +46,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="h-full inline-flex w-full">
+    <div className="h-screen bg-background-main flex">
       {/* ── Lado izquierdo: formulario ─────────────────────────────────── */}
-      <div className="flex-1 p-12 sm:p-20 inline-flex flex-col justify-start items-start gap-12">
-        <div className="self-stretch flex flex-col justify-start items-center gap-2">
+      <div className="flex-1 p-12 sm:p-20 inline-flex flex-col justify-center items-start gap-12">
+        <div className="self-stretch flex flex-col justify-center items-center gap-2">
           <h2 className="self-stretch text-zinc-800 text-4xl font-bold font-sans leading-10">
             Inicio de Sesión
           </h2>
@@ -53,7 +57,7 @@ export function LoginPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="self-stretch flex flex-col justify-start items-start gap-4"
+          className="self-stretch flex flex-col justify-center items-start gap-4"
         >
           {/* Usuario */}
           <label className="self-stretch flex flex-col gap-2">

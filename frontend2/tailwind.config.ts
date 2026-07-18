@@ -131,7 +131,7 @@ const config: Config = {
             'muy-lluvioso': '#59257d',
             'extremadamente-lluvioso': '#7a1a23',
             states: {
-              'moderadamente-lluvioso-hover': '#77e5ff66',
+              'moderadamente-lluvioso': '#77e5ff66',
               lluvioso: '#252ad580',
               'muy-lluvioso': '#59257d80',
               'extremadamente-lluvioso': '#5d030c80',

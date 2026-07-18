@@ -4,6 +4,8 @@ import { AppLayout } from '@/layouts/AppLayout';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MapaAlertasPage } from '@/pages/MapaAlertasPage';
+import { MapaComponentesPage } from '@/pages/MapaComponentesPage';
+import { MapaClimaticoPage } from '@/pages/MapaClimaticoPage';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 
 /**
@@ -29,17 +31,20 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ── Páginas públicas (sin sidebar) ─────────────────────────── */}
+        {/* ── Páginas públicas ─────────────────────────────────────────── */}
+        {/* HomePage usa GuestLayout (con TopBar + botón Iniciar Sesión). */}
         <Route element={<GuestLayout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
         </Route>
+
+        {/* LoginPage NO usa GuestLayout (no tiene TopBar). */}
+        <Route path="/login" element={<LoginPage />} />
 
         {/* ── Páginas protegidas (sidebar + topbar) ──────────────────── */}
         <Route element={<AppLayout />}>
           <Route path="/alertas" element={<MapaAlertasPage />} />
-          <Route path="/climatico" element={<PlaceholderPage />} />
-          <Route path="/componentes" element={<PlaceholderPage />} />
+          <Route path="/climatico" element={<MapaClimaticoPage />} />
+          <Route path="/componentes" element={<MapaComponentesPage />} />
           <Route path="/componentes/gestion" element={<PlaceholderPage />} />
           <Route path="/alertas/gestion" element={<PlaceholderPage />} />
         </Route>

@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { navConfig, logoutConfig } from './SidebarConfig';
 import { SidebarNavItem, SidebarToggle } from './SidebarNavItem';
 import { cn } from '@/shared/lib/cn';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { useAuth } from '@/shared/context/AuthContext.hooks';
 import logoUrl from '@/assets/images/logo.png';
 
 /**
@@ -22,12 +25,25 @@ import logoUrl from '@/assets/images/logo.png';
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [logoutHover, setLogoutHover] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const LogoutIcon = logoutConfig.icon;
+
+  function handleLogoutClick() {
+    setShowLogoutConfirm(true);
+  }
+
+  function handleLogoutConfirm() {
+    logout();
+    setShowLogoutConfirm(false);
+    navigate('/', { replace: true });
+  }
 
   return (
     <aside
       className={cn(
-        'relative h-screen sticky top-0 bg-background-main rounded-section shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]',
+        'relative h-screen sticky top-0 z-30 bg-background-main rounded-section shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]',
         'flex flex-col items-center gap-6 px-2.5 py-10',
         'transition-[width] duration-200 shrink-0',
         collapsed ? 'w-20' : 'w-72',
@@ -103,6 +119,7 @@ export function Sidebar() {
           type="button"
           onMouseEnter={() => setLogoutHover(true)}
           onMouseLeave={() => setLogoutHover(false)}
+          onClick={handleLogoutClick}
           className={cn(
             'w-full p-2.5 rounded-md outline outline-1 outline-offset-[-1px] transition-colors',
             'inline-flex justify-start items-center gap-2.5',
@@ -123,6 +140,17 @@ export function Sidebar() {
             </span>
           )}
         </button>
+
+        <ConfirmDialog
+          open={showLogoutConfirm}
+          title="Cerrar Sesión"
+          message="¿Seguro que quieres cerrar sesión? Volverás a la pantalla de inicio."
+          confirmText="Cerrar Sesión"
+          cancelText="Cancelar"
+          variant="danger"
+          onConfirm={handleLogoutConfirm}
+          onClose={() => setShowLogoutConfirm(false)}
+        />
       </div>
 
       {/* ── Toggle flotante ────────────────────────────────────────── */}

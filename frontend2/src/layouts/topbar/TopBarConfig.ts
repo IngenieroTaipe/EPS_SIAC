@@ -87,16 +87,12 @@ export const CARGAR_DATOS_OPTIONS: string[] = [
 export const topBarConfig: TopBarPageConfig[] = [
   // Pestaña principal (pública): home antes de loguearse.
   // El botón "Iniciar Sesión" lleva a /login.
+  // Nota: `/login` no usa GuestLayout (no tiene TopBar).
   {
     route: '/',
     title: 'Sistema de Alertas Climáticas',
     subtitleWeight: 'semibold',
     widgets: [{ kind: 'loginButton' }],
-  },
-  {
-    route: '/login',
-    title: 'Inicio de Sesión',
-    subtitleWeight: 'semibold',
   },
   {
     route: '/alertas',

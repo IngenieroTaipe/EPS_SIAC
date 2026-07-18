@@ -10,7 +10,7 @@ import { useLocation } from 'react-router-dom';
 export function PlaceholderPage() {
   const location = useLocation();
   return (
-    <div className="text-text-primary">
+    <div className="h-full overflow-y-auto p-6 text-text-primary">
       <p className="text-2xl font-bold text-primary-main font-sans">
         {location.pathname}
       </p>
