@@ -1,0 +1,37 @@
+services:
+  # =========== DATABASE =========== 
+  db_postgis:
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    # Indicamos la ruta del .env de desarrollo
+    env_file:
+      - ./backend/.env.dev
+    ports:
+      - "5435:5432"
+
+  # =========== API (DJANGO) =========== 
+  api:
+    build:
+      context: ./backend
+      target: dev
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend/:/app
+    env_file:
+      - ./backend/.env.dev
+  
+  # =========== FRONTEND (REACT) =========== 
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    ports:
+      - "5173:5173"
+    environment:
+      # Utilizamos la variable declarada en el env_file del frontend
+      - SITE_ADDRESS=${SITE_ADDRESS}
+    env_file:
+      - ./frontend/.env.dev

@@ -1,0 +1,52 @@
+# ==========================================
+# Base
+# ==========================================
+FROM node:26-alpine as base
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+
+# Realizamos una instalación limpia de los archivos package
+RUN npm ci
+
+# ==========================================
+# Development
+# ==========================================
+FROM base as dev
+
+COPY . .
+
+# Puerto por defecto
+EXPOSE 5173
+
+# Corremos en modo de desarrollo
+CMD ["npm", "run", "dev", "--host"]
+
+# ==========================================
+# Pre-Production (Build)
+# ==========================================
+FROM base as build-stage
+
+COPY . .
+
+# Compilamos los archivos y generamos la carpeta /app/dist
+RUN npm run build
+
+# ==========================================
+# Production
+# ==========================================
+FROM caddy:2.11.4-alpine as prod
+
+# Copiamos los archivos estáticos al directorio de Caddy
+COPY --from=build-stage /app/dist /srv
+
+# Copiamos la configuración de Caddy
+COPY Caddyfile /etc/caddy/Caddyfile
+
+# Puertos por defecto
+EXPOSE 80
+EXPOSE 443
+
+# Ejecutamos Caddy sirviendo los archivos estáticos
+CMD ["caddy", "file_server", "--root", "/srv"]

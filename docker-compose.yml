@@ -1,0 +1,39 @@
+services:
+  # =========== DATABASE =========== 
+  db_postgis:
+    image: postgis/postgis:18-3.6
+    container_name: eps_siac_db_postgis
+    volumes:
+      - eps_siac_data_db:/var/lib/postgresql
+    networks:
+      - eps_siac_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =========== API (DJANGO) =========== 
+  api:
+    container_name: eps_siac_api
+    networks:
+      - eps_siac_network
+    depends_on:
+      db_postgis:
+        condition: service_healthy
+
+  # =========== FRONTEND (REACT) =========== 
+  frontend:
+    container_name: eps_siac_frontend
+    networks: 
+      - eps_siac_network
+    depends_on:
+      - api
+    
+
+volumes:
+  eps_siac_data_db: # local por defecto
+
+networks:
+  eps_siac_network:
+    driver: bridge

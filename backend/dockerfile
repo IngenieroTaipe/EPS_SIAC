@@ -1,0 +1,47 @@
+# ==========================================
+# Base
+# ==========================================
+FROM python:3.15.0b3-bookworm as base
+
+# Evita que Python escriba archivos .pyc en el disco
+ENV PYTHONDONTWRITEBYTECODE=1
+# Evita que Python almacene en búfer la salida estándar (logs en tiempo real)
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /app/
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ==========================================
+# Development
+# ==========================================
+FROM base as dev
+
+COPY . /app/
+
+EXPOSE 8000
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+# ==========================================
+# Production
+# ==========================================
+FROM base as prod
+
+# Usuario no root (privilegios mínimos)
+RUN useradd -u 888 djangouser && chown -R djangouser:djangouser /app/
+
+USER djangouser
+
+COPY --chown=djangouser:djangouser . /app/
+
+EXPOSE 8000
+
+CMD ["gunicorn", "EPS_SelvaCentral.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]

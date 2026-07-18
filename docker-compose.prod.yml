@@ -1,0 +1,39 @@
+services:
+  # =========== DATABASE =========== 
+  db_postgis:
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    # Indicamos la ruta del .env de produccion
+    env_file:
+      - ./backend/.env.prod
+
+  # =========== API (DJANGO) =========== 
+  api:
+    build:
+      context: ./backend
+      target: prod
+    env_file:
+      - ./backend/.env.prod
+
+  # =========== FRONTEND (REACT) =========== 
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      # Utilizamos la variable declarada en el env_file del frontend
+      - SITE_ADDRESS=${SITE_ADDRESS}
+    env_file:
+      - ./frontend/.env.prod
+
+volumes:
+  caddy_data:
+  caddy_config:

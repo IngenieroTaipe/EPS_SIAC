@@ -57,3 +57,5 @@ Para acceder a la documentación del backend debemos dirigirnos a los siguientes
 - Documentación vista **Redoc**: `http://localhost:8000/redoc/`
 - Documentación vista **Swagger UI**: `http://localhost:8000/docs/`
 - Documentación **JSON**:`http://localhost:8000/schema/`
+
+## Copias de archivos de configuración
