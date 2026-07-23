@@ -54,7 +54,13 @@ INSTALLED_APPS = [
 
     # Añadimos nuestras aplicaciones
     'precipitations',
-    'authentication'
+    'authentication',
+    'alerts_management',
+    'components',
+    'core_predictive',
+    'core_shared',
+    'organization',
+    'places'
 ]
 
 MIDDLEWARE = [
@@ -98,7 +104,7 @@ WSGI_APPLICATION = 'EPS_SelvaCentral.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'eps_siac',
         'USER': 'postgres',
         'PASSWORD': 'postgres',

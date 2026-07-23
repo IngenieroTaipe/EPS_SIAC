@@ -22,6 +22,8 @@ services:
       - ./backend/:/app
     env_file:
       - ./backend/.env.dev
+    depends_on:
+      - db_postgis
   
   # =========== FRONTEND (REACT) =========== 
   frontend:
@@ -29,7 +31,10 @@ services:
       context: ./frontend2
       target: dev
     ports:
-      - "5173:5173" 
+      - "5173:5173"
+    volumes:
+      - ./frontend2/:/app
+      - /app/node_modules
     environment:
       # Utilizamos la variable declarada en el env_file del frontend
       - SITE_ADDRESS
