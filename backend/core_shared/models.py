@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 
 # Create your models here.
-class SoftDeleteManager(models.Model):
+class SoftDeleteManager(models.Manager):
     '''
         Manager para la eliminación suave (soft deletes) de los registros en los modelos
     '''
@@ -28,7 +28,7 @@ class AuditCompleteModel(AuditCreateModel):
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(blank=True, null=True)
 
-    all = SoftDeleteManager()
+    objects = SoftDeleteManager()
     all_objects = models.Manager()
 
     class Meta:

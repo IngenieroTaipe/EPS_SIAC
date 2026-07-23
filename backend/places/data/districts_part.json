@@ -1,0 +1,3318 @@
+[
+    {
+        "name": "Chachapoyas",
+        "ubigeo": "010101",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Asuncion",
+        "ubigeo": "010102",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Balsas",
+        "ubigeo": "010103",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Cheto",
+        "ubigeo": "010104",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Chiliquin",
+        "ubigeo": "010105",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Chuquibamba",
+        "ubigeo": "010106",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Granada",
+        "ubigeo": "010107",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Huancas",
+        "ubigeo": "010108",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "La Jalca",
+        "ubigeo": "010109",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Leimebamba",
+        "ubigeo": "010110",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Levanto",
+        "ubigeo": "010111",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Magdalena",
+        "ubigeo": "010112",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Mariscal Castilla",
+        "ubigeo": "010113",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Molinopampa",
+        "ubigeo": "010114",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Montevideo",
+        "ubigeo": "010115",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Olleros",
+        "ubigeo": "010116",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Quinjalca",
+        "ubigeo": "010117",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "San Francisco de Daguas",
+        "ubigeo": "010118",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "San Isidro de Maino",
+        "ubigeo": "010119",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Soloco",
+        "ubigeo": "010120",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Sonche",
+        "ubigeo": "010121",
+        "province_ubigeo": "0101"
+    },
+    {
+        "name": "Bagua",
+        "ubigeo": "010201",
+        "province_ubigeo": "0102"
+    },
+    {
+        "name": "Aramango",
+        "ubigeo": "010202",
+        "province_ubigeo": "0102"
+    },
+    {
+        "name": "Copallin",
+        "ubigeo": "010203",
+        "province_ubigeo": "0102"
+    },
+    {
+        "name": "El Parco",
+        "ubigeo": "010204",
+        "province_ubigeo": "0102"
+    },
+    {
+        "name": "Imaza",
+        "ubigeo": "010205",
+        "province_ubigeo": "0102"
+    },
+    {
+        "name": "La Peca",
+        "ubigeo": "010206",
+        "province_ubigeo": "0102"
+    },
+    {
+        "name": "Jumbilla",
+        "ubigeo": "010301",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Chisquilla",
+        "ubigeo": "010302",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Churuja",
+        "ubigeo": "010303",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Corosha",
+        "ubigeo": "010304",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Cuispes",
+        "ubigeo": "010305",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Florida",
+        "ubigeo": "010306",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Jazan",
+        "ubigeo": "010307",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Recta",
+        "ubigeo": "010308",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "San Carlos",
+        "ubigeo": "010309",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Shipasbamba",
+        "ubigeo": "010310",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Valera",
+        "ubigeo": "010311",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Yambrasbamba",
+        "ubigeo": "010312",
+        "province_ubigeo": "0103"
+    },
+    {
+        "name": "Nieva",
+        "ubigeo": "010401",
+        "province_ubigeo": "0104"
+    },
+    {
+        "name": "El Cenepa",
+        "ubigeo": "010402",
+        "province_ubigeo": "0104"
+    },
+    {
+        "name": "Rio Santiago",
+        "ubigeo": "010403",
+        "province_ubigeo": "0104"
+    },
+    {
+        "name": "Lamud",
+        "ubigeo": "010501",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Camporredondo",
+        "ubigeo": "010502",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Cocabamba",
+        "ubigeo": "010503",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Colcamar",
+        "ubigeo": "010504",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Conila",
+        "ubigeo": "010505",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Inguilpata",
+        "ubigeo": "010506",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Longuita",
+        "ubigeo": "010507",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Lonya Chico",
+        "ubigeo": "010508",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Luya",
+        "ubigeo": "010509",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Luya Viejo",
+        "ubigeo": "010510",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Maria",
+        "ubigeo": "010511",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Ocalli",
+        "ubigeo": "010512",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Ocumal",
+        "ubigeo": "010513",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Pisuquia",
+        "ubigeo": "010514",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Providencia",
+        "ubigeo": "010515",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "San Cristobal",
+        "ubigeo": "010516",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "San Francisco del Yeso",
+        "ubigeo": "010517",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "San Jeronimo",
+        "ubigeo": "010518",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "San Juan de Lopecancha",
+        "ubigeo": "010519",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Santa Catalina",
+        "ubigeo": "010520",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Santo Tomas",
+        "ubigeo": "010521",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Tingo",
+        "ubigeo": "010522",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "Trita",
+        "ubigeo": "010523",
+        "province_ubigeo": "0105"
+    },
+    {
+        "name": "San Nicolas",
+        "ubigeo": "010601",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Chirimoto",
+        "ubigeo": "010602",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Cochamal",
+        "ubigeo": "010603",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Huambo",
+        "ubigeo": "010604",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Limabamba",
+        "ubigeo": "010605",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Longar",
+        "ubigeo": "010606",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Mariscal Benavides",
+        "ubigeo": "010607",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Milpuc",
+        "ubigeo": "010608",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Omia",
+        "ubigeo": "010609",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Santa Rosa",
+        "ubigeo": "010610",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Totora",
+        "ubigeo": "010611",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Vista Alegre",
+        "ubigeo": "010612",
+        "province_ubigeo": "0106"
+    },
+    {
+        "name": "Bagua Grande",
+        "ubigeo": "010701",
+        "province_ubigeo": "0107"
+    },
+    {
+        "name": "Cajaruro",
+        "ubigeo": "010702",
+        "province_ubigeo": "0107"
+    },
+    {
+        "name": "Cumba",
+        "ubigeo": "010703",
+        "province_ubigeo": "0107"
+    },
+    {
+        "name": "El Milagro",
+        "ubigeo": "010704",
+        "province_ubigeo": "0107"
+    },
+    {
+        "name": "Jamalca",
+        "ubigeo": "010705",
+        "province_ubigeo": "0107"
+    },
+    {
+        "name": "Lonya Grande",
+        "ubigeo": "010706",
+        "province_ubigeo": "0107"
+    },
+    {
+        "name": "Yamon",
+        "ubigeo": "010707",
+        "province_ubigeo": "0107"
+    },
+    {
+        "name": "Huaraz",
+        "ubigeo": "020101",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Cochabamba",
+        "ubigeo": "020102",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Colcabamba",
+        "ubigeo": "020103",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Huanchay",
+        "ubigeo": "020104",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Independencia",
+        "ubigeo": "020105",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Jangas",
+        "ubigeo": "020106",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "La Libertad",
+        "ubigeo": "020107",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Olleros",
+        "ubigeo": "020108",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Pampas",
+        "ubigeo": "020109",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Pariacoto",
+        "ubigeo": "020110",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Pira",
+        "ubigeo": "020111",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Tarica",
+        "ubigeo": "020112",
+        "province_ubigeo": "0201"
+    },
+    {
+        "name": "Aija",
+        "ubigeo": "020201",
+        "province_ubigeo": "0202"
+    },
+    {
+        "name": "Coris",
+        "ubigeo": "020202",
+        "province_ubigeo": "0202"
+    },
+    {
+        "name": "Huacllan",
+        "ubigeo": "020203",
+        "province_ubigeo": "0202"
+    },
+    {
+        "name": "La Merced",
+        "ubigeo": "020204",
+        "province_ubigeo": "0202"
+    },
+    {
+        "name": "Succha",
+        "ubigeo": "020205",
+        "province_ubigeo": "0202"
+    },
+    {
+        "name": "Llamellin",
+        "ubigeo": "020301",
+        "province_ubigeo": "0203"
+    },
+    {
+        "name": "Aczo",
+        "ubigeo": "020302",
+        "province_ubigeo": "0203"
+    },
+    {
+        "name": "Chaccho",
+        "ubigeo": "020303",
+        "province_ubigeo": "0203"
+    },
+    {
+        "name": "Chingas",
+        "ubigeo": "020304",
+        "province_ubigeo": "0203"
+    },
+    {
+        "name": "Mirgas",
+        "ubigeo": "020305",
+        "province_ubigeo": "0203"
+    },
+    {
+        "name": "San Juan de Rontoy",
+        "ubigeo": "020306",
+        "province_ubigeo": "0203"
+    },
+    {
+        "name": "Acochaca",
+        "ubigeo": "020402",
+        "province_ubigeo": "0204"
+    },
+    {
+        "name": "Chacas",
+        "ubigeo": "020401",
+        "province_ubigeo": "0204"
+    },
+    {
+        "name": "Chiquian",
+        "ubigeo": "020501",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Abelardo Pardo Lezameta",
+        "ubigeo": "020502",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Antonio Raymondi",
+        "ubigeo": "020503",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Aquia",
+        "ubigeo": "020504",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Cajacay",
+        "ubigeo": "020505",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Canis",
+        "ubigeo": "020506",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Colquioc",
+        "ubigeo": "020507",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Huallanca",
+        "ubigeo": "020508",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Huasta",
+        "ubigeo": "020509",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Huayllacayan",
+        "ubigeo": "020510",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "La Primavera",
+        "ubigeo": "020511",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Mangas",
+        "ubigeo": "020512",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Pacllon",
+        "ubigeo": "020513",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "San Miguel de Corpanqui",
+        "ubigeo": "020514",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Ticllos",
+        "ubigeo": "020515",
+        "province_ubigeo": "0205"
+    },
+    {
+        "name": "Carhuaz",
+        "ubigeo": "020601",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Acopampa",
+        "ubigeo": "020602",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Amashca",
+        "ubigeo": "020603",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Anta",
+        "ubigeo": "020604",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Ataquero",
+        "ubigeo": "020605",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Marcara",
+        "ubigeo": "020606",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Pariahuanca",
+        "ubigeo": "020607",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "San Miguel de Aco",
+        "ubigeo": "020608",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Shilla",
+        "ubigeo": "020609",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Tinco",
+        "ubigeo": "020610",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "Yungar",
+        "ubigeo": "020611",
+        "province_ubigeo": "0206"
+    },
+    {
+        "name": "San Luis",
+        "ubigeo": "020701",
+        "province_ubigeo": "0207"
+    },
+    {
+        "name": "San Nicolas",
+        "ubigeo": "020702",
+        "province_ubigeo": "0207"
+    },
+    {
+        "name": "Yauya",
+        "ubigeo": "020703",
+        "province_ubigeo": "0207"
+    },
+    {
+        "name": "Casma",
+        "ubigeo": "020801",
+        "province_ubigeo": "0208"
+    },
+    {
+        "name": "Buena Vista Alta",
+        "ubigeo": "020802",
+        "province_ubigeo": "0208"
+    },
+    {
+        "name": "Comandante Noel",
+        "ubigeo": "020803",
+        "province_ubigeo": "0208"
+    },
+    {
+        "name": "Yautan",
+        "ubigeo": "020804",
+        "province_ubigeo": "0208"
+    },
+    {
+        "name": "Corongo",
+        "ubigeo": "020901",
+        "province_ubigeo": "0209"
+    },
+    {
+        "name": "Aco",
+        "ubigeo": "020902",
+        "province_ubigeo": "0209"
+    },
+    {
+        "name": "Bambas",
+        "ubigeo": "020903",
+        "province_ubigeo": "0209"
+    },
+    {
+        "name": "Cusca",
+        "ubigeo": "020904",
+        "province_ubigeo": "0209"
+    },
+    {
+        "name": "La Pampa",
+        "ubigeo": "020905",
+        "province_ubigeo": "0209"
+    },
+    {
+        "name": "Yanac",
+        "ubigeo": "020906",
+        "province_ubigeo": "0209"
+    },
+    {
+        "name": "Yupan",
+        "ubigeo": "020907",
+        "province_ubigeo": "0209"
+    },
+    {
+        "name": "Anra",
+        "ubigeo": "021002",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Cajay",
+        "ubigeo": "021003",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Chavin de Huantar",
+        "ubigeo": "021004",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Huacachi",
+        "ubigeo": "021005",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Huacchis",
+        "ubigeo": "021006",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Huachis",
+        "ubigeo": "021007",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Huantar",
+        "ubigeo": "021008",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Huari",
+        "ubigeo": "021001",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Masin",
+        "ubigeo": "021009",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Paucas",
+        "ubigeo": "021010",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Ponto",
+        "ubigeo": "021011",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Rahuapampa",
+        "ubigeo": "021012",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Rapayan",
+        "ubigeo": "021013",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "San Marcos",
+        "ubigeo": "021014",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "San Pedro de Chana",
+        "ubigeo": "021015",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Uco",
+        "ubigeo": "021016",
+        "province_ubigeo": "0210"
+    },
+    {
+        "name": "Huarmey",
+        "ubigeo": "021101",
+        "province_ubigeo": "0211"
+    },
+    {
+        "name": "Cochapeti",
+        "ubigeo": "021102",
+        "province_ubigeo": "0211"
+    },
+    {
+        "name": "Culebras",
+        "ubigeo": "021103",
+        "province_ubigeo": "0211"
+    },
+    {
+        "name": "Huayan",
+        "ubigeo": "021104",
+        "province_ubigeo": "0211"
+    },
+    {
+        "name": "Malvas",
+        "ubigeo": "021105",
+        "province_ubigeo": "0211"
+    },
+    {
+        "name": "Caraz",
+        "ubigeo": "021201",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Huallanca",
+        "ubigeo": "021202",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Huata",
+        "ubigeo": "021203",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Huaylas",
+        "ubigeo": "021204",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Mato",
+        "ubigeo": "021205",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Pamparomas",
+        "ubigeo": "021206",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Pueblo Libre",
+        "ubigeo": "021207",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Santa Cruz",
+        "ubigeo": "021208",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Santo Toribio",
+        "ubigeo": "021209",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Yuracmarca",
+        "ubigeo": "021210",
+        "province_ubigeo": "0212"
+    },
+    {
+        "name": "Piscobamba",
+        "ubigeo": "021301",
+        "province_ubigeo": "0213"
+    },
+    {
+        "name": "Casca",
+        "ubigeo": "021302",
+        "province_ubigeo": "0213"
+    },
+    {
+        "name": "Eleazar Guzman Barron",
+        "ubigeo": "021303",
+        "province_ubigeo": "0213"
+    },
+    {
+        "name": "Fidel Olivas Escudero",
+        "ubigeo": "021304",
+        "province_ubigeo": "0213"
+    },
+    {
+        "name": "Llama",
+        "ubigeo": "021305",
+        "province_ubigeo": "0213"
+    },
+    {
+        "name": "Llumpa",
+        "ubigeo": "021306",
+        "province_ubigeo": "0213"
+    },
+    {
+        "name": "Lucma",
+        "ubigeo": "021307",
+        "province_ubigeo": "0213"
+    },
+    {
+        "name": "Musga",
+        "ubigeo": "021308",
+        "province_ubigeo": "0213"
+    },
+    {
+        "name": "Ocros",
+        "ubigeo": "021401",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "Acas",
+        "ubigeo": "021402",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "Cajamarquilla",
+        "ubigeo": "021403",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "Carhuapampa",
+        "ubigeo": "021404",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "Cochas",
+        "ubigeo": "021405",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "Congas",
+        "ubigeo": "021406",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "Llipa",
+        "ubigeo": "021407",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "San Cristobal de Rajan",
+        "ubigeo": "021408",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "San Pedro",
+        "ubigeo": "021409",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "Santiago de Chilcas",
+        "ubigeo": "021410",
+        "province_ubigeo": "0214"
+    },
+    {
+        "name": "Cabana",
+        "ubigeo": "021501",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Bolognesi",
+        "ubigeo": "021502",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Conchucos",
+        "ubigeo": "021503",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Huacaschuque",
+        "ubigeo": "021504",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Huandoval",
+        "ubigeo": "021505",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Lacabamba",
+        "ubigeo": "021506",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Llapo",
+        "ubigeo": "021507",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Pallasca",
+        "ubigeo": "021508",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Pampas",
+        "ubigeo": "021509",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Santa Rosa",
+        "ubigeo": "021510",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Tauca",
+        "ubigeo": "021511",
+        "province_ubigeo": "0215"
+    },
+    {
+        "name": "Pomabamba",
+        "ubigeo": "021601",
+        "id_padre_ubigeo": "2766",
+        "province_ubigeo": "0216"
+    },
+    {
+        "name": "Huayllan",
+        "ubigeo": "021602",
+        "province_ubigeo": "0216"
+    },
+    {
+        "name": "Parobamba",
+        "ubigeo": "021603",
+        "province_ubigeo": "0216"
+    },
+    {
+        "name": "Quinuabamba",
+        "ubigeo": "021604",
+        "province_ubigeo": "0216"
+    },
+    {
+        "name": "Recuay",
+        "ubigeo": "021701",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Catac",
+        "ubigeo": "021702",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Cotaparaco",
+        "ubigeo": "021703",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Huayllapampa",
+        "ubigeo": "021704",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Llacllin",
+        "ubigeo": "021705",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Marca",
+        "ubigeo": "021706",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Pampas Chico",
+        "ubigeo": "021707",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Pararin",
+        "ubigeo": "021708",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Tapacocha",
+        "ubigeo": "021709",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Ticapampa",
+        "ubigeo": "021710",
+        "province_ubigeo": "0217"
+    },
+    {
+        "name": "Chimbote",
+        "ubigeo": "021801",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Caceres del Peru",
+        "ubigeo": "021802",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Coishco",
+        "ubigeo": "021803",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Macate",
+        "ubigeo": "021804",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Moro",
+        "ubigeo": "021805",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Nepeña",
+        "ubigeo": "021806",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Samanco",
+        "ubigeo": "021807",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Santa",
+        "ubigeo": "021808",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Nuevo Chimbote",
+        "ubigeo": "021809",
+        "province_ubigeo": "0218"
+    },
+    {
+        "name": "Sihuas",
+        "ubigeo": "021901",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Acobamba",
+        "ubigeo": "021902",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Alfonso Ugarte",
+        "ubigeo": "021903",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Cashapampa",
+        "ubigeo": "021904",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Chingalpo",
+        "ubigeo": "021905",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Huayllabamba",
+        "ubigeo": "021906",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Quiches",
+        "ubigeo": "021907",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Ragash",
+        "ubigeo": "021908",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "San Juan",
+        "ubigeo": "021909",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Sicsibamba",
+        "ubigeo": "021910",
+        "province_ubigeo": "0219"
+    },
+    {
+        "name": "Yungay",
+        "ubigeo": "022001",
+        "province_ubigeo": "0220"
+    },
+    {
+        "name": "Cascapara",
+        "ubigeo": "022002",
+        "province_ubigeo": "0220"
+    },
+    {
+        "name": "Mancos",
+        "ubigeo": "022003",
+        "province_ubigeo": "0220"
+    },
+    {
+        "name": "Matacoto",
+        "ubigeo": "022004",
+        "province_ubigeo": "0220"
+    },
+    {
+        "name": "Quillo",
+        "ubigeo": "022005",
+        "province_ubigeo": "0220"
+    },
+    {
+        "name": "Ranrahirca",
+        "ubigeo": "022006",
+        "province_ubigeo": "0220"
+    },
+    {
+        "name": "Shupluy",
+        "ubigeo": "022007",
+        "province_ubigeo": "0220"
+    },
+    {
+        "name": "Yanama",
+        "ubigeo": "022008",
+        "province_ubigeo": "0220"
+    },
+    {
+        "name": "Abancay",
+        "ubigeo": "030101",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "Chacoche",
+        "ubigeo": "030102",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "Circa",
+        "ubigeo": "030103",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "Curahuasi",
+        "ubigeo": "030104",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "Huanipaca",
+        "ubigeo": "030105",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "Lambrama",
+        "ubigeo": "030106",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "Pichirhua",
+        "ubigeo": "030107",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "San Pedro de Cachora",
+        "ubigeo": "030108",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "Tamburco",
+        "ubigeo": "030109",
+        "province_ubigeo": "0301"
+    },
+    {
+        "name": "Andahuaylas",
+        "ubigeo": "030201",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Andarapa",
+        "ubigeo": "030202",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Chiara",
+        "ubigeo": "030203",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Huancarama",
+        "ubigeo": "030204",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Huancaray",
+        "ubigeo": "030205",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Huayana",
+        "ubigeo": "030206",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Kishuara",
+        "ubigeo": "030207",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Pacobamba",
+        "ubigeo": "030208",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Pacucha",
+        "ubigeo": "030209",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Pampachiri",
+        "ubigeo": "030210",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Pomacocha",
+        "ubigeo": "030211",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "San Antonio de Cachi",
+        "ubigeo": "030212",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "San Jeronimo",
+        "ubigeo": "030213",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "San Miguel de Chaccrampa",
+        "ubigeo": "030214",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Santa Maria de Chicmo",
+        "ubigeo": "030215",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Talavera",
+        "ubigeo": "030216",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Tumay Huaraca",
+        "ubigeo": "030217",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Turpo",
+        "ubigeo": "030218",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Kaquiabamba",
+        "ubigeo": "030219",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Jose Maria Arguedas",
+        "ubigeo": "030220",
+        "province_ubigeo": "0302"
+    },
+    {
+        "name": "Antabamba",
+        "ubigeo": "030301",
+        "province_ubigeo": "0303"
+    },
+    {
+        "name": "El Oro",
+        "ubigeo": "030302",
+        "province_ubigeo": "0303"
+    },
+    {
+        "name": "Huaquirca",
+        "ubigeo": "030303",
+        "province_ubigeo": "0303"
+    },
+    {
+        "name": "Juan Espinoza Medrano",
+        "ubigeo": "030304",
+        "province_ubigeo": "0303"
+    },
+    {
+        "name": "Oropesa",
+        "ubigeo": "030305",
+        "province_ubigeo": "0303"
+    },
+    {
+        "name": "Pachaconas",
+        "ubigeo": "030306",
+        "province_ubigeo": "0303"
+    },
+    {
+        "name": "Sabaino",
+        "ubigeo": "030307",
+        "province_ubigeo": "0303"
+    },
+    {
+        "name": "Chalhuanca",
+        "ubigeo": "030401",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Capaya",
+        "ubigeo": "030402",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Caraybamba",
+        "ubigeo": "030403",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Chapimarca",
+        "ubigeo": "030404",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Colcabamba",
+        "ubigeo": "030405",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Cotaruse",
+        "ubigeo": "030406",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Huayllo",
+        "ubigeo": "030407",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Justo Apu Sahuaraura",
+        "ubigeo": "030408",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Lucre",
+        "ubigeo": "030409",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Pocohuanca",
+        "ubigeo": "030410",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "San Juan de Chacqa",
+        "ubigeo": "030411",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Saqayca",
+        "ubigeo": "030412",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Soraya",
+        "ubigeo": "030413",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Tapairihua",
+        "ubigeo": "030414",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Tintay",
+        "ubigeo": "030415",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Toraya",
+        "ubigeo": "030416",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Yanaca",
+        "ubigeo": "030417",
+        "province_ubigeo": "0304"
+    },
+    {
+        "name": "Tambobamba",
+        "ubigeo": "030501",
+        "province_ubigeo": "0305"
+    },
+    {
+        "name": "Cotabambas",
+        "ubigeo": "030502",
+        "province_ubigeo": "0305"
+    },
+    {
+        "name": "Coyllurqui",
+        "ubigeo": "030503",
+        "province_ubigeo": "0305"
+    },
+    {
+        "name": "Haquira",
+        "ubigeo": "030504",
+        "province_ubigeo": "0305"
+    },
+    {
+        "name": "Mara",
+        "ubigeo": "030505",
+        "province_ubigeo": "0305"
+    },
+    {
+        "name": "Challhuahuacho",
+        "ubigeo": "030506",
+        "province_ubigeo": "0305"
+    },
+    {
+        "name": "Chincheros",
+        "ubigeo": "030601",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Anco-Huallo",
+        "ubigeo": "030602",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Cocharcas",
+        "ubigeo": "030603",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Huaccana",
+        "ubigeo": "030604",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Ocobamba",
+        "ubigeo": "030605",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Ongoy",
+        "ubigeo": "030606",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Uranmarca",
+        "ubigeo": "030607",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Ranracancha",
+        "ubigeo": "030608",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Rocchacc",
+        "ubigeo": "030609",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "El Porvenir",
+        "ubigeo": "030610",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Los Chankas",
+        "ubigeo": "030611",
+        "province_ubigeo": "0306"
+    },
+    {
+        "name": "Chuquibambilla",
+        "ubigeo": "030701",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Curpahuasi",
+        "ubigeo": "030702",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Gamarra",
+        "ubigeo": "030703",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Huayllati",
+        "ubigeo": "030704",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Mamara",
+        "ubigeo": "030705",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Micaela Bastidas",
+        "ubigeo": "030706",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Pataypampa",
+        "ubigeo": "030707",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Progreso",
+        "ubigeo": "030708",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "San Antonio",
+        "ubigeo": "030709",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Santa Rosa",
+        "ubigeo": "030710",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Turpay",
+        "ubigeo": "030711",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Vilcabamba",
+        "ubigeo": "030712",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Virundo",
+        "ubigeo": "030713",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Curasco",
+        "ubigeo": "030714",
+        "province_ubigeo": "0307"
+    },
+    {
+        "name": "Arequipa",
+        "ubigeo": "040101",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Alto Selva Alegre",
+        "ubigeo": "040102",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Cayma",
+        "ubigeo": "040103",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Cerro Colorado",
+        "ubigeo": "040104",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Characato",
+        "ubigeo": "040105",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Chiguata",
+        "ubigeo": "040106",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Jacobo Hunter",
+        "ubigeo": "040107",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "La Joya",
+        "ubigeo": "040108",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Mariano Melgar",
+        "ubigeo": "040109",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Miraflores",
+        "ubigeo": "040110",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Mollebaya",
+        "ubigeo": "040111",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Paucarpata",
+        "ubigeo": "040112",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Pocsi",
+        "ubigeo": "040113",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Polobaya",
+        "ubigeo": "040114",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Quequeqa",
+        "ubigeo": "040115",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Sabandia",
+        "ubigeo": "040116",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Sachaca",
+        "ubigeo": "040117",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "San Juan de Siguas",
+        "ubigeo": "040118",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "San Juan de Tarucani",
+        "ubigeo": "040119",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Santa Isabel de Siguas",
+        "ubigeo": "040120",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Santa Rita de Siguas",
+        "ubigeo": "040121",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Socabaya",
+        "ubigeo": "040122",
+        "province_ubigeo": "0401"
+    },
+    {
+        "id_ubigeo": "2924",
+        "name": "Tiabaya",
+        "ubigeo": "040123",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Uchumayo",
+        "ubigeo": "040124",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Vitor",
+        "ubigeo": "040125",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Yanahuara",
+        "ubigeo": "040126",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Yarabamba",
+        "ubigeo": "040127",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Yura",
+        "ubigeo": "040128",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Jose Luis Bustamante y Rivero",
+        "ubigeo": "040129",
+        "province_ubigeo": "0401"
+    },
+    {
+        "name": "Camana",
+        "ubigeo": "040201",
+        "province_ubigeo": "0402"
+    },
+    {
+        "name": "Jose Maria Quimper",
+        "ubigeo": "040202",
+        "province_ubigeo": "0402"
+    },
+    {
+        "name": "Mariano Nicolas Valcarcel",
+        "ubigeo": "040203",
+        "province_ubigeo": "0402"
+    },
+    {
+        "name": "Mariscal Caceres",
+        "ubigeo": "040204",
+        "province_ubigeo": "0402"
+    },
+    {
+        "name": "Nicolas de Pierola",
+        "ubigeo": "040205",
+        "province_ubigeo": "0402"
+    },
+    {
+        "name": "Ocoña",
+        "ubigeo": "040206",
+        "province_ubigeo": "0402"
+    },
+    {
+        "name": "Quilca",
+        "ubigeo": "040207",
+        "province_ubigeo": "0402"
+    },
+    {
+        "name": "Samuel Pastor",
+        "ubigeo": "040208",
+        "province_ubigeo": "0402"
+    },
+    {
+        "name": "Caraveli",
+        "ubigeo": "040301",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Acari",
+        "ubigeo": "040302",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Atico",
+        "ubigeo": "040303",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Atiquipa",
+        "ubigeo": "040304",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Bella Union",
+        "ubigeo": "040305",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Cahuacho",
+        "ubigeo": "040306",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Chala",
+        "ubigeo": "040307",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Chaparra",
+        "ubigeo": "040308",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Huanuhuanu",
+        "ubigeo": "040309",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Jaqui",
+        "ubigeo": "040310",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Lomas",
+        "ubigeo": "040311",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Quicacha",
+        "ubigeo": "040312",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Yauca",
+        "ubigeo": "040313",
+        "province_ubigeo": "0403"
+    },
+    {
+        "name": "Aplao",
+        "ubigeo": "040401",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Andagua",
+        "ubigeo": "040402",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Ayo",
+        "ubigeo": "040403",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Chachas",
+        "ubigeo": "040404",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Chilcaymarca",
+        "ubigeo": "040405",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Choco",
+        "ubigeo": "040406",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Huancarqui",
+        "ubigeo": "040407",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Machaguay",
+        "ubigeo": "040408",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Orcopampa",
+        "ubigeo": "040409",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Pampacolca",
+        "ubigeo": "040410",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Tipan",
+        "ubigeo": "040411",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Uqon",
+        "ubigeo": "040412",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Uraca",
+        "ubigeo": "040413",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Viraco",
+        "ubigeo": "040414",
+        "province_ubigeo": "0404"
+    },
+    {
+        "name": "Chivay",
+        "ubigeo": "040501",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Achoma",
+        "ubigeo": "040502",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Cabanaconde",
+        "ubigeo": "040503",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Callalli",
+        "ubigeo": "040504",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Caylloma",
+        "ubigeo": "040505",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Coporaque",
+        "ubigeo": "040506",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Huambo",
+        "ubigeo": "040507",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Huanca",
+        "ubigeo": "040508",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Ichupampa",
+        "ubigeo": "040509",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Lari",
+        "ubigeo": "040510",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Lluta",
+        "ubigeo": "040511",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Maca",
+        "ubigeo": "040512",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Madrigal",
+        "ubigeo": "040513",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "San Antonio de Chuca",
+        "ubigeo": "040514",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Sibayo",
+        "ubigeo": "040515",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Tapay",
+        "ubigeo": "040516",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Tisco",
+        "ubigeo": "040517",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Tuti",
+        "ubigeo": "040518",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Yanque",
+        "ubigeo": "040519",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Majes",
+        "ubigeo": "040520",
+        "province_ubigeo": "0405"
+    },
+    {
+        "name": "Chuquibamba",
+        "ubigeo": "040601",
+        "province_ubigeo": "0406"
+    },
+    {
+        "name": "Andaray",
+        "ubigeo": "040602",
+        "province_ubigeo": "0406"
+    },
+    {
+        "name": "Cayarani",
+        "ubigeo": "040603",
+        "province_ubigeo": "0406"
+    },
+    {
+        "name": "Chichas",
+        "ubigeo": "040604",
+        "province_ubigeo": "0406"
+    },
+    {
+        "name": "Iray",
+        "ubigeo": "040605",
+        "province_ubigeo": "0406"
+    },
+    {
+        "name": "Rio Grande",
+        "ubigeo": "040606",
+        "province_ubigeo": "0406"
+    },
+    {
+        "name": "Salamanca",
+        "ubigeo": "040607",
+        "province_ubigeo": "0406"
+    },
+    {
+        "name": "Yanaquihua",
+        "ubigeo": "040608",
+        "province_ubigeo": "0406"
+    },
+    {
+        "name": "Mollendo",
+        "ubigeo": "040701",
+        "province_ubigeo": "0407"
+    },
+    {
+        "name": "Cocachacra",
+        "ubigeo": "040702",
+        "province_ubigeo": "0407"
+    },
+    {
+        "name": "Dean Valdivia",
+        "ubigeo": "040703",
+        "province_ubigeo": "0407"
+    },
+    {
+        "name": "Islay",
+        "ubigeo": "040704",
+        "province_ubigeo": "0407"
+    },
+    {
+        "name": "Mejia",
+        "ubigeo": "040705",
+        "province_ubigeo": "0407"
+    },
+    {
+        "name": "Punta de Bombon",
+        "ubigeo": "040706",
+        "province_ubigeo": "0407"
+    },
+    {
+        "name": "Cotahuasi",
+        "ubigeo": "040801",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Alca",
+        "ubigeo": "040802",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Charcana",
+        "ubigeo": "040803",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Huaynacotas",
+        "ubigeo": "040804",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Pampamarca",
+        "ubigeo": "040805",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Puyca",
+        "ubigeo": "040806",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Quechualla",
+        "ubigeo": "040807",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Sayla",
+        "ubigeo": "040808",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Tauria",
+        "ubigeo": "040809",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Tomepampa",
+        "ubigeo": "040810",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Toro",
+        "ubigeo": "040811",
+        "province_ubigeo": "0408"
+    },
+    {
+        "name": "Acocro",
+        "ubigeo": "050102",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Acos Vinchos",
+        "ubigeo": "050103",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Ayacucho",
+        "ubigeo": "050101",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Carmen Alto",
+        "ubigeo": "050104",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Chiara",
+        "ubigeo": "050105",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Ocros",
+        "ubigeo": "050106",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Pacaycasa",
+        "ubigeo": "050107",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Quinua",
+        "ubigeo": "050108",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "San Jose de Ticllas",
+        "ubigeo": "050109",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "San Juan Bautista",
+        "ubigeo": "050110",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Santiago de Pischa",
+        "ubigeo": "050111",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Socos",
+        "ubigeo": "050112",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Tambillo",
+        "ubigeo": "050113",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Vinchos",
+        "ubigeo": "050114",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Jesús Nazareno",
+        "ubigeo": "050115",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Andres Avelino Caceres Dorregaray",
+        "ubigeo": "050116",
+        "province_ubigeo": "0501"
+    },
+    {
+        "name": "Cangallo",
+        "ubigeo": "050201",
+        "province_ubigeo": "0502"
+    },
+    {
+        "name": "Chuschi",
+        "ubigeo": "050202",
+        "province_ubigeo": "0502"
+    },
+    {
+        "name": "Los Morochucos",
+        "ubigeo": "050203",
+        "province_ubigeo": "0502"
+    },
+    {
+        "name": "Maria Parado de Bellido",
+        "ubigeo": "050204",
+        "province_ubigeo": "0502"
+    },
+    {
+        "name": "Paras",
+        "ubigeo": "050205",
+        "province_ubigeo": "0502"
+    },
+    {
+        "name": "Totos",
+        "ubigeo": "050206",
+        "province_ubigeo": "0502"
+    },
+    {
+        "name": "Sancos",
+        "ubigeo": "050301",
+        "province_ubigeo": "0503"
+    },
+    {
+        "name": "Carapo",
+        "ubigeo": "050302",
+        "province_ubigeo": "0503"
+    },
+    {
+        "name": "Sacsamarca",
+        "ubigeo": "050303",
+        "province_ubigeo": "0503"
+    },
+    {
+        "name": "Santiago de Lucanamarca",
+        "ubigeo": "050304",
+        "province_ubigeo": "0503"
+    },
+    {
+        "name": "Huanta",
+        "ubigeo": "050401",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Ayahuanco",
+        "ubigeo": "050402",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Huamanguilla",
+        "ubigeo": "050403",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Iguain",
+        "ubigeo": "050404",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Luricocha",
+        "ubigeo": "050405",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Santillana",
+        "ubigeo": "050406",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Sivia",
+        "ubigeo": "050407",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Llochegua",
+        "ubigeo": "050408",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Canayre",
+        "ubigeo": "050409",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Uchuraccay",
+        "ubigeo": "050410",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Pucacolpa",
+        "ubigeo": "050411",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "Chaca",
+        "ubigeo": "050412",
+        "province_ubigeo": "0504"
+    },
+    {
+        "name": "San Miguel",
+        "ubigeo": "050501",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Anco",
+        "ubigeo": "050502",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Ayna",
+        "ubigeo": "050503",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Chilcas",
+        "ubigeo": "050504",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Chungui",
+        "ubigeo": "050505",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Luis Carranza",
+        "ubigeo": "050506",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Santa Rosa",
+        "ubigeo": "050507",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Tambo",
+        "ubigeo": "050508",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Samugari",
+        "ubigeo": "050509",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Anchihuay",
+        "ubigeo": "050510",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Oronccoy",
+        "ubigeo": "050511",
+        "province_ubigeo": "0505"
+    },
+    {
+        "name": "Aucara",
+        "ubigeo": "050602",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Cabana",
+        "ubigeo": "050603",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Carmen Salcedo",
+        "ubigeo": "050604",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Chaviña",
+        "ubigeo": "050605",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Chipao",
+        "ubigeo": "050606",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Huac-Huas",
+        "ubigeo": "050607",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Laramate",
+        "ubigeo": "050608",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Leoncio Prado",
+        "ubigeo": "050609",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Llauta",
+        "ubigeo": "050610",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Lucanas",
+        "ubigeo": "050611",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Ocaña",
+        "ubigeo": "050612",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Otoca",
+        "ubigeo": "050613",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Saisa",
+        "ubigeo": "050614",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "San Cristobal",
+        "ubigeo": "050615",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "San Juan",
+        "ubigeo": "050616",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "San Pedro",
+        "ubigeo": "050617",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "San Pedro de Palco",
+        "ubigeo": "050618",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Sancos",
+        "ubigeo": "050619",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Santa Ana de Huaycahuacho",
+        "ubigeo": "050620",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Santa Lucia",
+        "ubigeo": "050621",
+        "province_ubigeo": "0506"
+    },
+    {
+        "name": "Coracora",
+        "ubigeo": "050701",
+        "province_ubigeo": "0507"
+    },
+    {
+        "name": "Chumpi",
+        "ubigeo": "050702",
+        "province_ubigeo": "0507"
+    },
+    {
+        "name": "Coronel Castaqeda",
+        "ubigeo": "050703",
+        "province_ubigeo": "0507"
+    },
+    {
+        "name": "Pacapausa",
+        "ubigeo": "050704",
+        "province_ubigeo": "0507"
+    },
+    {
+        "name": "Pullo",
+        "ubigeo": "050705",
+        "province_ubigeo": "0507"
+    },
+    {
+        "name": "Puyusca",
+        "ubigeo": "050706",
+        "province_ubigeo": "0507"
+    },
+    {
+        "name": "San Francisco de Ravacayco",
+        "ubigeo": "050707",
+        "province_ubigeo": "0507"
+    },
+    {
+        "name": "Upahuacho",
+        "ubigeo": "050708",
+        "province_ubigeo": "0507"
+    },
+    {
+        "name": "Pausa",
+        "ubigeo": "050801",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "Colta",
+        "ubigeo": "050802",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "Corculla",
+        "ubigeo": "050803",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "Lampa",
+        "ubigeo": "050804",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "Marcabamba",
+        "ubigeo": "050805",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "Oyolo",
+        "ubigeo": "050806",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "Pararca",
+        "ubigeo": "050807",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "San Javier de Alpabamba",
+        "ubigeo": "050808",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "San Jose de Ushua",
+        "ubigeo": "050809",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "Sara Sara",
+        "ubigeo": "050810",
+        "province_ubigeo": "0508"
+    },
+    {
+        "name": "Querobamba",
+        "ubigeo": "050901",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Belen",
+        "ubigeo": "050902",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Chalcos",
+        "ubigeo": "050903",
+        "etiqueta_ubigeo": "Chalcos, Sucre",
+        "buscador_ubigeo": "chalcos sucre",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Chilcayoc",
+        "ubigeo": "050904",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Huacaña",
+        "ubigeo": "050905",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Morcolla",
+        "ubigeo": "050906",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Paico",
+        "ubigeo": "050907",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "San Pedro de Larcay",
+        "ubigeo": "050908",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "San Salvador de Quije",
+        "ubigeo": "050909",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Santiago de Paucaray",
+        "ubigeo": "050910",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Soras",
+        "ubigeo": "050911",
+        "province_ubigeo": "0509"
+    },
+    {
+        "name": "Huancapi",
+        "ubigeo": "051001",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Alcamenca",
+        "ubigeo": "051002",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Apongo",
+        "ubigeo": "051003",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Asquipata",
+        "ubigeo": "051004",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Canaria",
+        "ubigeo": "051005",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Cayara",
+        "ubigeo": "051006",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Colca",
+        "ubigeo": "051007",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Huamanquiquia",
+        "ubigeo": "051008",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Huancaraylla",
+        "ubigeo": "051009",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Huaya",
+        "ubigeo": "051010",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Sarhua",
+        "ubigeo": "051011",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Vilcanchos",
+        "ubigeo": "051012",
+        "province_ubigeo": "0510"
+    },
+    {
+        "name": "Vilcas Huaman",
+        "ubigeo": "051101",
+        "province_ubigeo": "0511"
+    },
+    {
+        "name": "Accomarca",
+        "ubigeo": "051102",
+        "province_ubigeo": "0511"
+    },
+    {
+        "name": "Carhuanca",
+        "ubigeo": "051103",
+        "province_ubigeo": "0511"
+    },
+    {
+        "name": "Concepcion",
+        "ubigeo": "051104",
+        "province_ubigeo": "0511"
+    },
+    {
+        "name": "Huambalpa",
+        "ubigeo": "051105",
+        "province_ubigeo": "0511"
+    },
+    {
+        "name": "Independencia",
+        "ubigeo": "051106",
+        "province_ubigeo": "0511"
+    },
+    {
+        "name": "Saurama",
+        "ubigeo": "051107",
+        "province_ubigeo": "0511"
+    },
+    {
+        "name": "Vischongo",
+        "ubigeo": "051108",
+        "province_ubigeo": "0511"
+    },
+    {
+        "name": "Asuncion",
+        "ubigeo": "060102",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Cajamarca",
+        "ubigeo": "060101",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Chetilla",
+        "ubigeo": "060103",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Cospan",
+        "ubigeo": "060104",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Encañada",
+        "ubigeo": "060105",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Jesus",
+        "ubigeo": "060106",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Llacanora",
+        "ubigeo": "060107",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Los Baños del Inca",
+        "ubigeo": "060108",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Magdalena",
+        "ubigeo": "060109",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Matara",
+        "ubigeo": "060110",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Namora",
+        "ubigeo": "060111",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "San Juan",
+        "ubigeo": "060112",
+        "province_ubigeo": "0601"
+    },
+    {
+        "name": "Cajabamba",
+        "ubigeo": "060201",
+        "province_ubigeo": "0602"
+    },
+    {
+        "name": "Cachachi",
+        "ubigeo": "060202",
+        "province_ubigeo": "0602"
+    },
+    {
+        "name": "Condebamba",
+        "ubigeo": "060203",
+        "province_ubigeo": "0602"
+    },
+    {
+        "name": "Sitacocha",
+        "ubigeo": "060204",
+        "province_ubigeo": "0602"
+    },
+    {
+        "name": "Celendin",
+        "ubigeo": "060301",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Chumuch",
+        "ubigeo": "060302",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Cortegana",
+        "ubigeo": "060303",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Huasmin",
+        "ubigeo": "060304",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Jorge Chavez",
+        "ubigeo": "060305",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Jose Galvez",
+        "ubigeo": "060306",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Miguel Iglesias",
+        "ubigeo": "060307",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Oxamarca",
+        "ubigeo": "060308",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Sorochuco",
+        "ubigeo": "060309",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Sucre",
+        "ubigeo": "060310",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Utco",
+        "ubigeo": "060311",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "La Libertad de Pallan",
+        "ubigeo": "060312",
+        "province_ubigeo": "0603"
+    },
+    {
+        "name": "Chota",
+        "ubigeo": "060401",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Anguia",
+        "ubigeo": "060402",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Chadin",
+        "ubigeo": "060403",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Chiguirip",
+        "ubigeo": "060404",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Chimban",
+        "ubigeo": "060405",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Choropampa",
+        "ubigeo": "060406",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Cochabamba",
+        "ubigeo": "060407",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Conchan",
+        "ubigeo": "060408",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Huambos",
+        "ubigeo": "060409",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Lajas",
+        "ubigeo": "060410",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Llama",
+        "ubigeo": "060411",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Miracosta",
+        "ubigeo": "060412",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Paccha",
+        "ubigeo": "060413",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Pion",
+        "ubigeo": "060414",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Querocoto",
+        "ubigeo": "060415",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "San Juan de Licupis",
+        "ubigeo": "060416",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Tacabamba",
+        "ubigeo": "060417",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Tocmoche",
+        "ubigeo": "060418",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Chalamarca",
+        "ubigeo": "060419",
+        "province_ubigeo": "0604"
+    },
+    {
+        "name": "Contumaza",
+        "ubigeo": "060501",
+        "province_ubigeo": "0605"
+    },
+    {
+        "name": "Chilete",
+        "ubigeo": "060502",
+        "province_ubigeo": "0605"
+    },
+    {
+        "name": "Cupisnique",
+        "ubigeo": "060503",
+        "province_ubigeo": "0605"
+    },
+    {
+        "name": "Guzmango",
+        "ubigeo": "060504",
+        "province_ubigeo": "0605"
+    },
+    {
+        "name": "San Benito",
+        "ubigeo": "060505",
+        "province_ubigeo": "0605"
+    },
+    {
+        "name": "Santa Cruz de Toled",
+        "ubigeo": "060506",
+        "province_ubigeo": "0605"
+    },
+    {
+        "name": "Tantarica",
+        "ubigeo": "060507",
+        "province_ubigeo": "0605"
+    },
+    {
+        "name": "Yonan",
+        "ubigeo": "060508",
+        "province_ubigeo": "0605"
+    },
+    {
+        "name": "Cutervo",
+        "ubigeo": "060601",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Callayuc",
+        "ubigeo": "060602",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Choros",
+        "ubigeo": "060603",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Cujillo",
+        "ubigeo": "060604",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "La Ramada",
+        "ubigeo": "060605",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Pimpingos",
+        "ubigeo": "060606",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Querocotillo",
+        "ubigeo": "060607",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "San Andres de Cutervo",
+        "ubigeo": "060608",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "San Juan de Cutervo",
+        "ubigeo": "060609",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "San Luis de Lucma",
+        "ubigeo": "060610",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Santa Cruz",
+        "ubigeo": "060611",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Santo Domingo de la Capilla",
+        "ubigeo": "060612",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Santo Tomas",
+        "ubigeo": "060613",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Socota",
+        "ubigeo": "060614",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Toribio Casanova",
+        "ubigeo": "060615",
+        "province_ubigeo": "0606"
+    },
+    {
+        "name": "Bambamarca",
+        "ubigeo": "060701",
+        "province_ubigeo": "0607"
+    },
+    {
+        "name": "Chugur",
+        "ubigeo": "060702",
+        "province_ubigeo": "0607"
+    },
+    {
+        "name": "Hualgayoc",
+        "ubigeo": "060703",
+        "province_ubigeo": "0607"
+    },
+    {
+        "name": "Jaen",
+        "ubigeo": "060801",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Bellavista",
+        "ubigeo": "060802",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Chontali",
+        "ubigeo": "060803",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Colasay",
+        "ubigeo": "060804",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Huabal",
+        "ubigeo": "060805",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Las Pirias",
+        "ubigeo": "060806",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Pomahuaca",
+        "ubigeo": "060807",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Pucara",
+        "ubigeo": "060808",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Sallique",
+        "ubigeo": "060809",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "San Felipe",
+        "ubigeo": "060810",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "San Jose del Alto",
+        "ubigeo": "060811",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "Santa Rosa",
+        "ubigeo": "060812",
+        "province_ubigeo": "0608"
+    },
+    {
+        "name": "San Ignacio",
+        "ubigeo": "060901",
+        "province_ubigeo": "0609"
+    },
+    {
+        "name": "Chirinos",
+        "ubigeo": "060902",
+        "province_ubigeo": "0609"
+    },
+    {
+        "name": "Huarango",
+        "ubigeo": "060903",
+        "province_ubigeo": "0609"
+    },
+    {
+        "name": "La Coipa",
+        "ubigeo": "060904",
+        "province_ubigeo": "0609"
+    },
+    {
+        "name": "Namballe",
+        "ubigeo": "060905",
+        "province_ubigeo": "0609"
+    },
+    {
+        "name": "San Jose de Lourdes",
+        "ubigeo": "060906",
+        "province_ubigeo": "0609"
+    },
+    {
+        "name": "Tabaconas",
+        "ubigeo": "060907",
+        "province_ubigeo": "0609"
+    },
+    {
+        "name": "Pedro Galvez",
+        "ubigeo": "061001",
+        "province_ubigeo": "0610"
+    },
+    {
+        "name": "Chancay",
+        "ubigeo": "061002",
+        "id_padre_ubigeo": "3245",
+        "province_ubigeo": "0610"
+    },
+    {
+        "name": "Eduardo Villanueva",
+        "ubigeo": "061003",
+        "id_padre_ubigeo": "3245",
+        "province_ubigeo": "0610"
+    },
+    {
+        "name": "Gregorio Pita",
+        "ubigeo": "061004",
+        "province_ubigeo": "0610"
+    },
+    {
+        "name": "Ichocan",
+        "ubigeo": "061005",
+        "province_ubigeo": "0610"
+    },
+    {
+        "name": "Jose Manuel Quiroz",
+        "ubigeo": "061006",
+        "province_ubigeo": "0610"
+    },
+    {
+        "name": "Jose Sabogal",
+        "ubigeo": "061007",
+        "province_ubigeo": "0610"
+    },
+    {
+        "name": "Bolivar",
+        "ubigeo": "061102",
+        "province_ubigeo": "0611"
+    },
+    {
+        "name": "Calquis",
+        "ubigeo": "061103",
+        "province_ubigeo": "0611"
+    }
+]

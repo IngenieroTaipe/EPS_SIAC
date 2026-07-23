@@ -17,7 +17,7 @@ class Branches(AuditCompleteModel):
     '''
     # Django crea internamente el campo 'id' de forma automática
     district = models.ForeignKey(
-        'places.Districts', 
+        'places.District', 
         on_delete=models.PROTECT, 
         related_name='branches_district'
     )

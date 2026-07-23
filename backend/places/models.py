@@ -1,7 +1,7 @@
 from django.db import models
 from core_shared.models import AuditCreateModel, AuditCompleteModel
 
-class Departments(AuditCompleteModel):
+class Department(AuditCompleteModel):
     '''
         Modelo que representa un departamento. Contiene un identificador único, un nombre y una descripción.
 
@@ -15,19 +15,19 @@ class Departments(AuditCompleteModel):
         
         `@str`: Devuelve el nombre del departamento como representación en cadena del objeto.
     '''
-    # Django crea internamente el campo 'id' de forma automática
-    ubigeo = models.CharField(max_length=2, unique=True)
+    ubigeo = models.CharField(max_length=2, unique=True, primary_key=True)
     name = models.CharField(max_length=50, unique=True)
 
     class Meta():
         db_table = 'departments'
         verbose_name = 'Departamento'
         verbose_name_plural = 'Departamentos'
+        ordering = ['ubigeo']
 
     def __str__(self):
         return self.name
 
-class Provinces(AuditCompleteModel):
+class Province(AuditCompleteModel):
     '''
         Modelo que representa una provincia. Contiene un identificador único, un nombre y una descripción.
 
@@ -41,24 +41,25 @@ class Provinces(AuditCompleteModel):
         
         `@str`: Devuelve el nombre de la provincia como representación en cadena del objeto.
     '''
-    # Django crea internamente el campo 'id' de forma automática
-    department = models.ForeignKey(
+    ubigeo = models.CharField(max_length=4, unique=True, primary_key=True)
+    department_ubigeo = models.ForeignKey(
         'Department', 
         on_delete=models.PROTECT, 
-        related_name='provinces'
+        related_name='provinces',
+        db_column='department_ubigeo'
     )
-    ubigeo = models.CharField(max_length=4, unique=True)
     name = models.CharField(max_length=50, unique=True)
 
     class Meta():
         db_table = 'provinces'
         verbose_name = 'Provincia'
         verbose_name_plural = 'Provincias'
+        ordering = ['ubigeo']
 
     def __str__(self):
         return self.name
 
-class Districts(AuditCompleteModel):
+class District(AuditCompleteModel):
     '''
         Modelo que representa una provincia. Contiene un identificador único, un nombre y una descripción.
 
@@ -72,24 +73,25 @@ class Districts(AuditCompleteModel):
         
         `@str`: Devuelve el nombre del distrito como representación en cadena del objeto.
     '''
-    # Django crea internamente el campo 'id' de forma automática
-    province_id = models.ForeignKey(
-        'Provinces', 
+    ubigeo = models.CharField(max_length=6, unique=True, primary_key=True)
+    province_ubigeo = models.ForeignKey(
+        'Province', 
         on_delete=models.PROTECT, 
-        related_name='districts'
+        related_name='districts',
+        db_column='province_ubigeo'
     )
-    ubigeo = models.CharField(max_length=6, unique=True)
-    name = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=50)
 
     class Meta():
         db_table = 'districts'
         verbose_name = 'Distrito'
         verbose_name_plural = 'Distritos'
+        ordering = ['ubigeo']
 
     def __str__(self):
         return self.name
 
-class Sectors(AuditCompleteModel):
+class Sector(AuditCompleteModel):
     '''
         Modelo que representa un sector. Contiene un identificador único, un nombre y una descripción.
 
@@ -103,13 +105,13 @@ class Sectors(AuditCompleteModel):
         
         `@str`: Devuelve el nombre del sector como representación en cadena del objeto.
     '''
-    # Django crea internamente el campo 'id' de forma automática
-    district_id = models.ForeignKey(
-        'Districts',
+    code = models.CharField(max_length=3, unique=True, primary_key=True)
+    district_ubigeo = models.ForeignKey(
+        'District',
         on_delete=models.PROTECT,
-        related_name='sectors'
+        related_name='sectors',
+        db_column='district_ubigeo'
     )
-    ubigeo = models.CharField(max_length=6, unique=True)
     name = models.CharField(max_length=50, unique=True)
     status = models.BooleanField(default=True)
     observations = models.TextField(null=True, blank=True)
@@ -118,6 +120,7 @@ class Sectors(AuditCompleteModel):
         db_table = 'sectors'
         verbose_name = 'Sector'
         verbose_name_plural = 'Sectores'
+        ordering = ['code']
 
     def __str__(self):
         return self.name

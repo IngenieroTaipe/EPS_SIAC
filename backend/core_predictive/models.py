@@ -247,7 +247,7 @@ class ThresholdsNaturalPhenomenas(AuditCompleteModel):
     )
 
     district = models.ForeignKey(
-        'places.Districts',
+        'places.District',
         on_delete=models.CASCADE,
         related_name='thresholds_natural_phenomenas_district'
     )

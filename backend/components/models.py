@@ -121,7 +121,7 @@ class Components(AuditCompleteModel):
     '''
     # Django crea internamente el campo 'id' de forma automática
     sector = models.ForeignKey(
-        'places.Sectors', 
+        'places.Sector', 
         on_delete=models.CASCADE
     )
     type = models.ForeignKey(
