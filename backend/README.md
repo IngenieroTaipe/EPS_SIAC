@@ -1,54 +1,9 @@
-## Instrucciones de Instalación
-1. **Habilitar el entorno virtual:**
-
-```bash
-    python -m venv .venv
-```
-
-2. **Acceder al entorno virtual:**
-
-- **Windows**
-```bash
-   .venv\Scripts\activate
-```
-
-- **Linux / MacOS**
-
-```bash
-   source .venv/bin/activate
-```
-
-3. **Descargar dependencias**
-
-```python
-    pip install -r requirements.txt
-```
 
 ## Instrucciones de Ejecución
-1. Prendemos los servicios de la Base de Datos
+1. Prendemos los servicios de la Base de Datos (Todo lo necesario para el funcionamiento del backend ya se encuentra registrado por el docker-compose.yml y docker-compose.dev.yml, así como el dockerfile: Migraciones, seeders, etc.)
 
 ```bash
     docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-2. Ejecutamos las migraciones
-
-```bash
-    python manage.py makemigrations
-    python manage.py migrate
-```
-
-3. Agregamos al superadmin para poder trabajar
-
-```bash
-    python manage.py createsuperuser
-```
-
-Después de aquí debemos ingresar el username, correo y la contraseña (en caso de que se mencione que la contraseña es demasiado débil, solo poner `Y` **para confirmar**)
-
-4. Ejecutar el proyecto
-```bash
-    python manage.py runserver
 ```
 
 ## Documentación del backend

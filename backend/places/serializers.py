@@ -21,18 +21,30 @@ class DepartmentSerializer(PrepareDataMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Department
-        fields = ["ubigeo", "name", "geojson", "created_at", "updated_at"]
-        read_only_fields = ["created_at", "updated_at"]
+        fields = ["ubigeo", "name", "geojson"]
 
     def get_geojson(self, obj):
         if obj.geometry:
             return json.loads(obj.geometry.geojson)
         return None
+
+class DepartmentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
+    """
+        Serializador liviano para listados masivos de Departamentos.
+    """
+    prepare_fields = {
+        'ubigeo': DataFormatter.zfill(2),
+        'name': DataFormatter.upper_case
+    }
+
+    class Meta:
+        model = Department
+        fields = ["ubigeo", "name"]
         
 # ==============================================================================
 # SERIALIZADORES DE PROVINCIAS
 # ==============================================================================
-class ProvinceListSerializer(PrepareDataMixin, serializers.ModelSerializer):
+class ProvinceSerializer(PrepareDataMixin, serializers.ModelSerializer):
     """
         Serializador liviano para listados masivos de Provincias.
     """
@@ -40,12 +52,12 @@ class ProvinceListSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'ubigeo': DataFormatter.zfill(4),
         'name': DataFormatter.upper_case
     }
-    department_name = serializers.CharField(source="department.name", read_only=True)
+    department = DepartmentLightSerializer(read_only=True)
     geojson = serializers.SerializerMethodField()
 
     class Meta:
         model = Province
-        fields = ["ubigeo", "department", "department_name", "name", "geojson"]
+        fields = ["ubigeo", "department", "name", "geojson"]
         read_only_fields = ["ubigeo"]
 
     def get_geojson(self, obj):
@@ -53,7 +65,7 @@ class ProvinceListSerializer(PrepareDataMixin, serializers.ModelSerializer):
             return json.loads(obj.geometry.geojson)
         return None
 
-class ProvinceSerializer(PrepareDataMixin, serializers.ModelSerializer):
+class ProvinceLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     """
         Serializador detallado para vistas unitarias de Provincias.
     """
@@ -61,23 +73,15 @@ class ProvinceSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'ubigeo': DataFormatter.zfill(4),
         'name': DataFormatter.upper_case
     }
-    department = DepartmentSerializer(read_only=True)
-    geojson = serializers.SerializerMethodField()
 
     class Meta:
         model = Province
-        fields = ["ubigeo", "department", "name", "geojson", "created_at", "updated_at"]
-        read_only_fields = ["created_at", "updated_at"]
-    
-    def get_geojson(self, obj):
-        if obj.geometry:
-            return json.loads(obj.geometry.geojson)
-        return None
+        fields = ["ubigeo", "name"]
 
 # ==============================================================================
 # SERIALIZADORES DE DISTRITOS
 # ==============================================================================
-class DistrictListSerializer(PrepareDataMixin, serializers.ModelSerializer):
+class DistrictSerializer(PrepareDataMixin, serializers.ModelSerializer):
     """
         Serializador liviano para listados masivos de Distritos.
     """
@@ -85,13 +89,13 @@ class DistrictListSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'ubigeo': DataFormatter.zfill(6),
         'name': DataFormatter.upper_case
     }
-    province_name = serializers.CharField(source="province.name", read_only=True)
-    department_ubigeo = serializers.CharField(source="province.department.ubigeo", read_only=True)
+    department = DepartmentLightSerializer(source="province.department", read_only=True)
+    province = ProvinceLightSerializer(read_only=True)
     geojson = serializers.SerializerMethodField()
 
     class Meta:
         model = District
-        fields = ["ubigeo", "province", "province_name", "department_ubigeo",  "name", "geojson"]
+        fields = ["ubigeo", "department", "province", "name", "geojson"]
         read_only_fields = ["ubigeo"]
     
     def get_geojson(self, obj):
@@ -99,27 +103,23 @@ class DistrictListSerializer(PrepareDataMixin, serializers.ModelSerializer):
             return json.loads(obj.geometry.geojson)
         return None
 
-class DistrictSerializer(PrepareDataMixin, serializers.ModelSerializer):
+class DistrictLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     """
         Serializador detallado para vistas unitarias de Distritos.
     """
-    province = ProvinceSerializer(read_only=True)
-    geojson = serializers.SerializerMethodField()
+    prepare_fields = {
+        'ubigeo': DataFormatter.zfill(6),
+        'name': DataFormatter.upper_case
+    }
 
     class Meta:
         model = District
-        fields = ["ubigeo", "province", "name", "geojson", "created_at", "updated_at"]
-        read_only_fields = ["created_at", "updated_at"]
+        fields = ["ubigeo", "name"]
     
-    def get_geojson(self, obj):
-        if obj.geometry:
-            return json.loads(obj.geometry.geojson)
-        return None
-
 # ==============================================================================
 # SERIALIZADORES DE SECTORES
 # ==============================================================================
-class SectorListSerializer(PrepareDataMixin, serializers.ModelSerializer):
+class SectorSerializer(PrepareDataMixin, serializers.ModelSerializer):
     """
     Serializador para sectores operativos dentro de un distrito.
     """
@@ -128,14 +128,16 @@ class SectorListSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'name': DataFormatter.upper_case,
         'observations': DataFormatter.trim_string
     }
-    district_name = serializers.CharField(source="district.name", read_only=True)
+    department = DepartmentLightSerializer(source="province.department", read_only=True)
+    province = ProvinceLightSerializer(read_only=True)
+    district = DistrictLightSerializer(read_only=True)
     
     class Meta:
         model = Sector
         fields = [
             'code',
-            'district',
-            'district_name',
+            'department',
+            'province',
             'name',
             'status',
             'observations'
@@ -143,7 +145,7 @@ class SectorListSerializer(PrepareDataMixin, serializers.ModelSerializer):
 
         read_only_fields = ["id"]
 
-class SectorSerializer(PrepareDataMixin, serializers.ModelSerializer):
+class SectorLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     """
         Serializador para sectores operativos dentro de un distrito.
     """
@@ -153,18 +155,12 @@ class SectorSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'observations' : DataFormatter.trim_string
     }
 
-    district_name = serializers.CharField(source="district.name", read_only=True)
-
     class Meta:
         model = Sector
         fields = [
             'code',
-            'district',
-            'district_name',
             'name',
             'status',
             'observations',
-            'created_at',
-            'updated_at'
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id"]

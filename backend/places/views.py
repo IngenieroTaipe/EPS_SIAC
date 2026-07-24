@@ -4,15 +4,11 @@ from places.models import Department, Province, District, Sector
 
 from places.serializers import (
     DepartmentSerializer, 
-    ProvinceListSerializer,
     ProvinceSerializer,
-    DistrictListSerializer,
     DistrictSerializer,
-    SectorListSerializer,
     SectorSerializer
 )
 
-# Create your views here.
 class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
     """
         Controlador de Lectura para Departamentos (Nivel 1).
@@ -35,9 +31,8 @@ class ProvinceViewSet(viewsets.ReadOnlyModelViewSet):
         - Permite el filtrado en base a las Provincias y Departamentos
         - Permite la búsqueda en base a campos como: Nombre, Ubigeo.
         - Permite el ordenamiento en base a campos como: Nombre, Ubigeo    
-
-        - El controlador establece un serializer diferente en base al tipo de solicitud (particular u global)
     """
+    serializer_class = ProvinceSerializer
     lookup_field = 'ubigeo'
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['department']
@@ -47,12 +42,6 @@ class ProvinceViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return Province.objects.select_related('department').all()
 
-    def get_serializer_class(self):
-        # Retrieve == específico
-        if self.action == "retrieve":
-            return ProvinceSerializer
-        return ProvinceListSerializer
-
 class DistrictViewSet(viewsets.ReadOnlyModelViewSet):
     """
         Controlador de Lectura para los Distritos (Nivel 2).
@@ -60,9 +49,8 @@ class DistrictViewSet(viewsets.ReadOnlyModelViewSet):
         - Permite el filtrado en base a los Distritos, Provincias y Departamentos
         - Permite la búsqueda en base a campos como: Nombre, Ubigeo.
         - Permite el ordenamiento en base a campos como: Nombre, Ubigeo    
-
-        - El controlador establece un serializer diferente en base al tipo de solicitud (particular u global)
     """
+    serializer_class = DistrictSerializer
     lookup_field = 'ubigeo'
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['province', 'province__department']
@@ -72,11 +60,6 @@ class DistrictViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return District.objects.select_related('province__department').all()
 
-    def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return DistrictSerializer
-        return DistrictListSerializer
-
 class SectorViewSet(viewsets.ModelViewSet):
     """
         Controlador de Lectura para los Sectores (Nivel 1).
@@ -84,9 +67,8 @@ class SectorViewSet(viewsets.ModelViewSet):
         - Permite el filtrado en base a los Sectores
         - Permite la búsqueda en base a campos como: Codigo, Nombre.
         - Permite el ordenamiento en base a campos como: Codigo, Nombre    
-
-        - El controlador establece un serializer diferente en base al tipo de solicitud (particular u global)
     """
+    serializer_class = SectorSerializer
     lookup_field = 'code'
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['district', 'status']
@@ -95,8 +77,3 @@ class SectorViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Sector.objects.select_related('district').all()
-
-    def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return SectorSerializer
-        return SectorListSerializer
