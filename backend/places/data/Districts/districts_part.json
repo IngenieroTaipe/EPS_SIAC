@@ -5,7 +5,7 @@
         "province_ubigeo": "0101"
     },
     {
-        "name": "Asuncion",
+        "name": "Asunción",
         "ubigeo": "010102",
         "province_ubigeo": "0101"
     },
@@ -205,7 +205,7 @@
         "province_ubigeo": "0104"
     },
     {
-        "name": "Rio Santiago",
+        "name": "Río Santiago",
         "ubigeo": "010403",
         "province_ubigeo": "0104"
     },
@@ -260,7 +260,7 @@
         "province_ubigeo": "0105"
     },
     {
-        "name": "Maria",
+        "name": "María",
         "ubigeo": "010511",
         "province_ubigeo": "0105"
     },
@@ -285,17 +285,17 @@
         "province_ubigeo": "0105"
     },
     {
-        "name": "San Cristobal",
+        "name": "San Cristóbal",
         "ubigeo": "010516",
         "province_ubigeo": "0105"
     },
     {
-        "name": "San Francisco del Yeso",
+        "name": "San Francisco de Yeso",
         "ubigeo": "010517",
         "province_ubigeo": "0105"
     },
     {
-        "name": "San Jeronimo",
+        "name": "San Jerónimo",
         "ubigeo": "010518",
         "province_ubigeo": "0105"
     },
@@ -325,7 +325,7 @@
         "province_ubigeo": "0105"
     },
     {
-        "name": "San Nicolas",
+        "name": "San Nicolás",
         "ubigeo": "010601",
         "province_ubigeo": "0106"
     },
@@ -460,7 +460,7 @@
         "province_ubigeo": "0201"
     },
     {
-        "name": "Pampas",
+        "name": "Pampas Grande",
         "ubigeo": "020109",
         "province_ubigeo": "0201"
     },
@@ -680,7 +680,7 @@
         "province_ubigeo": "0207"
     },
     {
-        "name": "San Nicolas",
+        "name": "San Nicolás",
         "ubigeo": "020702",
         "province_ubigeo": "0207"
     },
@@ -910,7 +910,7 @@
         "province_ubigeo": "0213"
     },
     {
-        "name": "Eleazar Guzman Barron",
+        "name": "Eleazar Guzmán Barron",
         "ubigeo": "021303",
         "province_ubigeo": "0213"
     },
@@ -975,7 +975,7 @@
         "province_ubigeo": "0214"
     },
     {
-        "name": "San Cristobal de Rajan",
+        "name": "San Cristóbal de Rajan",
         "ubigeo": "021408",
         "province_ubigeo": "0214"
     },
@@ -1121,7 +1121,7 @@
         "province_ubigeo": "0218"
     },
     {
-        "name": "Caceres del Peru",
+        "name": "Cáceres del Perú",
         "ubigeo": "021802",
         "province_ubigeo": "0218"
     },
@@ -1356,7 +1356,7 @@
         "province_ubigeo": "0302"
     },
     {
-        "name": "San Jeronimo",
+        "name": "San Jerónimo",
         "ubigeo": "030213",
         "province_ubigeo": "0302"
     },
@@ -1366,7 +1366,7 @@
         "province_ubigeo": "0302"
     },
     {
-        "name": "Santa Maria de Chicmo",
+        "name": "Santa María de Chicmo",
         "ubigeo": "030215",
         "province_ubigeo": "0302"
     },
@@ -1391,7 +1391,7 @@
         "province_ubigeo": "0302"
     },
     {
-        "name": "Jose Maria Arguedas",
+        "name": "José María Arguedas",
         "ubigeo": "030220",
         "province_ubigeo": "0302"
     },
@@ -1461,7 +1461,7 @@
         "province_ubigeo": "0304"
     },
     {
-        "name": "Huayllo",
+        "name": "Ihuayllo",
         "ubigeo": "030407",
         "province_ubigeo": "0304"
     },
@@ -1481,12 +1481,12 @@
         "province_ubigeo": "0304"
     },
     {
-        "name": "San Juan de Chacqa",
+        "name": "San Juan de Chacña",
         "ubigeo": "030411",
         "province_ubigeo": "0304"
     },
     {
-        "name": "Saqayca",
+        "name": "Sañayca",
         "ubigeo": "030412",
         "province_ubigeo": "0304"
     },
@@ -1551,7 +1551,7 @@
         "province_ubigeo": "0306"
     },
     {
-        "name": "Anco-Huallo",
+        "name": "Anco_Huallo",
         "ubigeo": "030602",
         "province_ubigeo": "0306"
     },
@@ -1741,7 +1741,7 @@
         "province_ubigeo": "0401"
     },
     {
-        "name": "Quequeqa",
+        "name": "Quequeña",
         "ubigeo": "040115",
         "province_ubigeo": "0401"
     },
@@ -1812,32 +1812,32 @@
         "province_ubigeo": "0401"
     },
     {
-        "name": "Jose Luis Bustamante y Rivero",
+        "name": "José Luis Bustamante Y Rivero",
         "ubigeo": "040129",
         "province_ubigeo": "0401"
     },
     {
-        "name": "Camana",
+        "name": "Camaná",
         "ubigeo": "040201",
         "province_ubigeo": "0402"
     },
     {
-        "name": "Jose Maria Quimper",
+        "name": "José María Quimper",
         "ubigeo": "040202",
         "province_ubigeo": "0402"
     },
     {
-        "name": "Mariano Nicolas Valcarcel",
+        "name": "Mariano Nicolás Valcárcel",
         "ubigeo": "040203",
         "province_ubigeo": "0402"
     },
     {
-        "name": "Mariscal Caceres",
+        "name": "Mariscal Cáceres",
         "ubigeo": "040204",
         "province_ubigeo": "0402"
     },
     {
-        "name": "Nicolas de Pierola",
+        "name": "Nicolás de Pierola",
         "ubigeo": "040205",
         "province_ubigeo": "0402"
     },
@@ -1857,12 +1857,12 @@
         "province_ubigeo": "0402"
     },
     {
-        "name": "Caraveli",
+        "name": "Caravelí",
         "ubigeo": "040301",
         "province_ubigeo": "0403"
     },
     {
-        "name": "Acari",
+        "name": "Acarí",
         "ubigeo": "040302",
         "province_ubigeo": "0403"
     },
@@ -1877,7 +1877,7 @@
         "province_ubigeo": "0403"
     },
     {
-        "name": "Bella Union",
+        "name": "Bella Unión",
         "ubigeo": "040305",
         "province_ubigeo": "0403"
     },
@@ -1977,7 +1977,7 @@
         "province_ubigeo": "0404"
     },
     {
-        "name": "Uqon",
+        "name": "Uñon",
         "ubigeo": "040412",
         "province_ubigeo": "0404"
     },
@@ -2117,7 +2117,7 @@
         "province_ubigeo": "0406"
     },
     {
-        "name": "Rio Grande",
+        "name": "Río Grande",
         "ubigeo": "040606",
         "province_ubigeo": "0406"
     },
@@ -2157,7 +2157,7 @@
         "province_ubigeo": "0407"
     },
     {
-        "name": "Punta de Bombon",
+        "name": "Punta de Bombón",
         "ubigeo": "040706",
         "province_ubigeo": "0407"
     },
@@ -2257,7 +2257,7 @@
         "province_ubigeo": "0501"
     },
     {
-        "name": "San Jose de Ticllas",
+        "name": "San José de Ticllas",
         "ubigeo": "050109",
         "province_ubigeo": "0501"
     },
@@ -2292,7 +2292,7 @@
         "province_ubigeo": "0501"
     },
     {
-        "name": "Andres Avelino Caceres Dorregaray",
+        "name": "Andrés Avelino Cáceres Dorregaray",
         "ubigeo": "050116",
         "province_ubigeo": "0501"
     },
@@ -2312,7 +2312,7 @@
         "province_ubigeo": "0502"
     },
     {
-        "name": "Maria Parado de Bellido",
+        "name": "María Parado de Bellido",
         "ubigeo": "050204",
         "province_ubigeo": "0502"
     },
@@ -2527,7 +2527,7 @@
         "province_ubigeo": "0506"
     },
     {
-        "name": "San Cristobal",
+        "name": "San Cristóbal",
         "ubigeo": "050615",
         "province_ubigeo": "0506"
     },
@@ -2572,7 +2572,7 @@
         "province_ubigeo": "0507"
     },
     {
-        "name": "Coronel Castaqeda",
+        "name": "Coronel Castañeda",
         "ubigeo": "050703",
         "province_ubigeo": "0507"
     },
@@ -2642,7 +2642,7 @@
         "province_ubigeo": "0508"
     },
     {
-        "name": "San Jose de Ushua",
+        "name": "San José de Ushua",
         "ubigeo": "050809",
         "province_ubigeo": "0508"
     },
@@ -2657,7 +2657,7 @@
         "province_ubigeo": "0509"
     },
     {
-        "name": "Belen",
+        "name": "Belén",
         "ubigeo": "050902",
         "province_ubigeo": "0509"
     },
@@ -2754,7 +2754,7 @@
         "province_ubigeo": "0510"
     },
     {
-        "name": "Huaya",
+        "name": "Hualla",
         "ubigeo": "051010",
         "province_ubigeo": "0510"
     },
@@ -2784,7 +2784,7 @@
         "province_ubigeo": "0511"
     },
     {
-        "name": "Concepcion",
+        "name": "Concepción",
         "ubigeo": "051104",
         "province_ubigeo": "0511"
     },
@@ -2809,7 +2809,7 @@
         "province_ubigeo": "0511"
     },
     {
-        "name": "Asuncion",
+        "name": "Asunción",
         "ubigeo": "060102",
         "province_ubigeo": "0601"
     },
@@ -2834,7 +2834,7 @@
         "province_ubigeo": "0601"
     },
     {
-        "name": "Jesus",
+        "name": "Jesús",
         "ubigeo": "060106",
         "province_ubigeo": "0601"
     },
@@ -2889,7 +2889,7 @@
         "province_ubigeo": "0602"
     },
     {
-        "name": "Celendin",
+        "name": "Celendín",
         "ubigeo": "060301",
         "province_ubigeo": "0603"
     },
@@ -2909,12 +2909,12 @@
         "province_ubigeo": "0603"
     },
     {
-        "name": "Jorge Chavez",
+        "name": "Jorge Chávez",
         "ubigeo": "060305",
         "province_ubigeo": "0603"
     },
     {
-        "name": "Jose Galvez",
+        "name": "José Gálvez",
         "ubigeo": "060306",
         "province_ubigeo": "0603"
     },
@@ -3069,7 +3069,7 @@
         "province_ubigeo": "0605"
     },
     {
-        "name": "Santa Cruz de Toled",
+        "name": "Santa Cruz de Toledo",
         "ubigeo": "060506",
         "province_ubigeo": "0605"
     },
@@ -3119,7 +3119,7 @@
         "province_ubigeo": "0606"
     },
     {
-        "name": "San Andres de Cutervo",
+        "name": "San Andrés de Cutervo",
         "ubigeo": "060608",
         "province_ubigeo": "0606"
     },
@@ -3174,7 +3174,7 @@
         "province_ubigeo": "0607"
     },
     {
-        "name": "Jaen",
+        "name": "Jaén",
         "ubigeo": "060801",
         "province_ubigeo": "0608"
     },
@@ -3224,7 +3224,7 @@
         "province_ubigeo": "0608"
     },
     {
-        "name": "San Jose del Alto",
+        "name": "San José del Alto",
         "ubigeo": "060811",
         "province_ubigeo": "0608"
     },
@@ -3259,7 +3259,7 @@
         "province_ubigeo": "0609"
     },
     {
-        "name": "San Jose de Lourdes",
+        "name": "San José de Lourdes",
         "ubigeo": "060906",
         "province_ubigeo": "0609"
     },
@@ -3269,7 +3269,7 @@
         "province_ubigeo": "0609"
     },
     {
-        "name": "Pedro Galvez",
+        "name": "Pedro Gálvez",
         "ubigeo": "061001",
         "province_ubigeo": "0610"
     },
@@ -3296,17 +3296,17 @@
         "province_ubigeo": "0610"
     },
     {
-        "name": "Jose Manuel Quiroz",
+        "name": "José Manuel Quiroz",
         "ubigeo": "061006",
         "province_ubigeo": "0610"
     },
     {
-        "name": "Jose Sabogal",
+        "name": "José Sabogal",
         "ubigeo": "061007",
         "province_ubigeo": "0610"
     },
     {
-        "name": "Bolivar",
+        "name": "Bolívar",
         "ubigeo": "061102",
         "province_ubigeo": "0611"
     },

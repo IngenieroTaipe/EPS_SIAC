@@ -12,9 +12,9 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         path_dir = Path(__file__).resolve().parent.parent.parent / 'data'
 
-        departments_path = path_dir / 'departments.json'
-        provinces_path = path_dir / 'provinces.json'
-        districts_path = path_dir / 'districts_part.json'
+        departments_path = path_dir / 'Departments/departments.json'
+        provinces_path = path_dir / 'Provinces/provinces.json'
+        districts_path = path_dir / 'Districts/districts_part.json'
 
         for file in [departments_path, provinces_path, districts_path]:
             if (not file.exists()):
@@ -70,7 +70,7 @@ class Command(BaseCommand):
             province_obj, created = Province.objects.update_or_create(
                 ubigeo = ubigeo,
                 defaults = {
-                    'department_ubigeo' : dept_cache.get(province['department_ubigeo']),
+                    'department' : dept_cache.get(province['department_ubigeo']),
                     'name': province['name'].strip().upper()
                 }
             )
@@ -99,7 +99,7 @@ class Command(BaseCommand):
             district_obj, created = District.objects.update_or_create(
                 ubigeo = ubigeo,
                 defaults = {
-                    'province_ubigeo': prov_cache.get(district['province_ubigeo']),
+                    'province': prov_cache.get(district['province_ubigeo']),
                     'name': district['name'].strip().upper()
                 }
             )

@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,12 +43,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',  # Requerido por dj-rest-auth
     'corsheaders', # Para consumo desde frontend externo
-    'dj_rest_auth',
-    'django.contrib.sites',
 
     # Autenticación mediante JWT
+    'dj_rest_auth',
     'rest_framework_simplejwt',
-    'dj_rest_auth.registration',
+    'django.contrib.sites',
 
     # Documentación
     'drf_spectacular',
@@ -162,6 +162,25 @@ REST_FRAMEWORK = {
 
     # Spectacular
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+
+    # Paginación por defecto
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
 }
 
 SPECTACULAR_SETTINGS = {
@@ -169,14 +188,24 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'API para el sistema de información hidrológica de la EPS Selva Central',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SECURITY': [{'jwt': []}],
     'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [{'jwt': []}],
+    'SECURITY_DEFINITIONS': {
+        'jwt': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'Ingrese el token en formato: Bearer <su_access_token>'
+        }
+    }
 }
 
 # dj-rest-auth use JWT instead of standard Tokens
-REST_USE_JWT = True
-JWT_AUTH_COOKIE = 'eps-selva-central-access-token'
-JWT_AUTH_REFRESH_COOKIE = 'eps-selva-central-refresh-token'
+REST_AUTH = {
+    'USE_JWT': True,
+    'JWT_AUTH_HTTPONLY': False,  # Desactiva la restricción de cookies HttpOnly
+    'JWT_AUTH_HEADER_PREFIX': 'Bearer',
+}
 
 # Configuration for consumption of the ECMWF API
 ECMWF_URL = os.environ.get('ECMWF_URL')

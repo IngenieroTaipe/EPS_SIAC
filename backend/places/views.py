@@ -21,7 +21,7 @@ class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
         - Permite la búsqueda en base a campos como: Nombre, Ubigeo.
         - Permite el ordenamiento en base a campos como: Nombre, Ubigeo    
     """
-    query_set = Department.objects.all()
+    queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     lookup_field = 'ubigeo'
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]

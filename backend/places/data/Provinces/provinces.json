@@ -435,7 +435,7 @@
         "department_ubigeo": "09"
     },
     {
-        "name": "Huanuco",
+        "name": "Huánuco",
         "ubigeo": "1001",
         "department_ubigeo": "10"
     },
@@ -465,7 +465,7 @@
         "department_ubigeo": "10"
     },
     {
-        "name": "Maraqon",
+        "name": "Marañón",
         "ubigeo": "1007",
         "department_ubigeo": "10"
     },
@@ -520,7 +520,7 @@
         "department_ubigeo": "12"
     },
     {
-        "name": "Concepcion",
+        "name": "Concepción",
         "ubigeo": "1202",
         "department_ubigeo": "12"
     },
@@ -535,7 +535,7 @@
         "department_ubigeo": "12"
     },
     {
-        "name": "Junin",
+        "name": "Junín",
         "ubigeo": "1205",
         "department_ubigeo": "12"
     },
@@ -570,7 +570,7 @@
         "department_ubigeo": "13"
     },
     {
-        "name": "Bolivar",
+        "name": "Bolívar",
         "ubigeo": "1303",
         "department_ubigeo": "13"
     },
@@ -600,7 +600,7 @@
         "department_ubigeo": "13"
     },
     {
-        "name": "Sanchez Carrion",
+        "name": "Sánchez Carrión",
         "ubigeo": "1309",
         "department_ubigeo": "13"
     },
@@ -610,7 +610,7 @@
         "department_ubigeo": "13"
     },
     {
-        "name": "Gran Chimu",
+        "name": "Gran Chimú",
         "ubigeo": "1311",
         "department_ubigeo": "13"
     },
@@ -625,7 +625,7 @@
         "department_ubigeo": "14"
     },
     {
-        "name": "Ferreqafe",
+        "name": "Ferreñafe",
         "ubigeo": "1402",
         "department_ubigeo": "14"
     },
@@ -700,7 +700,7 @@
         "department_ubigeo": "16"
     },
     {
-        "name": "Mariscal Ramon Castilla",
+        "name": "Mariscal Ramón Castilla",
         "ubigeo": "1604",
         "department_ubigeo": "16"
     },
@@ -715,7 +715,7 @@
         "department_ubigeo": "16"
     },
     {
-        "name": "Datem del Marañon",
+        "name": "Datem del Marañón",
         "ubigeo": "1607",
         "department_ubigeo": "16"
     },
@@ -740,7 +740,7 @@
         "department_ubigeo": "18"
     },
     {
-        "name": "General Sanchez Cerro",
+        "name": "General Sánchez Cerro",
         "ubigeo": "1802",
         "department_ubigeo": "18"
     },
@@ -755,7 +755,7 @@
         "department_ubigeo": "19"
     },
     {
-        "name": "Daniel Alcides Carrion",
+        "name": "Daniel Alcides Carrión",
         "ubigeo": "1902",
         "department_ubigeo": "19"
     },
@@ -780,7 +780,7 @@
         "department_ubigeo": "20"
     },
     {
-        "name": "Morropon",
+        "name": "Morropón",
         "ubigeo": "2004",
         "department_ubigeo": "20"
     },
@@ -810,7 +810,7 @@
         "department_ubigeo": "21"
     },
     {
-        "name": "Azangaro",
+        "name": "Azángaro",
         "ubigeo": "2102",
         "department_ubigeo": "21"
     },
@@ -830,7 +830,7 @@
         "department_ubigeo": "21"
     },
     {
-        "name": "Huancane",
+        "name": "Huancané",
         "ubigeo": "2106",
         "department_ubigeo": "21"
     },
@@ -855,7 +855,7 @@
         "department_ubigeo": "21"
     },
     {
-        "name": "San Roman",
+        "name": "San Román",
         "ubigeo": "2111",
         "department_ubigeo": "21"
     },

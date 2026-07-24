@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+echo "=== Empezando Inicialización ==="
+echo "Esperando a PostgreSQL..."
+
+echo "Aplicando Migraciones..."
+python manage.py makemigrations
+python manage.py migrate --noinput
+
+echo "Aplicando Seeders..."
+python manage.py seed_auths
+python manage.py seed_places
+python manage.py seed_geo_info
+
+echo "=== Inicialización completada. Arrancando servidor... ==="
+exec "$@"

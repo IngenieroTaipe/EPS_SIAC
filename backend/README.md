@@ -58,4 +58,26 @@ Para acceder a la documentación del backend debemos dirigirnos a los siguientes
 - Documentación vista **Swagger UI**: `http://localhost:8000/docs/`
 - Documentación **JSON**:`http://localhost:8000/schema/`
 
-## Copias de archivos de configuración
+## Credenciales
+`"Credenciales de Acceso"`:
+<table>
+    <thead>
+        <tr>
+            <th>Cargo</th>
+            <th>Email</th>
+            <th>Password</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Admin</td>
+            <td>admin@eps-siac.gob.pe</td>
+            <td>AdminPassword123!</td>
+        </tr>
+        <tr>
+            <td>operador</td>
+            <td>operador.chanchamayo@eps-siac.gob.pe</td>
+            <td>OperatorPassword123!</td>
+        </tr>
+    </tbody>
+</table>

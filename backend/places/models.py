@@ -1,4 +1,4 @@
-from django.db import models
+from django.contrib.gis.db import models
 from django.core.validators import RegexValidator
 from core_shared.models import AuditCompleteModel
 from places.validators import department_ubigeo_validator, province_ubigeo_validator, district_ubigeo_validator, sector_code_validator
@@ -21,6 +21,7 @@ class Department(AuditCompleteModel):
     ubigeo = models.CharField(max_length=2, unique=True, primary_key=True,
             validators=[department_ubigeo_validator])
     name = models.CharField(max_length=50, unique=True, validators=[alpha_name_validator])
+    geometry = models.MultiPolygonField(srid=4326, null=True, blank=True)
 
     class Meta():
         db_table = 'departments'
@@ -54,6 +55,7 @@ class Province(AuditCompleteModel):
         db_column='department_ubigeo'
     )
     name = models.CharField(max_length=50, unique=True, validators=[alpha_name_validator])
+    geometry = models.MultiPolygonField(srid=4326, null=True, blank=True)
 
     class Meta():
         db_table = 'provinces'
@@ -88,6 +90,7 @@ class District(AuditCompleteModel):
         db_column='province_ubigeo'
     )
     name = models.CharField(max_length=50, validators=[alpha_name_validator])
+    geometry = models.MultiPolygonField(srid=4326, null=True, blank=True)
 
     class Meta():
         db_table = 'districts'
