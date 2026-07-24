@@ -20,9 +20,14 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/auth/', include('authentication.urls')),
+    path('api/v2/', include('authentication.urls')),
     
-  
+    path('api/v1/places/', include('places.urls')),
+    # path('api/v1/organization/', include('organization.urls')),
+    # path('api/v1/core_predictive/', include('core_predictive.urls')),
+    # path('api/v1/components/', include('components.urls')),
+    # path('api/v1/alerts/', include('alerts_management.urls')),
+
     # ====== Documentación de la API (OpenAPI) ======
     # Vista JSON
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
