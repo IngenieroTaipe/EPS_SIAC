@@ -23,7 +23,7 @@ class Command(BaseCommand):
 
         for criticality in criticalities:
             Criticality.objects.update_or_create(
-                name=criticality['name'],
+                name=criticality['name'].upper(),
                 defaults=criticality
             )
 

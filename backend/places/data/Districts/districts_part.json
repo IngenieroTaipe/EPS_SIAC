@@ -3326,6 +3326,11 @@
         "province_ubigeo": "1203"
     },
     {
+        "name": "Satipo",
+        "ubigeo": "120601",
+        "province_ubigeo": "1206"
+    },
+    {
         "name": "San Ramon",
         "ubigeo": "120305",
         "province_ubigeo": "1203"

@@ -24,7 +24,10 @@ class Command(BaseCommand):
         for physical_status in physical_statuses:
             PhysicalStatus.objects.update_or_create(
                 code=physical_status['code'],
-                defaults=physical_status
+                defaults={
+                    'name': physical_status['name'].upper(),
+                    'description': physical_status['description']
+                }
             )
 
         self.stdout.write(

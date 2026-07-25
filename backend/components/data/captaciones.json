@@ -1,0 +1,15 @@
+[
+    {
+        "sector": "1",
+        "type": "1",
+        "code": "0005",
+        "name": "CHANCHAMAYO",
+        "specification": "",
+        "easting": "463529",
+        "northing": "8777285",
+        "operational_status": "Operativo",
+        "physical_status": "Bueno",
+        "criticality": "Alta",
+        "volume": 0.012
+    }
+]

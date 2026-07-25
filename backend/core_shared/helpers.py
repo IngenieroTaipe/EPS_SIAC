@@ -15,6 +15,14 @@ class SpatialHelper:
     }
 
     @classmethod
+    def get_utm_zone_from_longitude(cls, longitude: float) -> int:
+        """
+            Calcula matemáticamente la Zona UTM (1 a 60) basada en la Longitud WGS84.
+        """
+        zone = int((longitude + 180) / 6) + 1
+        return zone
+
+    @classmethod
     def utm_to_wgs84(cls, easting: float, northing: float, zone: int = 18) -> Point:
         """
             Convierte coordenadas planas UTM (Este, Norte) a un objeto Point en WGS84 (EPSG:4326).
@@ -52,7 +60,7 @@ class SpatialHelper:
             raise ValidationError(f"Error al ejecutar la transformación geodésica UTM -> WGS84: {str(e)}")
 
     @classmethod
-    def wgs84_to_utm(cls, point: Point, target_zone: int = 18) -> dict:
+    def wgs84_to_utm(cls, point: Point, target_zone: int = None) -> dict:
         """
             Convierte un objeto Point en WGS84 (EPSG:4326) a coordenadas proyectadas UTM (Este, Norte).
         
@@ -78,9 +86,8 @@ class SpatialHelper:
         elif point_clone.srid != 4326:
             point_clone.transform(4326)
 
-        # Validamos cuadrante Perú en WGS84
-        if point_clone.x > 0 or point_clone.y > 0:
-            raise ValidationError("La coordenada WGS84 está fuera del cuadrante nacional Perú.")
+        if target_zone is None:
+            target_zone = cls.get_utm_zone_from_longitude(point_clone.x)
 
         try:
             # Reproyectamos de WGS84 a UTM

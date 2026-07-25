@@ -170,8 +170,50 @@
     {
         "code": "001",
         "name": "SANTA APOLONIA",
-        "status": "0",
+        "status": "1",
+        "observations": "CI 2018 ANTES \"VILLA RICA\"",
+        "district_ubigeo": "190307"
+    },
+    {
+        "code": "002",
+        "name": "CERCADO VILLA RICA",
+        "status": "1",
         "observations": null,
         "district_ubigeo": "190307"
+    },
+    {
+        "code": "003",
+        "name": "BARRIO INDUSTRIAL",
+        "status": "1",
+        "observations": null,
+        "district_ubigeo": "190307"
+    },
+    {
+        "code": "004",
+        "name": "OCONAL",
+        "status": "1",
+        "observations": null,
+        "district_ubigeo": "190307"
+    },
+    {
+        "code": "001",
+        "name": "JORGE CHAVEZ",
+        "status": "1",
+        "observations": null,
+        "district_ubigeo": "120601"
+    },
+    {
+        "code": "002",
+        "name": "SANTA LEONOR",
+        "status": "1",
+        "observations": null,
+        "district_ubigeo": "120601"
+    },
+    {
+        "code": "003",
+        "name": "CERCADO SATIPO",
+        "status": "1",
+        "observations": null,
+        "district_ubigeo": "120601"
     }
 ]

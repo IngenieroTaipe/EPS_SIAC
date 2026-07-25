@@ -25,7 +25,10 @@ class Command(BaseCommand):
         for operational_status in operational_statuses:
             OperationalStatus.objects.update_or_create(
                 code=operational_status['code'],
-                defaults=operational_status
+                defaults={
+                    'name': operational_status['name'].upper(),
+                    'description': operational_status['description']
+                }
             )
 
         self.stdout.write(

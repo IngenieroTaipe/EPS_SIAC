@@ -9,6 +9,7 @@ from components.models import (
     ComponentCoord
 )
 from places.serializers import SectorLightSerializer
+from places.models import Sector
 from core_shared.mixins import PrepareDataMixin
 from core_shared.formatters import DataFormatter
 
@@ -118,19 +119,33 @@ class PhysicalStatusLightSerializer(PrepareDataMixin, serializers.ModelSerialize
 class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
     prepare_fields = {
         'code': DataFormatter.zfill(4),
+        'name': DataFormatter.upper_case,
         'specification': DataFormatter.trim_string
     }
 
-    sector = SectorLightSerializer()
-    type = ComponentTypeLightSerializer()
-    operational_status = OperationalStatusLightSerializer()
-    physical_status = PhysicalStatusLightSerializer()
+    sector = serializers.PrimaryKeyRelatedField(
+        queryset=Sector.objects.all(),
+        help_text="ID del sector preexistente (ej: '1')"
+    )
+    type = serializers.PrimaryKeyRelatedField(
+        queryset=ComponentType.objects.all(),
+        help_text="ID del tipo de componente preexistente (ej: '1')"
+    )
+    operational_status = serializers.PrimaryKeyRelatedField(
+        queryset=OperationalStatus.objects.all(),
+        help_text="ID del estado operativo preexistente (ej: '1')"
+    )
+    physical_status = serializers.PrimaryKeyRelatedField(
+        queryset=PhysicalStatus.objects.all(),
+        help_text="ID del estado físico preexistente (ej: '1')"
+    )
 
     class Meta: 
         model = Component
         fields = [
             'id', 
             'code', 
+            'name',
             'type', 
             'sector', 
             'specification', 
@@ -138,16 +153,40 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'physical_status'
         ]
         read_only_fields = ['id', 'code']
+    
+    def to_representation(self, instance):
+        """
+            Reemplaza las relaciones con la demás tablas de las FK a la información detallada del objeto para responder las peticiones HTTP
+        """
+        representation = super().to_representation(instance)
+        if instance.sector:
+            representation['sector'] = SectorLightSerializer(instance.sector).data
+
+        if instance.type:
+            representation['type'] = ComponentTypeLightSerializer(instance.type).data
+        
+        if instance.operational_status:
+            representation['operational_status'] = OperationalStatusLightSerializer(instance.operational_status).data
+        
+        if instance.physical_status:
+            representation['physical_status'] = PhysicalStatusLightSerializer(instance.physical_status).data
+        
+        return representation
 
 class ComponentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     prepare_fields = {
         'code': DataFormatter.zfill(3),
-        'observations': DataFormatter.trim_string
+        'name' : DataFormatter.upper_case,
+        'specification': DataFormatter.trim_string
     }
-    sector = SectorLightSerializer()
-    type = ComponentTypeSerializer()
-    operational_status = OperationalStatusSerializer()
-    physical_status = PhysicalStatusSerializer()
+    sector = serializers.PrimaryKeyRelatedField(
+        queryset=Sector.objects.all(),
+        help_text="ID del sector preexistente (ej: '1')"
+    )
+    type = serializers.PrimaryKeyRelatedField(
+        queryset=ComponentType.objects.all(),
+        help_text="ID del tipo de componente preexistente (ej: '1')"
+    )
 
     class Meta:
         model = Component
@@ -156,11 +195,25 @@ class ComponentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'code',
             'sector',
             'type',
-            'specification',
-            'operational_status',
-            'physical_status'
+            'name',
+            'specification'
         ]
         read_only_fields = ['id', 'code']
+    
+    def to_representation(self, instance):
+        """
+            Transformación de salida: Reemplaza el UBIGEO numérico del departamento 
+            por el objeto detallado al responder peticiones HTTP.
+        """
+        representation = super().to_representation(instance)
+        if instance.sector:
+            representation['sector'] = SectorLightSerializer(instance.sector).data
+
+        if instance.type:
+            representation['type'] = ComponentTypeLightSerializer(instance.type).data
+        
+        return representation
+        
 
 # ==============================================================================
 # SERIALIZADORES DE COORDENADAS DE COMPONENTES
@@ -171,17 +224,36 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
         Permite el ingreso de coordenadas en WGS84 (Lat/Lon) o UTM (Easting/Northing + SRID).
         Convierte y persiste automáticamente en PostGIS bajo EPSG:4326.
     """
-    easting = serializers.FloatField(write_only=True, required=False, help_text="Coordenada Este (UTM)")
-    northing = serializers.FloatField(write_only=True, required=False, help_text="Coordenada Norte (UTM)")
+
+    component = serializers.PrimaryKeyRelatedField(
+        queryset=Component.objects.all(),
+        help_text="ID del componente preexistente (ej: '12')"
+    )
+    criticality = serializers.PrimaryKeyRelatedField(
+        queryset=Criticality.objects.all(),
+        help_text="ID de la criticidad preexistente (ej: '12')"
+    )
+    
+    easting = serializers.FloatField(write_only=True, required=False, help_text="Coordenada Este en metros (UTM)")
+    northing = serializers.FloatField(write_only=True, required=False, help_text="Coordenada Norte en metros (UTM)")
     srid_origin = serializers.IntegerField(
         write_only=True, 
         required=False, 
-        default=4326, 
-        help_text="SRID de Origen (ej: 32718 para UTM Zona 18S, 32717 para Zona 17S, 4326 para WGS84)"
+        default=32718, 
+        help_text="SRID de Origen (ej: 32718 para UTM Zona 18S, 32717 para UTM Zona 17S, 32719 para UTM Zona 19S)"
     )
 
-    component = ComponentLightSerializer()
-    criticality = CriticalityLightSerializer()
+    latitude = serializers.FloatField(write_only=True, required=False, help_text="Latitud WGS84 (-90 a 90)")
+    longitude = serializers.FloatField(write_only=True, required=False, help_text="Longitud WGS84 (-180 a 180)")
+
+    utm_coords = serializers.CharField(
+        write_only=True, 
+        required=False, 
+        help_text="Coordenadas en formato UTM (Easting, Northing, SRID)"
+    )
+    
+    utm_coordinates = serializers.SerializerMethodField(read_only=True)
+    geojson = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = ComponentCoord
@@ -192,18 +264,36 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
             'easting',
             'northing',
             'srid_origin',
-            'coords',
+            'latitude',
+            'longitude',
+            'coords',    
+            'utm_coordinates',
+            'geojson',
         ]
         read_only_fields = ['id']
 
         extra_kwargs = {
             'coords' : {'required': False} # Establecemos el campo de coords para WGS84 como opcional
         }
+    def to_representation(self, instance):
+        """
+            Transformación de salida: Reemplaza el UBIGEO numérico del departamento 
+            por el objeto detallado al responder peticiones HTTP.
+        """
+        representation = super().to_representation(instance)
+        if instance.component:
+            representation['component'] = ComponentLightSerializer(instance.component).data
+        
+        if instance.criticality:
+            representation['criticality'] = CriticalityLightSerializer(instance.criticality).data
+        
+        return representation
+
 
     def validate(self, attrs):
         easting = attrs.pop('easting', None)
         northing = attrs.pop('northing', None)
-        srid_origin = attrs.pop('srid_origin', 4326)
+        srid_origin = attrs.pop('srid_origin', 32718)
         coords = attrs.get('coords', None)
 
         if easting is not None and northing is not None:
@@ -211,17 +301,17 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
 
         elif coords is None:
             raise ValidationError(
-                "Se deben especificar las coordenadas UTM 32718 (East, North) o las Coordenadas WGS84 (Lat, Lon)."
+                "Se deben especificar las coordenadas UTM (ej: 32718 para UTM Zona 18S, 32717 para UTM Zona 17S, 32719 para UTM Zona 19S) o las Coordenadas WGS84 (Lat, Lon)."
             )
         
         return attrs
 
-    def get_utm_coordinates(self, obj, target_zone=18):
+    def get_utm_coordinates(self, obj):
         """
             Usa el Helper para convertir la geometría WGS84 de PostGIS a UTM Zona 18S para la respuesta HTTP.
         """
         if obj.coords:
-            return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=target_zone)
+            return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=None)
         return None
 
     def get_geojson(self, obj):

@@ -142,6 +142,7 @@ class Component(AuditCompleteModel):
         on_delete=models.CASCADE
     )
     code = models.CharField(max_length=4, unique=True, validators=[component_code_validator])
+    name = models.CharField(max_length=50, unique=True)
     specification = models.TextField()
 
     class Meta():

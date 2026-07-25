@@ -17,7 +17,7 @@ class Command(BaseCommand):
         )
 
         components = [
-            {
+            {   
                 'sector': '7',
                 'type': 'Captación',
                 'code': 'CAP-001',

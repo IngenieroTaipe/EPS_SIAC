@@ -29,7 +29,7 @@ class Command(BaseCommand):
 
         for component_type in component_types:
             ComponentType.objects.update_or_create(
-                name=component_type['name'],
+                name=component_type['name'].upper(),
                 defaults=component_type
             )
 
