@@ -30,6 +30,16 @@ class DataFormatter:
         return DataFormatter.trim_string(value).upper()
 
     @staticmethod
+    def lower_case(value: str) -> str:
+        """
+            Limpia espacios internos/externos y convierte a minúsculas.
+            Ejemplo: "  PiChAnAqUi  " -> "pichanaqui"
+        """
+        if not isinstance(value, str):
+            return value
+        return DataFormatter.trim_string(value).lower()
+
+    @staticmethod
     def title_case(value: str) -> str:
         """
             Limpia espacios internos/externos y convierte a Formato Título (capitalize).

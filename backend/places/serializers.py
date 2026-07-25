@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from places.models import Department, Province, District, Sector
-
 from core_shared.mixins import PrepareDataMixin
 from core_shared.formatters import DataFormatter
+
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 
 import json
 
@@ -24,6 +26,7 @@ class DepartmentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         model = Department
         fields = ["ubigeo", "name", "geojson"]
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_geojson(self, obj):
         if obj.geometry:
             return json.loads(obj.geometry.geojson)
@@ -74,7 +77,8 @@ class ProvinceSerializer(PrepareDataMixin, serializers.ModelSerializer):
         if instance.department:
             representation['department'] = DepartmentLightSerializer(instance.department).data
         return representation
-        
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_geojson(self, obj):
         if obj.geometry:
             return json.loads(obj.geometry.geojson)
@@ -126,6 +130,7 @@ class DistrictSerializer(PrepareDataMixin, serializers.ModelSerializer):
             representation['province'] = ProvinceLightSerializer(instance.province).data
         return representation
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_geojson(self, obj):
         if obj.geometry:
             return json.loads(obj.geometry.geojson)

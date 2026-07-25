@@ -1,7 +1,9 @@
 from django.db import models
 from core_shared.models import AuditCompleteModel
+from core_shared.validators import alpha_name_validator
+from organization.validators import branch_code_validator, dni_validator, phone_number_validator
 
-class Branches(AuditCompleteModel):
+class Branch(AuditCompleteModel):
     '''
         Modelo que representa una sucursal. Contiene un identificador único, un nombre y una descripción.
 
@@ -19,11 +21,11 @@ class Branches(AuditCompleteModel):
     district = models.ForeignKey(
         'places.District', 
         on_delete=models.PROTECT, 
-        related_name='branches_district'
+        related_name='branches_district', null=False, blank=False
     )
-    code = models.CharField(max_length=3, unique=True)
-    name = models.CharField(max_length=50, unique=True)
-    acronym = models.CharField(max_length=3, unique=True)
+    code = models.CharField(max_length=3, unique=True, null=False, blank=False, validators=[branch_code_validator])
+    name = models.CharField(max_length=50, unique=True, null=False, blank=False, validators=[alpha_name_validator])
+    acronym = models.CharField(max_length=3, unique=True, null=False, blank=False)
     status = models.BooleanField(default=True)
     observations = models.TextField(null=True, blank=True)
 
@@ -35,7 +37,7 @@ class Branches(AuditCompleteModel):
     def __str__(self):
         return self.name
 
-class OrganicUnits(AuditCompleteModel):
+class OrganicUnit(AuditCompleteModel):
     '''
         Modelo que representa una unidad orgánica. Contiene un identificador único, un nombre y una descripción.
 
@@ -53,10 +55,10 @@ class OrganicUnits(AuditCompleteModel):
     parent_unit = models.ForeignKey(
         'self', 
         on_delete=models.PROTECT, 
-        related_name='organic_units_parent'
+        related_name='organic_units_parent', null=True, blank=True
     )
-    name = models.CharField(max_length=50, unique=True)
-    hierarchy_level = models.PositiveIntegerField()
+    name = models.CharField(max_length=50, unique=True, null=False, blank=False, validators=[alpha_name_validator])
+    hierarchy_level = models.PositiveIntegerField(null=False, blank=False)
 
     class Meta():
         db_table = 'organic_units'
@@ -82,12 +84,12 @@ class BranchesOrganicUnit(AuditCompleteModel):
     '''
     # Django crea internamente el campo 'id' de forma automática
     branch = models.ForeignKey(
-        'Branches', 
+        'Branch', 
         on_delete=models.PROTECT, 
         related_name='branches_organic_units_branch'
     )
     organic_unit = models.ForeignKey(
-        'OrganicUnits', 
+        'OrganicUnit', 
         on_delete=models.PROTECT, 
         related_name='branches_organic_units_organic_unit'
     )
@@ -100,7 +102,7 @@ class BranchesOrganicUnit(AuditCompleteModel):
     def __str__(self):
         return f'{self.branch_id.name} - {self.organic_unit_id.name}'
 
-class RolesUnits(AuditCompleteModel):
+class RolesUnit(AuditCompleteModel):
     '''
         Modelo que representa la relación entre un rol y una unidad orgánica. Contiene un identificador único, un nombre y una descripción.
 
@@ -115,8 +117,7 @@ class RolesUnits(AuditCompleteModel):
         `@str`: Devuelve el nombre de la relación como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    name = models.CharField(max_length=50, unique=True)
-    code = models.CharField(max_length=3, unique=True)
+    name = models.CharField(max_length=50, unique=True, null=False, blank=False, validators=[alpha_name_validator])
     description = models.TextField(null=True, blank=True)
 
     class Meta():
@@ -125,9 +126,9 @@ class RolesUnits(AuditCompleteModel):
         verbose_name_plural = 'Roles - Unidades Orgánicas'
 
     def __str__(self):
-        return f'{self.name} - {self.code}'
+        return self.name
 
-class Workers(AuditCompleteModel):
+class Worker(AuditCompleteModel):
     '''
         Modelo que representa un trabajador. Contiene un identificador único, un nombre y una descripción.
 
@@ -142,12 +143,12 @@ class Workers(AuditCompleteModel):
         `@str`: Devuelve el nombre del trabajador como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    names = models.CharField(max_length=150)
-    paternal_lastname = models.CharField(max_length=150)
-    maternal_lastname = models.CharField(max_length=150)
-    dni = models.CharField(max_length=8, unique=True)
-    email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=9, unique=True)
+    names = models.CharField(max_length=150, null=False, blank=False, validators=[alpha_name_validator])
+    paternal_lastname = models.CharField(max_length=150, null=False, blank=False, validators=[alpha_name_validator])
+    maternal_lastname = models.CharField(max_length=150, null=False, blank=False, validators=[alpha_name_validator])
+    dni = models.CharField(max_length=8, unique=True, null=False, blank=False, validators=[dni_validator])
+    email = models.EmailField(unique=True, null=False, blank=False)
+    phone_number = models.CharField(max_length=9, unique=True, null=False, blank=False, validators=[phone_number_validator])
 
     class Meta():
         db_table = 'workers'
@@ -157,7 +158,7 @@ class Workers(AuditCompleteModel):
     def __str__(self):
         return f'{self.names} {self.paternal_lastname} {self.maternal_lastname} - {self.dni}'
     
-class Members(AuditCompleteModel):
+class Member(AuditCompleteModel):
     '''
         Modelo que representa un miembro de la organización. Contiene un identificador único, un nombre y una descripción.
 
@@ -172,20 +173,23 @@ class Members(AuditCompleteModel):
         `@str`: Devuelve el nombre del miembro como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    worker_id = models.ForeignKey(
-        'Workers', 
+    worker = models.ForeignKey(
+        'Worker', 
         on_delete=models.PROTECT, 
-        related_name='members_worker'
+        related_name='members_worker',
+        null=False, blank=False
     )
-    role_unit = models.ForeignKey(
-        'RolesUnits', 
+    rol_unit = models.ForeignKey(
+        'RolesUnit', 
         on_delete=models.PROTECT, 
-        related_name='members_role_unit'
+        related_name='members_role_unit',
+        null=False, blank=False
     )
     branch_organic_unit = models.ForeignKey(
         'BranchesOrganicUnit', 
         on_delete=models.PROTECT, 
-        related_name='members_branch_organic_unit'
+        related_name='members_branch_organic_unit', 
+        null=False, blank=False
     )
 
     class Meta():
@@ -194,4 +198,4 @@ class Members(AuditCompleteModel):
         verbose_name_plural = 'Miembros'
 
     def __str__(self):
-        return f'{self.worker_id.names} {self.worker_id.paternal_lastname} {self.worker_id.maternal_lastname} - {self.role_unit_id.name}'
+        return f'{self.worker.names} {self.worker.paternal_lastname} {self.worker.maternal_lastname} - {self.rol_unit.name}'

@@ -71,7 +71,7 @@ class Alerts(AuditCreateModel):
         related_name='alerts_natural_phenomena'
     )
     branch = models.ForeignKey(
-        'organization.Branches',
+        'organization.Branch',
         on_delete=models.PROTECT,
         related_name='alerts_branches'
     )

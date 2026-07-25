@@ -27,13 +27,27 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre, Ubigeo    
     """
     permission_classes = [IsAuthenticatedOrReadOnly]
-
+    lookup_field = 'ubigeo'
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
-    lookup_field = 'ubigeo'
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['ubigeo', 'name']
-    ordering_fields = ['ubigeo', 'name']
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter, 
+        filters.OrderingFilter
+    ]
+    filterset_fields = [
+        'ubigeo',
+        'name',
+    ]
+    search_fields = [
+        'ubigeo', 
+        'name'
+    ]
+    ordering_fields = [
+        'ubigeo',
+        'name'
+    ]
 
 
 @extend_schema_view(
@@ -54,13 +68,25 @@ class ProvinceViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre, Ubigeo    
     """
     permission_classes = [IsAuthenticatedOrReadOnly]
-
-    serializer_class = ProvinceSerializer
     lookup_field = 'ubigeo'
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['department']
-    search_fields = ['ubigeo', 'name']
-    ordering_fields = ['ubigeo', 'name']
+    serializer_class = ProvinceSerializer
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter
+    ]
+    filterset_fields = [
+        'department',
+    ]
+    search_fields = [
+        'ubigeo',
+        'name'
+    ]
+    ordering_fields = [
+        'ubigeo',
+        'name'
+    ]
 
     def get_queryset(self):
         return Province.objects.select_related('department').all()
@@ -83,13 +109,26 @@ class DistrictViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre, Ubigeo    
     """
     permission_classes = [IsAuthenticatedOrReadOnly]
-
-    serializer_class = DistrictSerializer
     lookup_field = 'ubigeo'
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['province', 'province__department']
-    search_fields = ['ubigeo', 'name']
-    ordering_fields = ['ubigeo', 'name']
+    serializer_class = DistrictSerializer
+
+    filter_backends = [
+        DjangoFilterBackend, 
+        filters.SearchFilter, 
+        filters.OrderingFilter
+    ]
+    filterset_fields = [
+        'province', 
+        'province__department'
+    ]
+    search_fields = [
+        'ubigeo', 
+        'name'
+    ]
+    ordering_fields = [
+        'ubigeo', 
+        'name'
+    ]
 
     def get_queryset(self):
         return District.objects.select_related('province__department').all()
@@ -112,13 +151,26 @@ class SectorViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Codigo, Nombre    
     """
     permission_classes = [IsAuthenticatedOrReadOnly]
-
-    serializer_class = SectorSerializer
     lookup_field = 'code'
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['district', 'status']
-    search_fields = ['code', 'name']
-    ordering_fields = ['code', 'name']
+    serializer_class = SectorSerializer
+    
+    filter_backends = [
+        DjangoFilterBackend, 
+        filters.SearchFilter, 
+        filters.OrderingFilter
+    ]
+    filterset_fields = [
+        'district', 
+        'status'
+    ]
+    search_fields = [
+        'code', 
+        'name'
+    ]
+    ordering_fields = [
+        'code', 
+        'name'
+    ]
 
     def get_queryset(self):
         return Sector.objects.select_related('district').all()

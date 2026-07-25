@@ -13,6 +13,9 @@ from places.models import District
 from core_shared.mixins import PrepareDataMixin
 from core_shared.formatters import DataFormatter
 
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
+
 from core_shared.helpers import SpatialHelper
 import json
 
@@ -309,6 +312,7 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
         
         return attrs
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_utm_coords(self, obj):
         """
             Usa el Helper para convertir la geometría WGS84 de PostGIS a UTM Zona 18S para la respuesta HTTP.
@@ -317,6 +321,8 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
             return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=None)
         return None
 
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_geojson(self, obj):
         """
             Convierte la geometría a formato GeoJSON.
