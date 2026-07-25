@@ -15,6 +15,7 @@ class Command(BaseCommand):
         departments_path = path_dir / 'Departments/departments.json'
         provinces_path = path_dir / 'Provinces/provinces.json'
         districts_path = path_dir / 'Districts/districts_part.json'
+        sectors_path = path_dir / 'Sectors/sectors.json'
 
         for file in [departments_path, provinces_path, districts_path]:
             if (not file.exists()):
@@ -93,6 +94,7 @@ class Command(BaseCommand):
             districts_data = json.load(f)
 
         dist_count = 0
+        dist_cache = {}
 
         for district in districts_data:
             ubigeo = str(district['ubigeo']).zfill(6)
@@ -104,9 +106,45 @@ class Command(BaseCommand):
                 }
             )
 
+            dist_cache[ubigeo] = district_obj
+
             if (created):
                 dist_count+=1
 
         self.stdout.write(
             "Distritos insertados"
+        )
+
+        # ======= SECTORES =======  
+        self.stdout.write(
+            "Procesando Sectores"
+        )
+
+        with open(sectors_path, 'r', encoding='UTF-8') as f:
+            sectors_data = json.load(f)
+
+        sector_count = 0
+
+        for sector in sectors_data:
+            code = str(sector['code']).zfill(3)
+            sector_obj, created = Sector.objects.update_or_create(
+                code = code,
+                defaults = {
+                    'district': dist_cache.get(sector['district_ubigeo']),
+                    'name': sector['name'].strip().upper(),
+                    'status': sector['status'],
+                    'observations': sector['observations']
+                }
+            )
+
+            if (created):
+                sector_count+=1
+
+        self.stdout.write(
+            "Sectores insertados"
+        )
+
+
+        self.stdout.write(
+            self.style.SUCCESS("Seeding completado exitosamente")
         )

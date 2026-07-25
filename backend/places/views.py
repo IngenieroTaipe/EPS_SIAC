@@ -11,12 +11,12 @@ from places.serializers import (
 )
 
 @extend_schema_view(
-    list=extend_schema(tags=['Places / Department'], summary="Listar departamentos con filtrado espacial/atributo"),
-    retrieve=extend_schema(tags=['Places / Department'], summary="Obtener detalle de un departamento por UBIGEO"),
+    list=extend_schema(tags=['Places / Department'], summary="Listar departamentos"),
+    retrieve=extend_schema(tags=['Places / Department'], summary="Obtener detalle de un departamento"),
     create=extend_schema(tags=['Places / Department'], summary="Registrar un nuevo departamento"),
-    update=extend_schema(tags=['Places / Department'], summary="Actualizar completamente un departamento (PUT)"),
-    partial_update=extend_schema(tags=['Places / Department'], summary="Actualizar parcialmente un departamento (PATCH)"),
-    destroy=extend_schema(tags=['Places / Department'], summary="Eliminar un departamento (DELETE)")
+    update=extend_schema(tags=['Places / Department'], summary="Actualizar un departamento"),
+    partial_update=extend_schema(tags=['Places / Department'], summary="Actualizar parcialmente un departamento"),
+    destroy=extend_schema(tags=['Places / Department'], summary="Eliminar un departamento")
 )
 class DepartmentViewSet(viewsets.ModelViewSet):
     """
@@ -37,12 +37,12 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(tags=['Places / Province'], summary="Listar provincias con filtrado espacial/atributo"),
-    retrieve=extend_schema(tags=['Places / Province'], summary="Obtener detalle de una provincia por UBIGEO"),
+    list=extend_schema(tags=['Places / Province'], summary="Listar provincias"),
+    retrieve=extend_schema(tags=['Places / Province'], summary="Obtener detalle de una provincia"),
     create=extend_schema(tags=['Places / Province'], summary="Registrar una nueva provincia"),
-    update=extend_schema(tags=['Places / Province'], summary="Actualizar completamente una provincia (PUT)"),
-    partial_update=extend_schema(tags=['Places / Province'], summary="Actualizar parcialmente una provincia (PATCH)"),
-    destroy=extend_schema(tags=['Places / Province'], summary="Eliminar una provincia (DELETE)")
+    update=extend_schema(tags=['Places / Province'], summary="Actualizar una provincia"),
+    partial_update=extend_schema(tags=['Places / Province'], summary="Actualizar parcialmente una provincia"),
+    destroy=extend_schema(tags=['Places / Province'], summary="Eliminar una provincia")
 )
 class ProvinceViewSet(viewsets.ModelViewSet):
     """
@@ -66,12 +66,12 @@ class ProvinceViewSet(viewsets.ModelViewSet):
         return Province.objects.select_related('department').all()
 
 @extend_schema_view(
-    list=extend_schema(tags=['Places / District'], summary="Listar distritos con filtrado espacial/atributo"),
-    retrieve=extend_schema(tags=['Places / District'], summary="Obtener detalle de un distrito por UBIGEO"),
+    list=extend_schema(tags=['Places / District'], summary="Listar distritos"),
+    retrieve=extend_schema(tags=['Places / District'], summary="Obtener detalle de un distrito"),
     create=extend_schema(tags=['Places / District'], summary="Registrar un nuevo distrito"),
-    update=extend_schema(tags=['Places / District'], summary="Actualizar completamente un distrito (PUT)"),
-    partial_update=extend_schema(tags=['Places / District'], summary="Actualizar parcialmente un distrito (PATCH)"),
-    destroy=extend_schema(tags=['Places / District'], summary="Eliminar un distrito (DELETE)")
+    update=extend_schema(tags=['Places / District'], summary="Actualizar un distrito"),
+    partial_update=extend_schema(tags=['Places / District'], summary="Actualizar parcialmente un distrito"),
+    destroy=extend_schema(tags=['Places / District'], summary="Eliminar un distrito")
 )
 class DistrictViewSet(viewsets.ModelViewSet):
     """
@@ -95,12 +95,12 @@ class DistrictViewSet(viewsets.ModelViewSet):
         return District.objects.select_related('province__department').all()
 
 @extend_schema_view(
-    list=extend_schema(tags=['Places / Sector'], summary="Listar sectores con filtrado espacial/atributo"),
-    retrieve=extend_schema(tags=['Places / Sector'], summary="Obtener detalle de un sector por código"),
+    list=extend_schema(tags=['Places / Sector'], summary="Listar sectores"),
+    retrieve=extend_schema(tags=['Places / Sector'], summary="Obtener detalle de un sector"),
     create=extend_schema(tags=['Places / Sector'], summary="Registrar un nuevo sector"),
-    update=extend_schema(tags=['Places / Sector'], summary="Actualizar completamente un sector (PUT)"),
-    partial_update=extend_schema(tags=['Places / Sector'], summary="Actualizar parcialmente un sector (PATCH)"),
-    destroy=extend_schema(tags=['Places / Sector'], summary="Eliminar un sector (DELETE)")
+    update=extend_schema(tags=['Places / Sector'], summary="Actualizar un sector"),
+    partial_update=extend_schema(tags=['Places / Sector'], summary="Actualizar parcialmente un sector"),
+    destroy=extend_schema(tags=['Places / Sector'], summary="Eliminar un sector")
 )
 class SectorViewSet(viewsets.ModelViewSet):
     """

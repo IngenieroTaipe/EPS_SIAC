@@ -12,6 +12,11 @@ echo "Aplicando Seeders..."
 python manage.py seed_auths
 python manage.py seed_places
 python manage.py seed_geo_info
+python manage.py seed_component_types
+python manage.py seed_components
+python manage.py seed_criticalities
+python manage.py seed_operational_statuses
+python manage.py seed_physical_statuses
 
 echo "=== Inicialización completada. Arrancando servidor... ==="
 exec "$@"

@@ -54,7 +54,10 @@ class ProvinceSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'name': DataFormatter.upper_case
     }
     ubigeo = serializers.CharField(max_length=4)
-    department = DepartmentLightSerializer(read_only=True)
+    department = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(),
+        help_text="UBIGEO del Departamento preexistente (2 dígitos, ej: '12')"
+    )
     geojson = serializers.SerializerMethodField()
 
     class Meta:
@@ -62,6 +65,16 @@ class ProvinceSerializer(PrepareDataMixin, serializers.ModelSerializer):
         fields = ["ubigeo", "department", "name", "geojson"]
         read_only_fields = ["ubigeo"]
 
+    def to_representation(self, instance):
+        """
+            Transformación de salida: Reemplaza el UBIGEO numérico del departamento 
+            por el objeto detallado al responder peticiones HTTP.
+        """
+        representation = super().to_representation(instance)
+        if instance.department:
+            representation['department'] = DepartmentLightSerializer(instance.department).data
+        return representation
+        
     def get_geojson(self, obj):
         if obj.geometry:
             return json.loads(obj.geometry.geojson)
@@ -93,14 +106,26 @@ class DistrictSerializer(PrepareDataMixin, serializers.ModelSerializer):
     }
     ubigeo = serializers.CharField(max_length=6)
     department = DepartmentLightSerializer(source="province.department", read_only=True)
-    province = ProvinceLightSerializer(read_only=True)
+    province = serializers.PrimaryKeyRelatedField(
+        queryset=Province.objects.all(),
+        help_text="UBIGEO de la Provincia preexistente (4 dígitos, ej: '1203')"
+    )
     geojson = serializers.SerializerMethodField()
 
     class Meta:
         model = District
         fields = ["ubigeo", "department", "province", "name", "geojson"]
-        read_only_fields = ["ubigeo"]
     
+    def to_representation(self, instance):
+        """
+            Transformación de salida: Reemplaza el UBIGEO numérico de la provincia 
+            por el objeto detallado al responder peticiones HTTP.
+        """
+        representation = super().to_representation(instance)
+        if instance.province:
+            representation['province'] = ProvinceLightSerializer(instance.province).data
+        return representation
+
     def get_geojson(self, obj):
         if obj.geometry:
             return json.loads(obj.geometry.geojson)
@@ -133,7 +158,10 @@ class SectorSerializer(PrepareDataMixin, serializers.ModelSerializer):
     }
     department = DepartmentLightSerializer(source="province.department", read_only=True)
     province = ProvinceLightSerializer(read_only=True)
-    district = DistrictLightSerializer(read_only=True)
+    district = serializers.PrimaryKeyRelatedField(
+        queryset=District.objects.all(),
+        help_text="UBIGEO del Distrito preexistente (6 dígitos, ej: '1203')"
+    )
     
     class Meta:
         model = Sector
@@ -148,6 +176,16 @@ class SectorSerializer(PrepareDataMixin, serializers.ModelSerializer):
         ]
 
         read_only_fields = ["id"]
+
+    def to_representation(self, instance):
+        """
+            Transformación de salida: Reemplaza el UBIGEO numérico del distrito 
+            por el objeto detallado al responder peticiones HTTP.
+        """
+        representation = super().to_representation(instance)
+        if instance.district:
+            representation['district'] = DistrictLightSerializer(instance.district).data
+        return representation
 
 class SectorLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     """

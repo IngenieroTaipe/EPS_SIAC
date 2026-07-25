@@ -1,0 +1,177 @@
+[
+    {
+        "code": "001",
+        "name": "CERCADO LA MERCED",
+        "status": "1",
+        "observations": null,
+        "district_ubigeo": "120301"
+    },
+    {
+        "code": "002",
+        "name": "PAMPA DEL CARMEN",
+        "status": "1",
+        "observations": null,
+        "district_ubigeo": "120301"
+    },
+    {
+        "code": "003",
+        "name": "SAN CARLOS",
+        "status": "1",
+        "observations": null,
+        "district_ubigeo": "120301"
+    },
+    {
+        "code": "004",
+        "name": "CERRO LA CRUZ",
+        "status": "0",
+        "observations": "CI 2018",
+        "district_ubigeo": "120301"
+    },
+    {
+        "code": "001",
+        "name": "CERCADO SAN RAMÓN",
+        "status": "1",
+        "observations": "CI 2018 ANTES \"SAN RAMON\"",
+        "district_ubigeo": "120305"
+    },
+    {
+        "code": "002",
+        "name": "NUEVA VISTA",
+        "status": "1",
+        "observations": "CI 2018",
+        "district_ubigeo": "120305"
+    },
+    {
+        "code": "003",
+        "name": "GA. FILTRANTES PEDREGAL",
+        "status": "0",
+        "observations": "CI 2018",
+        "district_ubigeo": "120305"
+    },
+    {
+        "code": "004",
+        "name": "LA LIBERTAD",
+        "status": "1",
+        "observations": "CI 2018",
+        "district_ubigeo": "120305"
+    },
+    {
+        "code": "006",
+        "name": "DANIEL A. CARRIÓN",
+        "status": "0",
+        "observations": "CI 2018",
+        "district_ubigeo": "120305"
+    },
+    {
+        "code": "001",
+        "name": "PICHANAKI",
+        "status": "0",
+        "observations": "CI 2018 SECTOR PICHANAKI",
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "002",
+        "name": "LOS ANGELES",
+        "status": "1",
+        "observations": "CI 2018 ANTES \"SECTOR SANGANI\"",
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "003",
+        "name": "CIUDAD SATÉLITE",
+        "status": "0",
+        "observations": "CI 2018",
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "004",
+        "name": "SANGANI",
+        "status": "0",
+        "observations": "CI 2018",
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "005",
+        "name": "PICHANAKI ZONAL ALTA",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "006",
+        "name": "PICHANAKI ZONAL BAJA",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "007",
+        "name": "SANGANI ZONAL ALTA",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "008",
+        "name": "SANGANI ZONAL BAJA",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "009",
+        "name": "PRIMAVERA LAS FLORES",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "120303"
+    },
+    {
+        "code": "001",
+        "name": "OXAPAMPA CENTRO",
+        "status": "0",
+        "observations": "CI 2018 ANTES OXAPAMPA",
+        "district_ubigeo": "190301"
+    },
+    {
+        "code": "002",
+        "name": "FEDERACIÓN",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "190301"
+    },
+    {
+        "code": "003",
+        "name": "MULLEMBRUCK",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "190301"
+    },
+    {
+        "code": "004",
+        "name": "CERCADO OXAPAMPA",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "190301"
+    },
+    {
+        "code": "005",
+        "name": "LA ESPERANZA",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "190301"
+    },
+    {
+        "code": "006",
+        "name": "LA CASUALIDAD",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "190301"
+    },
+    {
+        "code": "001",
+        "name": "SANTA APOLONIA",
+        "status": "0",
+        "observations": null,
+        "district_ubigeo": "190307"
+    }
+]

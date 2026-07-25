@@ -3314,5 +3314,30 @@
         "name": "Calquis",
         "ubigeo": "061103",
         "province_ubigeo": "0611"
+    },
+    {
+        "name": "Chanchamayo",
+        "ubigeo": "120301",
+        "province_ubigeo": "1203"
+    },
+    {
+        "name": "Pichanaqui",
+        "ubigeo": "120303",
+        "province_ubigeo": "1203"
+    },
+    {
+        "name": "San Ramon",
+        "ubigeo": "120305",
+        "province_ubigeo": "1203"
+    },
+    {
+        "name": "Oxapampa",
+        "ubigeo": "190301",
+        "province_ubigeo": "1903"
+    },
+    {
+        "name": "Villarica",
+        "ubigeo": "190307",
+        "province_ubigeo": "1903"
     }
 ]
