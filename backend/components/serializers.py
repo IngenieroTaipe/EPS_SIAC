@@ -8,8 +8,8 @@ from components.models import (
     Component,
     ComponentCoord
 )
-from places.serializers import SectorLightSerializer
-from places.models import Sector
+from places.serializers import DistrictLightSerializer
+from places.models import District
 from core_shared.mixins import PrepareDataMixin
 from core_shared.formatters import DataFormatter
 
@@ -123,9 +123,9 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'specification': DataFormatter.trim_string
     }
 
-    sector = serializers.PrimaryKeyRelatedField(
-        queryset=Sector.objects.all(),
-        help_text="ID del sector preexistente (ej: '1')"
+    district = serializers.PrimaryKeyRelatedField(
+        queryset=District.objects.all(),
+        help_text="Ubigeo del distrito preexistente (ej: '120301')"
     )
     type = serializers.PrimaryKeyRelatedField(
         queryset=ComponentType.objects.all(),
@@ -133,11 +133,15 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
     )
     operational_status = serializers.PrimaryKeyRelatedField(
         queryset=OperationalStatus.objects.all(),
-        help_text="ID del estado operativo preexistente (ej: '1')"
+        help_text="ID del estado operativo preexistente (ej: '1')",
+        required=False,
+        allow_null=True
     )
     physical_status = serializers.PrimaryKeyRelatedField(
         queryset=PhysicalStatus.objects.all(),
-        help_text="ID del estado físico preexistente (ej: '1')"
+        help_text="ID del estado físico preexistente (ej: '1')",
+        required=False,
+        allow_null=True
     )
 
     class Meta: 
@@ -147,20 +151,20 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'code', 
             'name',
             'type', 
-            'sector', 
+            'district', 
             'specification', 
             'operational_status', 
             'physical_status'
         ]
-        read_only_fields = ['id', 'code']
+        read_only_fields = ['id']
     
     def to_representation(self, instance):
         """
             Reemplaza las relaciones con la demás tablas de las FK a la información detallada del objeto para responder las peticiones HTTP
         """
         representation = super().to_representation(instance)
-        if instance.sector:
-            representation['sector'] = SectorLightSerializer(instance.sector).data
+        if instance.district:
+            representation['district'] = DistrictLightSerializer(instance.district).data
 
         if instance.type:
             representation['type'] = ComponentTypeLightSerializer(instance.type).data
@@ -179,9 +183,9 @@ class ComponentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'name' : DataFormatter.upper_case,
         'specification': DataFormatter.trim_string
     }
-    sector = serializers.PrimaryKeyRelatedField(
-        queryset=Sector.objects.all(),
-        help_text="ID del sector preexistente (ej: '1')"
+    district = serializers.PrimaryKeyRelatedField(
+        queryset=District.objects.all(),
+        help_text="ID del distrito preexistente (ej: '1')"
     )
     type = serializers.PrimaryKeyRelatedField(
         queryset=ComponentType.objects.all(),
@@ -206,8 +210,8 @@ class ComponentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
             por el objeto detallado al responder peticiones HTTP.
         """
         representation = super().to_representation(instance)
-        if instance.sector:
-            representation['sector'] = SectorLightSerializer(instance.sector).data
+        if instance.district:
+            representation['district'] = DistrictLightSerializer(instance.district).data
 
         if instance.type:
             representation['type'] = ComponentTypeLightSerializer(instance.type).data
@@ -252,7 +256,6 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
         help_text="Coordenadas en formato UTM (Easting, Northing, SRID)"
     )
     
-    utm_coordinates = serializers.SerializerMethodField(read_only=True)
     geojson = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
@@ -267,7 +270,7 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
             'latitude',
             'longitude',
             'coords',    
-            'utm_coordinates',
+            'utm_coords',
             'geojson',
         ]
         read_only_fields = ['id']
@@ -306,7 +309,7 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
         
         return attrs
 
-    def get_utm_coordinates(self, obj):
+    def get_utm_coords(self, obj):
         """
             Usa el Helper para convertir la geometría WGS84 de PostGIS a UTM Zona 18S para la respuesta HTTP.
         """

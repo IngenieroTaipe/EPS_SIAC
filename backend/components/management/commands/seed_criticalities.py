@@ -22,9 +22,12 @@ class Command(BaseCommand):
         ]
 
         for criticality in criticalities:
+            name = criticality['name'].upper()
             Criticality.objects.update_or_create(
-                name=criticality['name'].upper(),
-                defaults=criticality
+                name=name,
+                defaults={
+                    'description': criticality['description']
+                }
             )
 
         self.stdout.write(

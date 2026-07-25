@@ -36,7 +36,7 @@ class CriticalityViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre    
     """
     permission_classes = [IsAuthenticated]
-    
+    queryset = Criticality.objects.all()
     serializer_class = CriticalitySerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name']
@@ -59,7 +59,7 @@ class ComponentTypeViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre    
     """
     permission_classes = [IsAuthenticated]
-    
+    queryset = ComponentType.objects.all()
     serializer_class = ComponentTypeSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name']
@@ -83,7 +83,7 @@ class OperationalStatusViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Codigo, Nombre    
     """
     permission_classes = [IsAuthenticated]
-    
+    queryset = OperationalStatus.objects.all()
     serializer_class = OperationalStatusSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['code', 'name']
@@ -106,7 +106,7 @@ class PhysicalStatusViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Codigo, Nombre    
     """
     permission_classes = [IsAuthenticated]
-    
+    queryset = PhysicalStatus.objects.all()
     serializer_class = PhysicalStatusSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['code', 'name']
@@ -130,7 +130,7 @@ class ComponentViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Codigo, Sector, Tipo.
     """
     permission_classes = [IsAuthenticated]
-    
+    queryset = Component.objects.all()
     serializer_class = ComponentSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['code', 'sector', 'name', 'type', 'operational_status', 'physical_status']
@@ -158,3 +158,6 @@ class ComponentCoordViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['component', 'type', 'criticality']
     ordering_fields = ['component', 'type']
+
+    def get_queryset(self):
+        return ComponentCoord.objects.select_related('component').all()

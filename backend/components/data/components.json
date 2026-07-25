@@ -1,0 +1,110 @@
+[
+    {
+        "district_ubigeo": "120301",
+        "type_name": "Fuente",
+        "physical_status": null,
+        "operational_status": "001",
+        "code": "0001",
+        "name": "TORO",
+        "specification": "ANTES(CFAL_NOM=RIO TORO)"
+    },
+    {
+        "district_ubigeo": "120301",
+        "type_name": "Fuente",
+        "physical_status": null,
+        "operational_status": "001",
+        "code": "0003",
+        "name": "CHANCHAMAYO",
+        "specification": "GALERIAS FILTRANTES"
+    },
+    {
+        "district_ubigeo": "120301",
+        "type_name": "Captación",
+        "physical_status": null,
+        "operational_status": "001",
+        "code": "0005",
+        "name": "CHANCHAMAYO",
+        "specification": "Abastecimiento Durante todo el Año"
+    },
+    {
+        "district_ubigeo": "120301",
+        "type_name": "Captación",
+        "physical_status": null,
+        "operational_status": "001",
+        "code": "0006",
+        "name": "RIO TORO",
+        "specification": "2022 Abastecimiento durante estiaje"
+    },
+    {
+        "district_ubigeo": "120303",
+        "type_name": "Reservorio",
+        "physical_status": "R",
+        "operational_status": "001",
+        "code": "0002",
+        "name": "LOS ANGELES",
+        "specification": ""
+    },
+    {
+        "district_ubigeo": "190301",
+        "type_name": "Reservorio",
+        "physical_status": "M",
+        "operational_status": "001",
+        "code": "0001",
+        "name": "R1 - OXAPAMPA",
+        "specification": ""
+    },
+    {
+        "district_ubigeo": "120305",
+        "type_name": "Estación de Bombeo y Rebombeo de Agua Potable",
+        "physical_status": "R",
+        "operational_status": "001",
+        "code": "0008",
+        "name": "NUEVA VISTA",
+        "specification": "CI 2024"
+    },
+    {
+        "district_ubigeo": "120301",
+        "type_name": "Estación de Bombeo y Rebombeo de Agua Potable",
+        "physical_status": "R",
+        "operational_status": "001",
+        "code": "0009",
+        "name": "CHANCHAMAYO",
+        "specification": "CI 2024"
+    },
+    {
+        "district_ubigeo": "120303",
+        "type_name": "Planta de Tratamiento de Agua Potable",
+        "physical_status": "R",
+        "operational_status": "001",
+        "code": "0003",
+        "name": "PLANTA DE TRATAMIENTO PKI",
+        "specification": "Cuenta con sedimentador y filtro. Consultar Subtipo de INFRAESTRUCTURA - Puse CONVENCIONAL"
+    },
+    {
+        "district_ubigeo": "120303",
+        "type_name": "Planta de Tratamiento de Agua Potable",
+        "physical_status": "R",
+        "operational_status": "001",
+        "code": "0005",
+        "name": "PLANTA VILLA RICA",
+        "specification": "Cuenta con Pretratamiento (Desarenador),La Planta de Tratamientode Agua V.R. fue inaugurado 12/10/2004"
+    },
+    {
+        "district_ubigeo": "120303",
+        "type_name": "Planta de Tratamiento de Aguas Residuales",
+        "physical_status": null,
+        "operational_status": "001",
+        "code": "0005",
+        "name": "PTAR PICHANAKI 1",
+        "specification": ""
+    },
+    {
+        "district_ubigeo": "120303",
+        "type_name": "Planta de Tratamiento de Aguas Residuales",
+        "physical_status": null,
+        "operational_status": "001",
+        "code": "0012",
+        "name": "PTAR SANGANI",
+        "specification": ""
+    }
+]

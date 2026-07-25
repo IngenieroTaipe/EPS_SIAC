@@ -125,8 +125,8 @@ class Component(AuditCompleteModel):
         `@str`: Devuelve el nombre del componente como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    sector = models.ForeignKey(
-        to='places.Sector', 
+    district = models.ForeignKey(
+        to='places.District', 
         on_delete=models.CASCADE
     )
     type = models.ForeignKey(
@@ -135,24 +135,28 @@ class Component(AuditCompleteModel):
     )
     physical_status = models.ForeignKey(
         to='PhysicalStatus', 
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
     )
     operational_status = models.ForeignKey(
         to='OperationalStatus', 
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
     )
-    code = models.CharField(max_length=4, unique=True, validators=[component_code_validator])
-    name = models.CharField(max_length=50, unique=True)
-    specification = models.TextField()
+    code = models.CharField(max_length=4, validators=[component_code_validator], null=False, blank=False)
+    name = models.CharField(max_length=50, null=False, blank=False)
+    specification = models.TextField(null=True, blank=True)
 
     class Meta():
         db_table = 'components'
         verbose_name = 'Componente'
         verbose_name_plural = 'Componentes'
-        unique_together = ['sector', 'type', 'code']
+        unique_together = ['district', 'type', 'code']
 
     def __str__(self):
-        return f"{self.code} - {self.type.name} - {self.sector.name}"
+        return f"{self.code} - {self.type.name} - {self.district.name}"
         
 class ComponentCoord(AuditCompleteModel):
     '''

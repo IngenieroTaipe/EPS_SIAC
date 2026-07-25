@@ -16,9 +16,10 @@ class Command(BaseCommand):
         )
 
         component_types = [
+            {'name': 'Fuente', 'description': 'Fuente de agua.'},
             {'name': 'Captación', 'description': 'Instalación de captación de agua.'},
             {'name': 'Reservorio', 'description': 'Estructura de almacenamiento de agua.'},
-            {'name': 'Estación de Bombeo', 'description': 'Instalación de bombeo de agua.'},
+            {'name': 'Estación de Bombeo y Rebombeo de Agua Potable', 'description': 'Instalación de bombeo de agua.'},
             {'name': 'Planta de Tratamiento de Agua Potable', 'description': 'Instalación de tratamiento de agua potable.'},
             {'name': 'Planta de Tratamiento de Aguas Residuales', 'description': 'Instalación de tratamiento de aguas residuales.'},
             {'name': 'Unidades de Desinfección', 'description': 'Unidades de desinfección de agua.'},
@@ -28,9 +29,12 @@ class Command(BaseCommand):
         ]
 
         for component_type in component_types:
+            name = component_type['name'].upper()
             ComponentType.objects.update_or_create(
-                name=component_type['name'].upper(),
-                defaults=component_type
+                name=name,
+                defaults={
+                    'description' : component_type['description']
+                }
             )
 
         self.stdout.write(
