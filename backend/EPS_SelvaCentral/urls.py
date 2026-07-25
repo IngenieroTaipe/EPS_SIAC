@@ -23,9 +23,9 @@ urlpatterns = [
     path('api/v1/auth/', include('authentication.urls')),
     
     path('api/v1/places/', include('places.urls')),
+    path('api/v1/components/', include('components.urls')),
     # path('api/v1/organization/', include('organization.urls')),
     # path('api/v1/core_predictive/', include('core_predictive.urls')),
-    # path('api/v1/components/', include('components.urls')),
     # path('api/v1/alerts/', include('alerts_management.urls')),
 
     # ====== Documentación de la API (OpenAPI) ======

@@ -12,12 +12,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 15s
 
   # =========== API (DJANGO) =========== 
   api:
     container_name: eps_siac_api
     networks:
       - eps_siac_network
+    restart: on-failure
     depends_on:
       db_postgis:
         condition: service_healthy

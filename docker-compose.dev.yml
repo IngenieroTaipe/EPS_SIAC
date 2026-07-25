@@ -22,9 +22,6 @@ services:
       - ./backend/:/app
     env_file:
       - ./backend/.env.dev
-    depends_on:
-      db_postgis:
-        condition: service_healthy
   
   # =========== FRONTEND (REACT) =========== 
   frontend:

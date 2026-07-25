@@ -17,6 +17,7 @@ class DepartmentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'ubigeo': DataFormatter.zfill(2),
         'name': DataFormatter.upper_case
     }
+    ubigeo = serializers.CharField(max_length=2)
     geojson = serializers.SerializerMethodField()
 
     class Meta:
@@ -52,6 +53,7 @@ class ProvinceSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'ubigeo': DataFormatter.zfill(4),
         'name': DataFormatter.upper_case
     }
+    ubigeo = serializers.CharField(max_length=4)
     department = DepartmentLightSerializer(read_only=True)
     geojson = serializers.SerializerMethodField()
 
@@ -89,6 +91,7 @@ class DistrictSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'ubigeo': DataFormatter.zfill(6),
         'name': DataFormatter.upper_case
     }
+    ubigeo = serializers.CharField(max_length=6)
     department = DepartmentLightSerializer(source="province.department", read_only=True)
     province = ProvinceLightSerializer(read_only=True)
     geojson = serializers.SerializerMethodField()
@@ -138,6 +141,7 @@ class SectorSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'code',
             'department',
             'province',
+            'district',
             'name',
             'status',
             'observations'
