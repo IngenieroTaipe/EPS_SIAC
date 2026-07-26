@@ -95,6 +95,11 @@ export const topBarConfig: TopBarPageConfig[] = [
     widgets: [{ kind: 'loginButton' }],
   },
   {
+    route: '/alertas/gestion',
+    title: 'Gestión de Alertas',
+    widgets: [{ kind: 'updatedAt' }],
+  },
+  {
     route: '/alertas',
     title: 'Mapa de Alertas Climáticas',
     widgets: [{ kind: 'updatedAt' }],
@@ -113,23 +118,27 @@ export const topBarConfig: TopBarPageConfig[] = [
     widgets: [{ kind: 'updatedAt' }],
   },
   {
+    route: '/componentes/gestion',
+    title: 'Gestión de Componentes',
+    widgets: [{ kind: 'updatedAt' }, { kind: 'loadDataButton' }],
+  },
+  {
+    route: '/componentes/:id/editar',
+    title: 'Editor de Componente',
+    subtitleWeight: 'semibold',
+  },
+  {
+    route: '/componentes/nuevo',
+    title: 'Nuevo Componente',
+    subtitleWeight: 'semibold',
+  },
+  {
     route: '/componentes',
     title: 'Mapa de Componentes',
     widgets: [
       { kind: 'stats', components: '128 Componentes', critical: '6 en Estado Crítico' },
       { kind: 'updatedAt' },
-      { kind: 'loadDataButton' },
     ],
-  },
-  {
-    route: '/componentes/gestion',
-    title: 'Gestión de Componentes',
-    widgets: [{ kind: 'updatedAt' }],
-  },
-  {
-    route: '/alertas/gestion',
-    title: 'Gestión de Alertas',
-    widgets: [{ kind: 'updatedAt' }],
   },
 ];
 
@@ -151,4 +160,5 @@ export const fallbackConfig: TopBarPageConfig = {
 export const HIDE_UNIDAD_OPERATIVA_ROUTES: string[] = [
   '/componentes/gestion',
   '/alertas/gestion',
+  '/componentes/nuevo',
 ];

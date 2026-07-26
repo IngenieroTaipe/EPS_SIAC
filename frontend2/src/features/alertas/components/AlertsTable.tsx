@@ -9,27 +9,25 @@ import { AlertaRow } from './AlertaRow';
  *   | Umbral | Estado o fase | (acciones)
  *
  * Comportamiento:
- *   - Selección simple: solo UNA alerta seleccionada a la vez. Props
- *     `selectedId` y `onToggleSelect`. Clic en otra → cambia la selección;
- *     clic en la misma → la deselecciona (toggle).
- *   - Lista de alertas: si se ordena/filtra fuera, este componente no lo
- *     hace. La lógica vive en el padre (MapAlertsPanel o HistoricoAlertasPage).
+ *   - Selección simple: solo UNA alerta seleccionada a la vez.
+ *   - `sortSelectedFirst` (default true): la fila seleccionada se mueve
+ *     al inicio de la tabla (igual que ComponentsTable).
+ *   - `highlightSelected`: controla si la fila seleccionada se pinta
+ *     de amarillo (útil en el panel del mapa; en el histórico se deja
+ *     en false porque no hay sincronización con el mapa).
  *
  * Estilos:
- *   - Bordes externos `border-input-stroke-main`, radius `rounded-[10px]`.
- *   - Header: `bg-primary-extra-light` texto blanco semibold.
- *   - Filas: borde inferior `border-input-stroke-main`.
- *   - Fila seleccionada: `bg-background-selected` (amarillo `#fff7c7`).
- *
- * Variantes: el header puede recibir `selectionMode=false` para mostrar
- * el header "histórico" con columnas extra. Por ahora solo se usa una.
+ *   - Header: `bg-primary-extra-light` + texto BLANCO semibold `text-sm`.
+ *   - Filas: texto `text-sm` (no text-base) para que quepan las acciones
+ *     a la derecha sin recortarse en zoom 100%.
  */
 interface AlertsTableProps {
   alertas: AlertaHistorica[];
   selectedId: string | null;
   onToggleSelect: (id: string) => void;
-  /** Si true (default), el row usa fondo amarillo en selected. Si false, no
-   *  aplica (útil en histórico donde la selección no resalta en el mapa). */
+  /** Si true (default), el row seleccionado se mueve al inicio. */
+  sortSelectedFirst?: boolean;
+  /** Si true (default), el row usa fondo amarillo en selected. */
   highlightSelected?: boolean;
 }
 
@@ -46,34 +44,41 @@ export function AlertsTable({
   alertas,
   selectedId,
   onToggleSelect,
+  sortSelectedFirst = true,
   highlightSelected = true,
 }: AlertsTableProps) {
+  // Ordenar: si hay seleccionado y sortSelectedFirst, ese va primero.
+  const ordered = sortSelectedFirst && selectedId
+    ? [
+        ...alertas.filter((a) => a.id === selectedId),
+        ...alertas.filter((a) => a.id !== selectedId),
+      ]
+    : alertas;
+
   return (
     <div className="self-stretch rounded-[10px] border border-input-stroke-main flex flex-col justify-start items-center gap-0.5 overflow-hidden">
-      {/* Header */}
-      <div className="self-stretch h-14 bg-primary-extra-light rounded-tl-[10px] rounded-tr-[10px] inline-flex justify-between items-center">
+      {/* Header — texto blanco, text-sm */}
+      <div className="self-stretch h-12 bg-primary-extra-light rounded-tl-[10px] rounded-tr-[10px] inline-flex justify-between items-center">
         {HEADER_COLS.map((col) => (
           <div
             key={col.label}
-            className={`flex-1 h-14 ${col.minWidth} px-3.5 py-2.5 bg-primary-extra-light flex justify-center items-center gap-2.5`}
+            className={`flex-1 h-12 ${col.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}
           >
-            <span className="text-text-invert-primary text-base font-semibold font-sans">
+            <span className="text-text-invert-primary text-sm font-semibold font-sans">
               {col.label}
             </span>
           </div>
         ))}
-        {/* Columna acciones (label vacío o nombre corto) */}
+        {/* Columna acciones vacía */}
         <div className="flex-1 min-w-24" />
       </div>
 
       {/* Filas */}
-      {alertas.map((alerta) => (
+      {ordered.map((alerta) => (
         <AlertaRow
           key={alerta.id}
           alerta={alerta}
-          selected={
-            highlightSelected && selectedId === alerta.id
-          }
+          selected={highlightSelected && selectedId === alerta.id}
           onToggleSelect={onToggleSelect}
         />
       ))}

@@ -1,26 +1,58 @@
+import { useState } from 'react';
+import { BaseMap } from '@/features/mapa/components/BaseMap';
+import { LayerControl, type LayerId } from '@/features/mapa/components/LayerControl';
+import { MapLegend } from '@/features/mapa/components/MapLegend';
+import { PrecipitationLayer } from '@/features/mapa/components/PrecipitationLayer';
+import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
+import { ClusterAlertLayer } from '@/features/mapa/components/ClusterAlertLayer';
+import { mockAlertas } from '@/features/mapa/data/mockAlertas';
+
 /**
- * HomePage — la pestaña principal pública antes de iniciar sesión.
+ * HomePage — pestaña principal pública (antes de iniciar sesión).
  *
- * Solo muestra TopBar (configurado para la ruta `/`) con
- * Unidad Operativa + botón "Iniciar Sesión". El contenido del main
- * es una bienvenida simple; se enriquecerá cuando se maquete el resto.
+ * Muestra la misma vista geoespacial que el "Mapa de Alertas Climáticas"
+ * (mapa Leaflet + control de capas + leyenda) pero SIN el panel tabular
+ * inferior. Solo la vista de capas y la leyenda, tal como se ve cuando
+ * uno entra sin autenticarse.
  *
- * El layout lo provee `GuestLayout`.
+ * El layout lo provee `GuestLayout` (TopBar con botón "Iniciar Sesión").
  */
 export function HomePage() {
+  const [selected, setSelected] = useState<Set<LayerId>>(() => new Set(['alertas']));
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+
+  function handleToggleSelect(id: string) {
+    setSelectedAlertId((prev) => (prev === id ? null : id));
+  }
+
   return (
-    <section className="p-8 sm:p-12 text-text-primary">
-      <h1 className="text-3xl font-bold text-primary-main font-sans">
-        Sistema de Alertas Climáticas
-      </h1>
-      <p className="mt-4 text-text-secondary max-w-2xl">
-        EPS Selva Central — visualización de alertas, monitoreo de
-        precipitaciones y gestión de componentes para la empresa de
-        saneamiento y distribución de agua potable.
-      </p>
-      <p className="mt-6 text-sm text-icon-main">
-        Para continuar, pulsa “Iniciar Sesión” en el encabezado superior.
-      </p>
-    </section>
+    <div className="relative h-full w-full pt-1 pr-1 pl-2 z-0">
+      <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
+        <BaseMap>
+          {selected.has('precipitaciones') && <PrecipitationLayer />}
+          {selected.has('componentes') && <ComponentLayer />}
+          {selected.has('alertas') && (
+            <ClusterAlertLayer
+              alertas={mockAlertas.alertas}
+              selectedAlertId={selectedAlertId}
+              onAlertaClick={handleToggleSelect}
+            />
+          )}
+        </BaseMap>
+
+        <LayerControl
+          selected={selected}
+          onToggle={(id) =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
+        />
+        <MapLegend initialVariant="alertas" />
+      </div>
+    </div>
   );
 }

@@ -80,5 +80,5 @@ export interface AlertasResponse {
  * componentes desaparecen y las alertas se transforman al mismo tiempo.
  * Decision: 12 (barrio aprox.). Ajusta aquí para ambas.
  */
-export const ALERT_ZOOM_DETAIL = 10;
+export const ALERT_ZOOM_DETAIL = 11;
 export const COMPONENT_ZOOM_MIN = 10;

@@ -4,8 +4,9 @@ import { LayerControl, type LayerId } from '@/features/mapa/components/LayerCont
 import { MapLegend } from '@/features/mapa/components/MapLegend';
 import { PrecipitationLayer } from '@/features/mapa/components/PrecipitationLayer';
 import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
-import { AlertLayer } from '@/features/mapa/components/AlertLayer';
+import { ClusterAlertLayer } from '@/features/mapa/components/ClusterAlertLayer';
 import { MapAlertsPanel } from '@/features/alertas/components/MapAlertsPanel';
+import { mockAlertas } from '@/features/mapa/data/mockAlertas';
 import { mockAlertasHistoricas } from '@/features/alertas/data/mockAlertasHistoricas';
 
 /**
@@ -26,8 +27,6 @@ export function MapaAlertasPage() {
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
   // Para el panel del mapa mostramos las primeras 10 alertas del histórico.
-  // En el futuro, el backend devolverá solo las del viewport actual via query:
-  //   GET /api/alerts/?bounds=N,S,E,W&limit=10
   const panelAlertas = mockAlertasHistoricas.slice(0, 10);
 
   function handleToggleSelect(id: string) {
@@ -41,7 +40,11 @@ export function MapaAlertasPage() {
         {selected.has('precipitaciones') && <PrecipitationLayer />}
         {selected.has('componentes')     && <ComponentLayer />}
         {selected.has('alertas') && (
-          <AlertLayer selectedAlertId={selectedAlertId} />
+          <ClusterAlertLayer
+            alertas={mockAlertas.alertas}
+            selectedAlertId={selectedAlertId}
+            onAlertaClick={handleToggleSelect}
+          />
         )}
       </BaseMap>
 

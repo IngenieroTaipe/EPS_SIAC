@@ -73,10 +73,10 @@ export function AlertaRow({ alerta, selected, onToggleSelect }: AlertaRowProps) 
       {/* Umbral */}
       <Cell minWidth="min-w-28">{UMBRAL_LABEL[alerta.umbral]}</Cell>
       {/* Estado badge */}
-      <div className="flex-1 min-w-36 px-2.5 inline-flex justify-center items-center">
+      <div className="flex-1 min-w-36 px-2 inline-flex justify-center items-center">
         <div
           className={cn(
-            'px-4 py-[5px] rounded-lg text-sm font-normal font-sans',
+            'px-3 py-1 rounded-lg text-xs font-normal font-sans',
             STATUS_BADGE[alerta.estado],
           )}
         >
@@ -84,12 +84,12 @@ export function AlertaRow({ alerta, selected, onToggleSelect }: AlertaRowProps) 
         </div>
       </div>
       {/* Acciones */}
-      <div className="flex-1 min-w-24 py-2.5 rounded-lg inline-flex justify-center items-center gap-2.5">
+      <div className="flex-1 min-w-24 py-2 inline-flex justify-center items-center gap-2">
         <IconButton
           label="Ver detalle"
           onClick={() => navigate('/alertas/gestion')}
         >
-          <ViewIcon className="size-6 text-text-primary" aria-hidden="true" />
+          <ViewIcon className="size-5 text-text-primary" aria-hidden="true" />
         </IconButton>
         <IconButton
           label="Editar"
@@ -99,7 +99,7 @@ export function AlertaRow({ alerta, selected, onToggleSelect }: AlertaRowProps) 
         >
           <EditIcon
             className={cn(
-              'size-6',
+              'size-5',
               isReadOnly || isAtendido
                 ? 'text-text-status-placeholder'
                 : 'text-text-primary',
@@ -121,8 +121,8 @@ function Cell({
   minWidth: string;
 }) {
   return (
-    <div className={cn('flex-1 h-12 px-3.5 py-2.5 flex justify-center items-center', minWidth)}>
-      <span className="text-text-primary text-base font-normal font-sans">{children}</span>
+    <div className={cn('flex-1 h-10 px-3 py-2 flex justify-center items-center', minWidth)}>
+      <span className="text-text-primary text-sm font-normal font-sans">{children}</span>
     </div>
   );
 }
@@ -152,7 +152,7 @@ function IconButton({
         if (!disabled) onClick();
       }}
       className={cn(
-        'h-8 px-[5px] py-2.5 bg-background-main rounded-lg outline outline-[0.5px] outline-input-stroke-main',
+        'h-7 px-1 py-1 bg-background-main rounded-lg outline outline-[0.5px] outline-input-stroke-main',
         'inline-flex items-center justify-center transition-colors',
         'hover:bg-primary-states-hover-main',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',

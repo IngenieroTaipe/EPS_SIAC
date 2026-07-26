@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
 
 // Iconos de Figma importados como componentes React (vía vite-plugin-svgr).
@@ -149,7 +149,18 @@ export function StatsWidget({
 export function LoadDataButton() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   useClickOutside(containerRef, () => setOpen(false), open);
+
+  const handleSelect = (label: string) => {
+    setOpen(false);
+    if (label === 'Manual') {
+      navigate('/componentes/nuevo');
+      return;
+    }
+    // TODO: disparar acción de carga según el formato elegido (Excel / Csv).
+    console.log('Cargar Datos →', label);
+  };
 
   return (
     <div
@@ -190,11 +201,7 @@ export function LoadDataButton() {
               label={option}
               bgClass="bg-primary-dark"
               outlineClass="outline-primary-light"
-              onClick={(label) => {
-                // TODO: disparar acción de carga según el formato elegido.
-                console.log('Cargar Datos →', label);
-                setOpen(false);
-              }}
+              onClick={handleSelect}
             />
           ))}
         </div>

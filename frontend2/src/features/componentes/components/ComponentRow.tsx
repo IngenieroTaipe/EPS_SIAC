@@ -100,7 +100,7 @@ export function ComponentRow({
 
       {/* Acciones */}
       <div className={cn(
-        'py-2.5 rounded-lg inline-flex justify-center items-center gap-2.5',
+        'py-2 inline-flex justify-center items-center gap-2',
         fixedWidths ? 'w-24' : 'flex-1 min-w-24',
       )}>
         <IconButton
@@ -109,7 +109,7 @@ export function ComponentRow({
             navigate(`/componentes/gestion?id=${encodeURIComponent(componente.id)}`)
           }
         >
-          <ViewIcon className="size-6 text-text-primary" aria-hidden="true" />
+          <ViewIcon className="size-5 text-text-primary" aria-hidden="true" />
         </IconButton>
         <IconButton
           label="Editar"
@@ -117,7 +117,7 @@ export function ComponentRow({
             navigate(`/componentes/${encodeURIComponent(componente.id)}/editar`)
           }
         >
-          <EditIcon className="size-6 text-text-primary" aria-hidden="true" />
+          <EditIcon className="size-5 text-text-primary" aria-hidden="true" />
         </IconButton>
       </div>
     </div>
@@ -136,12 +136,12 @@ function Cell({
   return (
     <div
       className={cn(
-        'h-12 px-3.5 py-2.5 flex justify-center items-center',
+        'h-10 px-3 py-2 flex justify-center items-center',
         width ?? 'flex-1',
         minWidth,
       )}
     >
-      <span className="text-text-primary text-base font-normal font-sans">
+      <span className="text-text-primary text-sm font-normal font-sans">
         {children}
       </span>
     </div>
@@ -166,7 +166,7 @@ function IconButton({
         e.stopPropagation();
         onClick();
       }}
-      className="h-8 px-[5px] py-2.5 bg-background-main rounded-lg outline outline-[0.5px] outline-input-stroke-main
+      className="h-7 px-1 py-1 bg-background-main rounded-lg outline outline-[0.5px] outline-input-stroke-main
                  inline-flex items-center justify-center transition-colors
                  hover:bg-primary-states-hover-main
                  focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2"
