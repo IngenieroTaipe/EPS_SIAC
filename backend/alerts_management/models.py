@@ -1,6 +1,8 @@
 from django.db import models
 from core_shared.models import AuditCreateModel, AuditCompleteModel
 
+from core_shared.validators import alpha_name_validator
+from alerts_management.validators import code_alert_validator
 # Create your models here.
 
 class AlertStatus(AuditCompleteModel):
@@ -8,7 +10,7 @@ class AlertStatus(AuditCompleteModel):
         Modelo para representar los estados de las alertas.
     '''
     # Django crea internamente el campo 'id' de forma transparente
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
     description = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -24,7 +26,7 @@ class AlertPhase(AuditCompleteModel):
         Modelo para representar las fases de las alertas.
     '''
     # Django crea internamente el campo 'id' de forma transparente
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
     description = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -75,7 +77,7 @@ class Alert(AuditCreateModel):
         on_delete=models.PROTECT,
         related_name='alerts_branches'
     )
-    code = models.CharField(max_length=9, unique=True)
+    code = models.CharField(max_length=9, unique=True, validators=[code_alert_validator])
 
     class Meta:
         db_table = 'alerts'
@@ -85,7 +87,7 @@ class Alert(AuditCreateModel):
     def __str__(self):
         return self.code
 
-class AlertHistoric(AuditCreateModel):
+class AlertHistory(AuditCreateModel):
     '''
         Modelo para representar el histórico de alertas.
     '''
@@ -121,25 +123,25 @@ class AlertNotification(AuditCreateModel):
         Modelo para representar las notificaciones de alertas.
     '''
     # Django crea internamente el campo 'id' de forma transparente
-    alert_historic = models.ForeignKey(
-        'AlertHistoric', 
+    alert_history = models.ForeignKey(
+        'AlertHistory', 
         on_delete=models.PROTECT,
-        related_name='alerts_notifications_alerts_historic'
+        related_name='alerts_notifications_alerts_history'
     )
 
     class Meta:
         db_table = 'alert_notifications'
         verbose_name = 'Notificación de Alerta'
-        verbose_name_plural = 'Notificaciones de Alertas'
+        verbose_name_plural = 'Notificaciones de Alerta'
 
     def __str__(self):
-        return f"{self.alert_notification_id} - {self.alert_historic.alert.code}"
+        return f"{self.alert_notification_id} - {self.alert_history.alert.code}"
 
 class AlertResult(AuditCompleteModel):
     '''
         Modelo para representar los resultados de las alertas.
     '''
-    alert_id = models.OneToOneField(
+    alert = models.OneToOneField(
         'Alert',
         on_delete=models.PROTECT,
         primary_key=True,
@@ -155,4 +157,4 @@ class AlertResult(AuditCompleteModel):
         verbose_name_plural = 'Resultados de Alertas'
 
     def __str__(self):
-        return f"{self.alert_id.code} - {'Damage' if self.has_damage else 'No Damage'}"
+        return f"{self.alert.code} - {'Damage' if self.has_damage else 'No Damage'}"
