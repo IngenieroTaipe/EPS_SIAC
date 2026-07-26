@@ -9,7 +9,8 @@ from core_predictive.models import (
     UnitsMeasurement,
     Variable,
     NaturalPhenomenasVariables,
-    ThresholdsNaturalPhenomenas
+    Threshold,
+    ThresholdsNaturalPhenomena
 )
 from core_predictive.serializers import (
     EMCWFRequestSerializer,
@@ -18,16 +19,13 @@ from core_predictive.serializers import (
     VariableSerializer,
     VariableTypeSerializer,
     UnitsMeasurementSerializer,
-    ThresholdNaturalPhenomenaSerializer
+    ThresholdNaturalPhenomenaSerializer,
+    ThresholdSerializer
 )
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / EMCWF'], summary="Listar Solicitudes EMCWF"),
     retrieve=extend_schema(tags=['Predictive / EMCWF'], summary="Obtener detalle de una Solicitud EMCWF"),
-    create=extend_schema(tags=['Predictive / EMCWF'], summary="Registrar una nueva Solicitud EMCWF"),
-    update=extend_schema(tags=['Predictive / EMCWF'], summary="Actualizar una Solicitud EMCWF"),
-    partial_update=extend_schema(tags=['Predictive / EMCWF'], summary="Actualizar parcialmente una Solicitud EMCWF"),
-    destroy=extend_schema(tags=['Predictive / EMCWF'], summary="Eliminar una Solicitud EMCWF")
 )
 class EMCWFRequestViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -175,35 +173,27 @@ class VariableViewSet(viewsets.ModelViewSet):
         - Permite la búsqueda en base a campos como: Nombre, Variable Type (name).
         - Permite el ordenamiento en base a campos como: Nombre, Variable Type (name)    
     """
-    permission_classes = [IsAuthenticated]
-    serializer_class = VariableSerializer
-    filter_backends = [
-        filters.SearchFilter, 
-        filters.OrderingFilter,
-        DjangoFilterBackend,
-    ]
-    filterset_fields = [
-        'name',
-        'variable_type',
-        'variable_type__name',
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
+    filtered_fields = [
+        'variable_type',
     ]
+
     search_fields = [
-        'name',
+        'variale_type__name',
+
+        'name'
     ]
+
     ordering_fields = [
-        'name',
+        'id',
+        'name'
     ]
 
     def get_queryset(self):
-        """
-        Obtiene el conjunto de datos filtrados por tipo de variable.
-        - Filtra por tipo de variable si se proporciona el parámetro 'variable_type'.
-        """
-        queryset = self.queryset
-        if self.request.query_params.get('variable_type'):
-            queryset = queryset.filter(variable_type=self.request.query_params.get('variable_type'))
-        return queryset
+        return Variable.objects.select_related(
+            'variable_type'
+        ).filter()
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / Natural Phenomena Variables'], summary="Listar Variables de Fenómenos Naturales"),
@@ -239,12 +229,41 @@ class NaturalPhenomenasVariablesViewSet(viewsets.ModelViewSet):
     ]
 
     def get_queryset(self):
-        queryset = self.queryset
-        if self.request.query_params.get('natural_phenomena'):
-            queryset = queryset.filter(natural_phenomena=self.request.query_params.get('natural_phenomena'))
-        if self.request.query_params.get('variable'):
-            queryset = queryset.filter(variable=self.request.query_params.get('variable'))
-        return queryset
+        return NaturalPhenomenasVariables.objects.select_related(
+            'natural_phenomena', 'variable'
+        ).filter()
+
+@extend_schema_view(
+    list=extend_schema(tags=['Predictive / Thresholds'], summary="Listar Umbrales"),
+    retrieve=extend_schema(tags=['Predictive / Thresholds'], summary="Obtener detalle de un Umbral"),
+    create=extend_schema(tags=['Predictive / Thresholds'], summary="Registrar un nuevo Umbral"),
+    update=extend_schema(tags=['Predictive / Thresholds'], summary="Actualizar un Umbral"),
+    partial_update=extend_schema(tags=['Predictive / Thresholds'], summary="Actualizar parcialmente un Umbral"),
+    destroy=extend_schema(tags=['Predictive / Thresholds'], summary="Eliminar un Umbral")
+)
+class ThresholdViewSet(viewsets.ModelViewSet):
+    """
+    Controlador de Lectura/Escritura para los Umbrales.
+    - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET, CREATE, UPDATE, PATCH, DELETE). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
+    - Los registros solo podrán ser eliminados si no tienen registros relacionados en otros modelos.
+    - Permite la búsqueda en base a campos como: Nombre.
+    - Permite el ordenamiento en base a campos como: Nombre    
+    """
+
+    serializer_class = ThresholdSerializer
+    filter_backends = [
+        filters.SearchFilter, 
+        DjangoFilterBackend,
+    ]
+    filterset_fields = [
+        'name',
+    ]
+    search_fields = [
+        'name',
+    ]
+
+    def get_queryset(self):
+        return Threshold.objects.all()
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / Thresholds of Natural Phenomena'], summary="Listar Umbrales de Fenómenos Naturales"),
@@ -254,7 +273,7 @@ class NaturalPhenomenasVariablesViewSet(viewsets.ModelViewSet):
     partial_update=extend_schema(tags=['Predictive / Thresholds of Natural Phenomena'], summary="Actualizar parcialmente un Umbral de Fenómeno Natural"),
     destroy=extend_schema(tags=['Predictive / Thresholds of Natural Phenomena'], summary="Eliminar un Umbral de Fenómeno Natural")
 )
-class ThresholdsNaturalPhenomenasViewSet(viewsets.ModelViewSet):
+class ThresholdsNaturalPhenomenaViewSet(viewsets.ModelViewSet):
     """
         Controlador de Lectura/Escritura para los Umbrales de Fenómenos Naturales.
         - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET, CREATE, UPDATE, PATCH, DELETE). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
@@ -292,4 +311,6 @@ class ThresholdsNaturalPhenomenasViewSet(viewsets.ModelViewSet):
     ]
 
     def get_queryset(self):
-        return ThresholdsNaturalPhenomenas.objects.select_related('natural_phenomena', 'variable', 'district').all()
+        return ThresholdsNaturalPhenomena.objects.select_related(
+            'natural_phenomena', 'variable', 'district'
+        ).filter()

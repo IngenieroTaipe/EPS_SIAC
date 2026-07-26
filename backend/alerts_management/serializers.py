@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 from core_shared.mixins import PrepareDataMixin
 from core_shared.formatters import DataFormatter
 

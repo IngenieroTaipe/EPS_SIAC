@@ -1,7 +1,7 @@
 # ==========================================
 # Base
 # ==========================================
-FROM python:3.15.0b3-bookworm as base
+FROM python:3.13-slim as base
 
 # Evita que Python escriba archivos .pyc en el disco
 ENV PYTHONDONTWRITEBYTECODE=1

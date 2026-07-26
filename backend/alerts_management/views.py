@@ -167,9 +167,6 @@ class AlertViewSet(viewsets.ModelViewSet):
     list=extend_schema(tags=['Alerts / AlertHistory'], summary="Listar Historial de Estados y Fases de las Alertas"),
     retrieve=extend_schema(tags=['Alerts / AlertHistory'], summary="Obtener detalle de un Historial de Estados y Fases de Alerta"),
     create=extend_schema(tags=['Alerts / AlertHistory'], summary="Registrar un nuevo Historial de Estados y Fases de Alerta"),
-    update=extend_schema(tags=['Alerts / AlertHistory'], summary="Actualizar un Historial de Estados y Fases de Alerta"),
-    partial_update=extend_schema(tags=['Alerts / AlertHistory'], summary="Actualizar parcialmente un Historial de Estados y Fases de Alerta"),
-    destroy=extend_schema(tags=['Alerts / AlertHistory'], summary="Eliminar un Historial de Estados y Fases de Alerta")
 )
 class AlertHistoryViewSet(viewsets.ModelViewSet):
     """

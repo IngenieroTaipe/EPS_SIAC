@@ -1,3 +1,4 @@
+from rest_framework.utils import representation
 from places.serializers import DistrictLightSerializer
 from places.models import District
 from rest_framework import serializers
@@ -9,8 +10,8 @@ from core_predictive.models import (
     UnitsMeasurement,
     Variable,
     NaturalPhenomenasVariables,
-    ThresholdsNaturalPhenomenas,
-
+    ThresholdsNaturalPhenomena,
+    Threshold,
 )
 from core_shared.mixins import PrepareDataMixin
 from core_shared.formatters import DataFormatter
@@ -306,6 +307,40 @@ class NaturalPhenomenasVariablesLightSerializer(PrepareDataMixin, serializers.Mo
             representation['natural_phenomena'] = NaturalPhenomenaLightSerializer(instance.natural_phenomenon).data
         return representation
 
+
+# ==============================================================================
+# SERIALIZADORES DE UMBRALES
+# ==============================================================================
+class ThresholdSerializer(PrepareDataMixin, serializers.ModelSerializer):
+
+    prepare_fields = {
+        'name': DataFormatter.upper_case,
+        'description': DataFormatter.trim_string,
+    }
+
+    class Meta:
+        model = Threshold
+        fields = [
+            'id',
+            'name',
+            'description',
+        ]
+        read_only_fields = ['id']
+
+class ThresholdLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
+    
+    prepare_fields = {
+        'name': DataFormatter.upper_case,
+    }
+
+    class Meta:
+        model = Threshold
+        fields = [
+            'id',
+            'name',
+        ]
+        read_only_fields = ['id']
+
 # ==============================================================================
 # SERIALIZADORES DE UMBRALES DE FENÓMENOS NATURALES
 # ==============================================================================
@@ -326,15 +361,21 @@ class ThresholdNaturalPhenomenaSerializer(PrepareDataMixin, serializers.ModelSer
         required=True
     )
 
+    threshold = serializers.PrimaryKeyRelatedField(
+        queryset=Threshold.objects.all(),
+        required=True
+    )
+
     class Meta:
-        model = ThresholdsNaturalPhenomenas
+        model = ThresholdsNaturalPhenomena
         fields = [
             'id',
             'natural_phenomena',
             'variable',
             'district',
+            'threshold',
             'min_value',
-            'max_value',
+            'max_value'
         ]
         read_only_fields = ['id']
 
@@ -342,6 +383,8 @@ class ThresholdNaturalPhenomenaSerializer(PrepareDataMixin, serializers.ModelSer
         if obj['min_value'] > obj['max_value']:
             raise serializers.ValidationError("El valor mínimo debe ser menor al valor máximo.")
 
+        if obj.get('min_value') is None and obj.get('max_value') is None:
+            raise serializers.ValidationError("Debe indicar un valor mínimo o máximo.")
         return obj
 
     def to_representation(self, instance):
@@ -352,4 +395,6 @@ class ThresholdNaturalPhenomenaSerializer(PrepareDataMixin, serializers.ModelSer
             representation['variable'] = VariableLightSerializer(instance.variable).data
         if instance.district:
             representation['district'] = DistrictLightSerializer(instance.district).data
+        if instance.threshold:
+            representation['threshold'] = ThresholdLightSerializer(instance.threshold).data
         return representation

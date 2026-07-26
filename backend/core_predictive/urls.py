@@ -7,7 +7,7 @@ from core_predictive.views import (
     UnitsMeasurementViewSet,
     VariableViewSet,
     NaturalPhenomenasVariablesViewSet,
-    ThresholdsNaturalPhenomenasViewSet
+    ThresholdsNaturalPhenomenaViewSet
 )
 
 router = routers.DefaultRouter()
@@ -18,7 +18,7 @@ router.register(r'variable-types', VariableTypeViewSet, basename='variable-type'
 router.register(r'units-measurements', UnitsMeasurementViewSet, basename='units-measurement')
 router.register(r'variables', VariableViewSet, basename='variable')
 router.register(r'natural-phenomenas-variables', NaturalPhenomenasVariablesViewSet, basename='natural-phenomenas-variables')
-router.register(r'thresholds-natural-phenomenas', ThresholdsNaturalPhenomenasViewSet, basename='thresholds-natural-phenomenas')
+router.register(r'thresholds-natural-phenomenas', ThresholdsNaturalPhenomenaViewSet, basename='thresholds-natural-phenomenas')
 
 urlpatterns = [
     path('', include(router.urls))

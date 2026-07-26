@@ -13,21 +13,33 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 from datetime import timedelta
+import environ
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env(
+    DEBUG=(bool, False)
+)
+
+ENVIRONMENT = os.getenv('DJANGO_ENV', 'dev')
+env_file = BASE_DIR / f".env.{ENVIRONMENT}"
+
+if env_file.exists():
+    environ.Env.read_env(str(env_file))
+else:
+    environ.Env.read_env(str(BASE_DIR / ".env"))
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-lwhop8$whj8y73n391emc5#ab4a5j#sz(fxc2^uij^pjwbjxi6'
+SECRET_KEY = env("SECRET_KEY", default="default-secret-key-change-me")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env("DEBUG", default=False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env("ALLOWED_HOSTS", default=["*", "localhost"])
 
 # Application definition
 
@@ -38,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 'django.contrib.gis',
 
     # Añadimos el framework backend
     'rest_framework',
@@ -208,5 +221,4 @@ REST_AUTH = {
 }
 
 # Configuration for consumption of the ECMWF API
-ECMWF_URL = os.environ.get('ECMWF_URL')
-ECMWF_KEY = os.environ.get('ECMWF_KEY')
+ECMWF_STORAGE_DIR = env('ECMWF_STORAGE_DIR', default='/app/storage')

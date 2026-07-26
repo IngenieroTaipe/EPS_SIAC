@@ -17,6 +17,7 @@ python manage.py seed_criticalities
 python manage.py seed_operational_statuses
 python manage.py seed_physical_statuses
 python manage.py seed_components
+python manage.py seed_core_predictive
 
 echo "=== Inicialización completada. Arrancando servidor... ==="
 exec "$@"

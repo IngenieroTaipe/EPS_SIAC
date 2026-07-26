@@ -30,6 +30,7 @@ class EMCWFRequest(AuditCompleteModel):
     file_path = models.CharField(max_length=200)
     file_size_mb = models.FloatField()
     download_time_seconds = models.FloatField()
+    geojson_path = models.CharField(max_length=200)
 
     class Meta():
         db_table = 'emcwf_requests'
@@ -189,7 +190,32 @@ class NaturalPhenomenasVariables(AuditCompleteModel):
     def __str__(self):
         return f"{self.natural_phenomena.name} - {self.variable.name}"
 
-class ThresholdsNaturalPhenomenas(AuditCompleteModel):
+class Threshold(AuditCompleteModel):
+    '''
+        Modelo que representa un umbral. Contiene un identificador único, un nombre y una descripción.
+
+        `@extends AuditCompleteModel`: Hereda de AuditCompleteModel para incluir campos de fecha de creación, actualización y eliminación suave.
+
+        `@db_table`: Define el nombre de la tabla en la base de datos como 'thresholds'.
+
+        `@verbose_name`: Define el nombre legible para el modelo como 'Umbral'.
+        
+        `@verbose_name_plural`: Define el nombre legible en plural para el modelo como 'Umbrales'.
+        
+        `@str`: Devuelve el nombre del umbral como representación en cadena del objeto.
+    '''
+    name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
+    description = models.TextField(null=True, blank=True, validators=[alpha_name_validator])
+
+    class Meta():
+        db_table = 'thresholds'
+        verbose_name = 'Umbral'
+        verbose_name_plural = 'Umbrales'
+
+    def __str__(self):
+        return self.name
+
+class ThresholdsNaturalPhenomena(AuditCompleteModel):
     '''
         Modelo que representa la relación entre un umbral y un fenómeno natural. Contiene un identificador único, un nombre y una descripción.
 
@@ -217,14 +243,20 @@ class ThresholdsNaturalPhenomenas(AuditCompleteModel):
         related_name='thresholds_natural_phenomenas_variable'
     )
 
+    threshold = models.ForeignKey(
+        'Threshold',
+        on_delete=models.CASCADE,
+        related_name='thresholds_natural_phenomenas_threshold'
+    )
+    
     district = models.ForeignKey(
         'places.District',
         on_delete=models.CASCADE,
         related_name='thresholds_natural_phenomenas_district'
     )
 
-    min_value = models.FloatField()
-    max_value = models.FloatField()
+    min_value = models.FloatField(null=True, blank=True)
+    max_value = models.FloatField(null=True, blank=True)
 
     class Meta():
         db_table = 'thresholds_natural_phenomenas'
