@@ -25,6 +25,9 @@ const TooltipAny = Tooltip as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Lany = L as any;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const useMapEventsAny = useMapEvents as any;
+
 // Importamos los SVG como URLs. Vite las servirá como assets estáticos.
 // Cada SVG ya usa `currentColor`, así que el color del icono se hereda
 // del `color` CSS del contenedor (lo definimos via `style` en el divIcon).
@@ -140,7 +143,7 @@ export function ComponentLayer({
 }: ComponentLayerProps) {
   // Zoom actual — controlar visibilidad de componentes por nivel.
   const [zoom, setZoom] = useState(13); // Default del mapa (ver BaseMap).
-  useMapEvents({
+  useMapEventsAny({
     zoomend: (e: { target: { getZoom: () => number } }) =>
       setZoom(e.target.getZoom()),
   });

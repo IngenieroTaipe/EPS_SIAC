@@ -8,7 +8,8 @@ import { MapaComponentesPage } from '@/pages/MapaComponentesPage';
 import { MapaClimaticoPage } from '@/pages/MapaClimaticoPage';
 import { HistoricoAlertasPage } from '@/pages/HistoricoAlertasPage';
 import { GestionAlertasPage } from '@/pages/GestionAlertasPage';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
+import { HistoricoComponentesPage } from '@/pages/HistoricoComponentesPage';
+import { EditorComponentePage } from '@/pages/EditorComponentePage';
 
 /**
  * Punto de entrada de la SPA.
@@ -47,7 +48,9 @@ function App() {
           <Route path="/alertas" element={<MapaAlertasPage />} />
           <Route path="/climatico" element={<MapaClimaticoPage />} />
           <Route path="/componentes" element={<MapaComponentesPage />} />
-          <Route path="/componentes/gestion" element={<PlaceholderPage />} />
+          <Route path="/componentes/gestion" element={<HistoricoComponentesPage />} />
+          <Route path="/componentes/:id/editar" element={<EditorComponentePage />} />
+          <Route path="/componentes/nuevo" element={<EditorComponentePage />} />
           <Route path="/alertas/gestion" element={<HistoricoAlertasPage />} />
           <Route path="/alertas/:id/editar" element={<GestionAlertasPage />} />
         </Route>

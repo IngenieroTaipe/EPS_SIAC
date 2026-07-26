@@ -51,14 +51,14 @@ export function ComponentsTable({
 
   return (
     <div className="self-stretch rounded-[10px] border border-input-stroke-main flex flex-col justify-start items-center gap-0.5 overflow-hidden">
-      {/* Header */}
-      <div className="self-stretch h-14 bg-primary-extra-light rounded-tl-[10px] rounded-tr-[10px] outline outline-1 outline-primary-main inline-flex justify-between items-center">
+      {/* Header — texto blanco, text-sm */}
+      <div className="self-stretch h-12 bg-primary-extra-light rounded-tl-[10px] rounded-tr-[10px] outline outline-1 outline-primary-main inline-flex justify-between items-center">
         {HEADER_COLS.map((col) => (
           <div
             key={col.label}
-            className={`flex-1 h-14 ${col.minWidth} px-3.5 py-2.5 bg-primary-extra-light flex justify-center items-center gap-2.5`}
+            className={`flex-1 h-12 ${col.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}
           >
-            <span className="text-primary-main text-base font-semibold font-sans">
+            <span className="text-text-invert-primary text-sm font-semibold font-sans">
               {col.label}
             </span>
           </div>
