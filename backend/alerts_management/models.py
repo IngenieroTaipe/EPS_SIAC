@@ -3,7 +3,7 @@ from core_shared.models import AuditCreateModel, AuditCompleteModel
 
 # Create your models here.
 
-class AlertsStatuses(AuditCompleteModel):
+class AlertStatus(AuditCompleteModel):
     '''
         Modelo para representar los estados de las alertas.
     '''
@@ -19,7 +19,7 @@ class AlertsStatuses(AuditCompleteModel):
     def __str__(self):
         return self.name
 
-class AlertsPhases(AuditCompleteModel):
+class AlertPhase(AuditCompleteModel):
     '''
         Modelo para representar las fases de las alertas.
     '''
@@ -35,18 +35,18 @@ class AlertsPhases(AuditCompleteModel):
     def __str__(self):
         return self.name
     
-class AlertsStatusesPhases(AuditCompleteModel):
+class AlertStatusPhase(AuditCompleteModel):
     '''
         Modelo para representar la relación entre los estados y fases de las alertas.
     '''
     # Django crea internamente el campo 'id' de forma transparente
     alert_status = models.ForeignKey(
-        'AlertsStatuses', 
+        'AlertStatus', 
         on_delete=models.CASCADE,
         related_name='alert_statuses_phases_status'
     )
     alert_phase = models.ForeignKey(
-        'AlertsPhases', 
+        'AlertPhase', 
         on_delete=models.CASCADE,
         related_name='alert_statuses_phases_phase'
     )
@@ -60,13 +60,13 @@ class AlertsStatusesPhases(AuditCompleteModel):
     def __str__(self):
         return f"{self.alert_status.name} - {self.alert_phase.name}"
 
-class Alerts(AuditCreateModel):
+class Alert(AuditCreateModel):
     '''
         Modelo para representar las alertas.
     '''
     # Django crea internamente el campo 'id' de forma transparente
     natural_phenomena = models.ForeignKey(
-        'core_predictive.NaturalPhenomenas',
+        'core_predictive.NaturalPhenomena',
         on_delete=models.PROTECT,
         related_name='alerts_natural_phenomena'
     )
@@ -85,23 +85,23 @@ class Alerts(AuditCreateModel):
     def __str__(self):
         return self.code
 
-class AlertsHistoric(AuditCreateModel):
+class AlertHistoric(AuditCreateModel):
     '''
         Modelo para representar el histórico de alertas.
     '''
     # Django crea internamente el campo 'id' de forma transparente
     alert = models.ForeignKey(
-        'Alerts', 
+        'Alert', 
         on_delete=models.PROTECT,
         related_name='alerts_historic_alert'
     )
     alert_status_phase = models.ForeignKey(
-        'AlertsStatusesPhases', 
+        'AlertStatusPhase', 
         on_delete=models.PROTECT,
         related_name='alerts_historic_status_phase'
     )
     emcwf_request = models.ForeignKey(
-        'core_predictive.EMCWFRequests', # Referenciamos a otro módulo (core_predictive)
+        'core_predictive.EMCWFRequest', # Referenciamos a otro módulo (core_predictive)
         on_delete=models.PROTECT,
         related_name='alerts_historic_emcwf_request'
     )
@@ -116,13 +116,13 @@ class AlertsHistoric(AuditCreateModel):
     def __str__(self):
         return f"{self.alert.code} - {self.alert_status_phase.alert_status.name}"
 
-class AlertNotifications(AuditCreateModel):
+class AlertNotification(AuditCreateModel):
     '''
         Modelo para representar las notificaciones de alertas.
     '''
     # Django crea internamente el campo 'id' de forma transparente
     alert_historic = models.ForeignKey(
-        'AlertsHistoric', 
+        'AlertHistoric', 
         on_delete=models.PROTECT,
         related_name='alerts_notifications_alerts_historic'
     )
@@ -135,12 +135,12 @@ class AlertNotifications(AuditCreateModel):
     def __str__(self):
         return f"{self.alert_notification_id} - {self.alert_historic.alert.code}"
 
-class AlertsResult(AuditCompleteModel):
+class AlertResult(AuditCompleteModel):
     '''
         Modelo para representar los resultados de las alertas.
     '''
     alert_id = models.OneToOneField(
-        'Alerts',
+        'Alert',
         on_delete=models.PROTECT,
         primary_key=True,
         related_name='alerts_results_alert'

@@ -321,7 +321,6 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
             return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=None)
         return None
 
-
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_geojson(self, obj):
         """

@@ -1,7 +1,9 @@
 from django.contrib.gis.db import models
 from core_shared.models import AuditCompleteModel
 
-class EMCWFRequests(AuditCompleteModel):
+from core_shared.validators import alpha_name_validator
+
+class EMCWFRequest(AuditCompleteModel):
     '''
         Modelo que representa una solicitud de EMCWF. Contiene un identificador único, un nombre y una descripción.
 
@@ -17,17 +19,17 @@ class EMCWFRequests(AuditCompleteModel):
     '''
     # Django crea internamente el campo 'id' de forma automática
     request_code = models.CharField(max_length=100, unique=True)
-    status = models.CharField(max_length=20)
-    TargetVariable = models.CharField(max_length=50)
-    DateRangeStart = models.DateField()
-    DateRangeEnd = models.DateField()
+    status = models.CharField(max_length=20, validators=[alpha_name_validator])
+    target_variable = models.CharField(max_length=50, validators=[alpha_name_validator])
+    date_range_start = models.DateField()
+    date_range_end = models.DateField()
 
-    GeomBounds = models.PolygonField(srid=4326, verbose_name="Límite Geométrico WGS84")
+    geom_bounds = models.PolygonField(srid=4326, verbose_name="Límite Geométrico WGS84")
 
-    FileName = models.CharField(max_length=200)
-    FilePath = models.CharField(max_length=200)
-    FileSizeMb = models.FloatField()
-    DownloandTimeSeconds = models.FloatField()
+    file_name = models.CharField(max_length=200)
+    file_path = models.CharField(max_length=200)
+    file_size_mb = models.FloatField()
+    download_time_seconds = models.FloatField()
 
     class Meta():
         db_table = 'emcwf_requests'
@@ -35,9 +37,9 @@ class EMCWFRequests(AuditCompleteModel):
         verbose_name_plural = 'Solicitudes EMCWF'
 
     def __str__(self):
-        return self.emcwf_request_id
+        return self.request_code
 
-class NaturalPhenomenas(AuditCompleteModel):
+class NaturalPhenomena(AuditCompleteModel):
     '''
         Modelo que representa un fenómeno natural. Contiene un identificador único, un nombre y una descripción.
 
@@ -52,8 +54,8 @@ class NaturalPhenomenas(AuditCompleteModel):
         `@str`: Devuelve el nombre del fenómeno natural como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(null=True, blank=True)
+    name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
+    description = models.TextField(null=True, blank=True, validators=[alpha_name_validator])
 
     class Meta():
         db_table = 'natural_phenomenas'
@@ -63,7 +65,7 @@ class NaturalPhenomenas(AuditCompleteModel):
     def __str__(self):
         return self.name
 
-class VariableTypes(AuditCompleteModel):
+class VariableType(AuditCompleteModel):
     '''
         Modelo que representa un tipo de variable. Contiene un identificador único, un nombre y una descripción.
 
@@ -78,8 +80,8 @@ class VariableTypes(AuditCompleteModel):
         `@str`: Devuelve el nombre del tipo de variable como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(null=True, blank=True)
+    name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
+    description = models.TextField(null=True, blank=True, validators=[alpha_name_validator])
 
     class Meta():
         db_table = 'variable_types'
@@ -104,8 +106,8 @@ class UnitsMeasurement(AuditCompleteModel):
         `@str`: Devuelve el nombre de la unidad de medida como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(null=True, blank=True)
+    name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
+    description = models.TextField(null=True, blank=True, validators=[alpha_name_validator])
 
     class Meta():
         db_table = 'units_measurement'
@@ -115,7 +117,7 @@ class UnitsMeasurement(AuditCompleteModel):
     def __str__(self):
         return self.name
 
-class Variables(AuditCompleteModel):
+class Variable(AuditCompleteModel):
     '''
         Modelo que representa una variable. Contiene un identificador único, un nombre y una descripción.
 
@@ -131,7 +133,7 @@ class Variables(AuditCompleteModel):
     '''
     # Django crea internamente el campo 'id' de forma automática
     variable_type = models.ForeignKey(
-        'VariableTypes', 
+        'VariableType', 
         on_delete=models.CASCADE, 
         related_name='variables_variable_type'
     )
@@ -140,8 +142,8 @@ class Variables(AuditCompleteModel):
         on_delete=models.CASCADE, 
         related_name='variables_unit_measurement'
     )
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(null=True, blank=True)
+    name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
+    description = models.TextField(null=True, blank=True, validators=[alpha_name_validator])
 
     class Meta():
         db_table = 'variables'
@@ -166,12 +168,12 @@ class NaturalPhenomenasVariables(AuditCompleteModel):
         `@str`: Devuelve el nombre de la relación como representación en cadena del objeto.
     '''
     natural_phenomena = models.ForeignKey(
-        'NaturalPhenomenas', 
+        'NaturalPhenomena', 
         on_delete=models.CASCADE, 
         related_name='natural_phenomenas_variables_natural_phenomena'
     )
     variable = models.ForeignKey(
-        'Variables', 
+        'Variable', 
         on_delete=models.CASCADE, 
         related_name='natural_phenomenas_variables_variable'
     )
@@ -186,32 +188,6 @@ class NaturalPhenomenasVariables(AuditCompleteModel):
 
     def __str__(self):
         return f"{self.natural_phenomena.name} - {self.variable.name}"
-
-class Thresholds(AuditCompleteModel):
-    '''
-        Modelo que representa un umbral. Contiene un identificador único, un nombre y una descripción.
-
-        `@extends AuditCompleteModel`: Hereda de AuditCompleteModel para incluir campos de fecha de creación, actualización y eliminación suave.
-
-        `@db_table`: Define el nombre de la tabla en la base de datos como 'thresholds'.
-
-        `@verbose_name`: Define el nombre legible para el modelo como 'Umbral'.
-        
-        `@verbose_name_plural`: Define el nombre legible en plural para el modelo como 'Umbrales'.
-        
-        `@str`: Devuelve el nombre del umbral como representación en cadena del objeto.
-    '''
-    # Django crea internamente el campo 'id' de forma automática
-    name = models.CharField(max_length=50, unique=True)
-    description = models.TextField(null=True, blank=True)
-
-    class Meta():
-        db_table = 'thresholds'
-        verbose_name = 'Umbral'
-        verbose_name_plural = 'Umbrales'
-
-    def __str__(self):
-        return self.name
 
 class ThresholdsNaturalPhenomenas(AuditCompleteModel):
     '''
@@ -228,20 +204,15 @@ class ThresholdsNaturalPhenomenas(AuditCompleteModel):
         `@str`: Devuelve el nombre de la relación como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    threshold = models.ForeignKey(
-        'Thresholds', 
-        on_delete=models.CASCADE, 
-        related_name='thresholds_natural_phenomenas_threshold'
-    )
 
     natural_phenomena = models.ForeignKey(
-        'NaturalPhenomenas', 
+        'NaturalPhenomena', 
         on_delete=models.CASCADE, 
         related_name='thresholds_natural_phenomenas_natural_phenomena'
     )
 
     variable = models.ForeignKey(
-        'Variables',
+        'Variable',
         on_delete=models.CASCADE,
         related_name='thresholds_natural_phenomenas_variable'
     )
