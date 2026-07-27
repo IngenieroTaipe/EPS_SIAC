@@ -232,23 +232,23 @@ class ThresholdsNaturalPhenomena(AuditCompleteModel):
     # Django crea internamente el campo 'id' de forma automática
 
     natural_phenomena = models.ForeignKey(
-        'NaturalPhenomena', 
-        on_delete=models.CASCADE, 
-        related_name='thresholds_relation'
+        'NaturalPhenomena',
+        on_delete=models.CASCADE,
+        related_name='thresholds_natural_phenomena'
     )
 
     variable = models.ForeignKey(
         'Variable',
         on_delete=models.CASCADE,
-        related_name='thresholds_relation'
+        related_name='thresholds_variable'
     )
 
     threshold = models.ForeignKey(
         'Threshold',
         on_delete=models.CASCADE,
-        related_name='thresholds_relation'
+        related_name='thresholds_threshold'
     )
-    
+
     district = models.ForeignKey(
         'places.District',
         on_delete=models.CASCADE,

@@ -40,8 +40,18 @@ const TileLayerAny = TileLayer as any;
  *
  * Default: centro de Pichanaqui (Perú) con zoom 13.
  */
-const DEFAULT_CENTER = [-11.019, -75.297] as [number, number]; // Pichanaqui
-const DEFAULT_ZOOM = 13;
+const DEFAULT_CENTER = [-9.19, -75.016] as [number, number]; // Centro continental del Perú
+const DEFAULT_ZOOM = 5;
+
+/**
+ * Límites geográficos del Perú (aproximados con padding).
+ * Evita que el usuario se desplace fuera del territorio nacional.
+ * Formato Leaflet: [[south, west], [north, east]]
+ */
+const PERU_BOUNDS: [[number, number], [number, number]] = [
+  [-18.5, -81.5], // Suroeste
+  [0.5, -68.5],   // Noreste
+];
 
 interface BaseMapProps {
   /** Centro inicial del mapa como [lat, lng]. */
@@ -66,6 +76,9 @@ export function BaseMap({
       zoom={zoom}
       scrollWheelZoom
       zoomControl={false}
+      maxBounds={PERU_BOUNDS}
+      maxBoundsViscosity={0.7}
+      minZoom={5}
       className={className}
     >
       <TileLayerAny
