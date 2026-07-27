@@ -20,7 +20,7 @@ services:
   # =========== FRONTEND (REACT) =========== 
   frontend:
     build:
-      context: ./frontend2
+      context: ./frontend
       target: prod
     ports:
       - "80:80"

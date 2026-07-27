@@ -26,12 +26,12 @@ services:
   # =========== FRONTEND (REACT) =========== 
   frontend:
     build:
-      context: ./frontend2
+      context: ./frontend
       target: dev
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend2/:/app
+      - ./frontend/:/app
       - /app/node_modules
     environment:
       # Utilizamos la variable declarada en el env_file del frontend
