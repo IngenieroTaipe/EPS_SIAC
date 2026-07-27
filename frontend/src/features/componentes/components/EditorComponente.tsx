@@ -229,11 +229,11 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full overflow-y-auto p-5 flex flex-col items-start gap-5">
       {/* ── Cuerpo: 40% izquierda (datos) + 60% derecha (mapa+vistaprevia) ── */}
-      <div className="flex-1 overflow-y-auto px-8 py-6 flex justify-center items-stretch gap-6">
+      <div className="self-stretch flex justify-center items-stretch gap-6">
         {/* Tarjeta izquierda — Datos del componente (40%) */}
-        <div className="w-[40%] min-w-[600px] max-w-[743px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-5 bg-background-main">
+        <div className="w-[600px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-5 bg-background-main">
           <h2 className="text-text-primary text-lg font-bold font-sans leading-7">
             Datos del componente
           </h2>

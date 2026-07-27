@@ -5,6 +5,7 @@ import { MapLegend } from './MapLegend';
 import { PrecipitationLayer } from './PrecipitationLayer';
 import { ComponentLayer } from './ComponentLayer';
 import { AlertLayer } from './AlertLayer';
+import { DistrictLayer } from './DistrictLayer';
 
 /**
  * MapPage — página con mapa Leaflet de pantalla completa (debajo del TopBar)
@@ -35,7 +36,7 @@ interface MapPageProps {
 
 export function MapPage({ defaultLayers = [] }: MapPageProps) {
   const [selected, setSelected] = useState<Set<LayerId>>(
-    () => new Set(defaultLayers),
+    () => new Set(['distritos', ...defaultLayers]),
   );
 
   const handleToggle = useCallback((id: LayerId) => {
@@ -58,6 +59,7 @@ export function MapPage({ defaultLayers = [] }: MapPageProps) {
   <div className="relative h-full w-full pt-1 pr-1 pl-2 z-0">
     <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
       <BaseMap key={mapKey}>
+        {selected.has('distritos')       && <DistrictLayer />}
         {selected.has('precipitaciones') && <PrecipitationLayer />}
         {selected.has('componentes')     && <ComponentLayer />}
         {selected.has('alertas')         && <AlertLayer />}

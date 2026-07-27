@@ -5,6 +5,7 @@ import { MapLegend } from '@/features/mapa/components/MapLegend';
 import { PrecipitationLayer } from '@/features/mapa/components/PrecipitationLayer';
 import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
 import { ClusterAlertLayer } from '@/features/mapa/components/ClusterAlertLayer';
+import { DistrictLayer } from '@/features/mapa/components/DistrictLayer';
 import { mockAlertas } from '@/features/mapa/data/mockAlertas';
 import { mockComponentes } from '@/features/mapa/data/mockComponentes';
 
@@ -30,6 +31,7 @@ export function HomePage() {
     <div className="relative h-full w-full pt-1 pr-1 pl-2 z-0">
       <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
         <BaseMap>
+          <DistrictLayer />
           {selected.has('precipitaciones') && <PrecipitationLayer />}
           {selected.has('componentes') && <ComponentLayer data={mockComponentes} />}
           {selected.has('alertas') && (

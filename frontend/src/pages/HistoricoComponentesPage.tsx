@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ComponentsTable } from '@/features/componentes/components/ComponentsTable';
 import {
@@ -8,7 +8,11 @@ import {
 } from '@/features/mapa/types/componente';
 import { cn } from '@/shared/lib/cn';
 import { useComponentes } from '@/services/useComponentes';
-import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
+import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
+import {
+  UNIDADES_OPERATIVAS,
+  UNIDAD_TODAS,
+} from '@/shared/context/UnidadOperativaContext';
 
 /** Criticidades filtrables (con dot de color). */
 const CRITICIDADES: CriticidadComponente[] = ['alta', 'media', 'baja'];
@@ -32,27 +36,32 @@ export function HistoricoComponentesPage() {
   const preselectId = searchParams.get('id');
 
   const { data } = useComponentes();
+  const { selectedNombre, setSelectedNombre, districts } = useUnidadOperativa();
 
-  const [distritos, setDistritos] = useState<BackendDistrict[]>([]);
-  const [unidad, setUnidad] = useState<string>('Todas');
   const [criticidadesSeleccionadas, setCriticidadesSeleccionadas] = useState<
     Set<CriticidadComponente>
   >(() => new Set(CRITICIDADES));
   const [desde, setDesde] = useState<string>('');
   const [hasta, setHasta] = useState<string>('');
-
   const [selectedId, setSelectedId] = useState<string | null>(preselectId);
 
-  useEffect(() => {
-    apiPlaces
-      .listDistricts()
-      .then(setDistritos)
-      .catch(() => []);
-  }, []);
+  // Opciones del filtro: "Todas" + los 5 distritos.
+  const unidadOptions = useMemo(
+    () => [UNIDAD_TODAS, ...UNIDADES_OPERATIVAS.map((u) => u.nombre)],
+    [],
+  );
+
+  // Mapear el nombre amigable seleccionado al nombre del backend.
+  const selectedBackendName = useMemo(() => {
+    if (selectedNombre === UNIDAD_TODAS) return null;
+    const ubigeo = UNIDADES_OPERATIVAS.find((u) => u.nombre === selectedNombre)?.ubigeo;
+    if (!ubigeo) return null;
+    return districts.find((d) => d.ubigeo === ubigeo)?.name ?? null;
+  }, [selectedNombre, districts]);
 
   const componentesFiltrados = useMemo<Componente[]>(() => {
     return (data.componentes ?? []).filter((c) => {
-      if (unidad !== 'Todas' && c.unidadOperativa !== unidad) return false;
+      if (selectedBackendName && c.unidadOperativa !== selectedBackendName) return false;
       if (!criticidadesSeleccionadas.has(c.criticidad)) return false;
       if (c.fechaActualizacion) {
         const ts = new Date(c.fechaActualizacion).getTime();
@@ -67,16 +76,11 @@ export function HistoricoComponentesPage() {
       }
       return true;
     });
-  }, [data, unidad, criticidadesSeleccionadas, desde, hasta]);
+  }, [data, selectedBackendName, criticidadesSeleccionadas, desde, hasta]);
 
   function handleToggleSelect(id: string) {
     setSelectedId((prev) => (prev === id ? null : id));
   }
-
-  const unidadOptions = useMemo(() => {
-    const names = distritos.map((d) => d.name);
-    return ['Todas', ...Array.from(new Set(names))];
-  }, [distritos]);
 
   return (
     <div className="h-full overflow-y-auto p-6 text-text-primary">
@@ -88,8 +92,8 @@ export function HistoricoComponentesPage() {
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">Unidad Operativa</label>
           <select
-            value={unidad}
-            onChange={(e) => setUnidad(e.target.value)}
+            value={selectedNombre}
+            onChange={(e) => setSelectedNombre(e.target.value)}
             className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
                        focus:outline-2 focus:outline-primary-main"
           >
@@ -156,7 +160,7 @@ export function HistoricoComponentesPage() {
         <button
           type="button"
           onClick={() => {
-            setUnidad('Todas');
+            setSelectedNombre(UNIDAD_TODAS);
             setCriticidadesSeleccionadas(new Set(CRITICIDADES));
             setDesde('');
             setHasta('');

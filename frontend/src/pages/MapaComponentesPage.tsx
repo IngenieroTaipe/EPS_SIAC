@@ -4,6 +4,7 @@ import { LayerControl, type LayerId } from '@/features/mapa/components/LayerCont
 import { MapLegend } from '@/features/mapa/components/MapLegend';
 import { PrecipitationLayer } from '@/features/mapa/components/PrecipitationLayer';
 import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
+import { DistrictLayer } from '@/features/mapa/components/DistrictLayer';
 import { MapComponentsPanel } from '@/features/componentes/components/MapComponentsPanel';
 import { useComponentes } from '@/services/useComponentes';
 
@@ -41,6 +42,7 @@ export function MapaComponentesPage() {
   <div className="relative h-full w-full pt-1 pr-1 pl-2 z-0">
     <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
       <BaseMap>
+        <DistrictLayer />
         {selected.has('precipitaciones') && <PrecipitationLayer />}
         {selected.has('componentes') && (
           <ComponentLayer
