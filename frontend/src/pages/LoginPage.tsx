@@ -27,7 +27,7 @@ const INPUT_BASE =
 const LABEL = 'text-zinc-800 text-sm font-normal font-sans leading-5';
 
 export function LoginPage() {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, isLoggingIn, loginError } = useAuth();
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
@@ -37,12 +37,14 @@ export function LoginPage() {
   // Si ya está autenticado, redirige a /alertas (no tiene caso ver el login).
   if (isAuthenticated) return <Navigate to="/alertas" replace />;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // TODO: validar credenciales contra `services/apiAuth` cuando se integre.
-    // Por ahora el mock solo persiste el estado de autenticación.
-    login();
-    navigate('/alertas', { replace: true });
+    try {
+      await login(username, password);
+      navigate('/alertas', { replace: true });
+    } catch {
+      // El error ya queda en `loginError` del contexto; lo mostramos abajo.
+    }
   }
 
   return (
@@ -100,12 +102,20 @@ export function LoginPage() {
           {/* Botón Ingresar */}
           <button
             type="submit"
+            disabled={isLoggingIn}
             className={`self-stretch h-12 px-3 text-white text-base font-medium font-sans leading-4 tracking-wide ${PRIMARY}
             hover:bg-primary-light hover:outline-primary-light transition-colors
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2`}
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2
+            disabled:opacity-60 disabled:cursor-not-allowed`}
           >
-            Ingresar
+            {isLoggingIn ? 'Ingresando…' : 'Ingresar'}
           </button>
+
+          {loginError && (
+            <p className="self-stretch text-red-600 text-sm font-sans">
+              {loginError}
+            </p>
+          )}
         </form>
 
         <div className="self-stretch h-0 outline outline-1 outline-offset-[-0.5px] outline-zinc-200" />

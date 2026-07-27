@@ -22,6 +22,8 @@ interface ComponentsTableProps {
   sortSelectedFirst?: boolean;
   /** Anchura fija de celdas (más útil en histórico con espacio extra). */
   fixedWidths?: boolean;
+  /** Si true, muestra la columna "Nombre" (solo en gestión, no en mapa). */
+  showNombre?: boolean;
 }
 
 const HEADER_COLS = [
@@ -34,12 +36,15 @@ const HEADER_COLS = [
   { label: 'Criticidad', minWidth: 'min-w-24' },
 ];
 
+const NOMBRE_COL = { label: 'Nombre', minWidth: 'min-w-32' };
+
 export function ComponentsTable({
   componentes,
   selectedId,
   onToggleSelect,
   sortSelectedFirst = true,
   fixedWidths = false,
+  showNombre = false,
 }: ComponentsTableProps) {
   // Ordenar: si hay seleccionado y sortSelectedFirst, ese va primero.
   const ordered = sortSelectedFirst && selectedId
@@ -53,16 +58,31 @@ export function ComponentsTable({
     <div className="self-stretch rounded-[10px] border border-input-stroke-main flex flex-col justify-start items-center gap-0.5 overflow-hidden">
       {/* Header — texto blanco, text-sm */}
       <div className="self-stretch h-12 bg-primary-extra-light rounded-tl-[10px] rounded-tr-[10px] outline outline-1 outline-primary-main inline-flex justify-between items-center">
-        {HEADER_COLS.map((col) => (
-          <div
-            key={col.label}
-            className={`flex-1 h-12 ${col.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}
-          >
-            <span className="text-text-invert-primary text-sm font-semibold font-sans">
-              {col.label}
-            </span>
-          </div>
-        ))}
+        {HEADER_COLS.map((col, i) => {
+          // Insertar columna "Nombre" después de "Código" (índice 0)
+          if (i === 1 && showNombre) {
+            return (
+              <div key={col.label} className="contents">
+                <div className={`flex-1 h-12 ${NOMBRE_COL.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}>
+                  <span className="text-text-invert-primary text-sm font-semibold font-sans">{NOMBRE_COL.label}</span>
+                </div>
+                <div className={`flex-1 h-12 ${col.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}>
+                  <span className="text-text-invert-primary text-sm font-semibold font-sans">{col.label}</span>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div
+              key={col.label}
+              className={`flex-1 h-12 ${col.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}
+            >
+              <span className="text-text-invert-primary text-sm font-semibold font-sans">
+                {col.label}
+              </span>
+            </div>
+          );
+        })}
         {/* Columna acciones vacía */}
         <div className="flex-1 min-w-24" />
       </div>
@@ -75,6 +95,7 @@ export function ComponentsTable({
           selected={selectedId === c.id}
           onToggleSelect={onToggleSelect}
           fixedWidths={fixedWidths}
+          showNombre={showNombre}
         />
       ))}
     </div>

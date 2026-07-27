@@ -6,6 +6,7 @@ import { PrecipitationLayer } from '@/features/mapa/components/PrecipitationLaye
 import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
 import { ClusterAlertLayer } from '@/features/mapa/components/ClusterAlertLayer';
 import { mockAlertas } from '@/features/mapa/data/mockAlertas';
+import { mockComponentes } from '@/features/mapa/data/mockComponentes';
 
 /**
  * HomePage — pestaña principal pública (antes de iniciar sesión).
@@ -30,7 +31,7 @@ export function HomePage() {
       <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
         <BaseMap>
           {selected.has('precipitaciones') && <PrecipitationLayer />}
-          {selected.has('componentes') && <ComponentLayer />}
+          {selected.has('componentes') && <ComponentLayer data={mockComponentes} />}
           {selected.has('alertas') && (
             <ClusterAlertLayer
               alertas={mockAlertas.alertas}

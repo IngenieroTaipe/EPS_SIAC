@@ -43,14 +43,18 @@ class Command(BaseCommand):
         for component in components_data:
             district = District.objects.filter(ubigeo = component['district_ubigeo']).first()
             type = ComponentType.objects.filter(name = component['type_name'].upper()).first()
-            physical_status = PhysicalStatus.objects.filter(name = component['physical_status']).first()
+            physical_status = (
+                PhysicalStatus.objects.filter(code=component['physical_status']).first()
+                if component.get('physical_status')
+                else None
+            )
             operational_status = OperationalStatus.objects.get(code=component['operational_status'])
-            
+
             comp_obj, created = Component.objects.update_or_create(
                 code = component['code'],
+                district = district,
+                type = type,
                 defaults = {
-                    'district': district,
-                    'type': type,
                     'specification': component['specification'],
                     'name': component['name'].upper(),
                     'operational_status': operational_status,

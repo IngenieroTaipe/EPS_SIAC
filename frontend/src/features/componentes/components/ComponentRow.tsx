@@ -49,6 +49,8 @@ interface ComponentRowProps {
   /** Si true, fija el ancho de cada celda (útil en el histórico con
    *  más anchura disponible). Default = flex híbrido, similar al Figma. */
   fixedWidths?: boolean;
+  /** Si true, muestra la columna "Nombre" (solo en gestión). */
+  showNombre?: boolean;
 }
 
 export function ComponentRow({
@@ -56,6 +58,7 @@ export function ComponentRow({
   selected,
   onToggleSelect,
   fixedWidths = false,
+  showNombre = false,
 }: ComponentRowProps) {
   const navigate = useNavigate();
 
@@ -72,6 +75,8 @@ export function ComponentRow({
     >
       {/* Código */}
       <Cell minWidth="min-w-24" width="w-24">{componente.codigo}</Cell>
+      {/* Nombre (solo en gestión) */}
+      {showNombre && <Cell minWidth="min-w-32">{componente.nombre}</Cell>}
       {/* Tipo */}
       <Cell minWidth="min-w-36">{TIPO_LABEL[componente.tipo]}</Cell>
       {/* Especificación */}
