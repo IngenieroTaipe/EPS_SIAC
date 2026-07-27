@@ -14,11 +14,15 @@ import AlertIcon from '@/assets/icons/alert.svg?react';
 import ArchivoIcon from '@/assets/icons/archivo.svg?react';
 import FlechaIcon from '@/assets/icons/flecha.svg?react';
 import { useClickOutside } from '@/shared/hooks/useClickOutside';
+import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
+import {
+  UNIDADES_OPERATIVAS,
+  UNIDAD_TODAS,
+} from '@/shared/context/UnidadOperativaContext';
 import {
   UPDATED_LABEL_PREFIX,
   UPDATED_VALUE,
   UNIDAD_OPERATIVA_LABEL,
-  UNIDAD_OPERATIVA_OPTIONS,
   CARGAR_DATOS_OPTIONS,
 } from './TopBarConfig';
 
@@ -246,9 +250,12 @@ export function LoginButton() {
 // componente (vía `useClickOutside`).
 export function UnidadOperativaSelector() {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string>(UNIDAD_OPERATIVA_LABEL);
+  const { selectedNombre, setSelectedNombre } = useUnidadOperativa();
   const containerRef = useRef<HTMLDivElement>(null);
   useClickOutside(containerRef, () => setOpen(false), open);
+
+  // Opciones: "Todas" + los 5 distritos operativos.
+  const opciones = [UNIDAD_TODAS, ...UNIDADES_OPERATIVAS.map((u) => u.nombre)];
 
   return (
     <div
@@ -269,15 +276,13 @@ export function UnidadOperativaSelector() {
         )}
         aria-label={`${UNIDAD_OPERATIVA_LABEL}: selector`}
       >
-        <span className="text-text-invert-primary text-sm font-bold font-sans whitespace-nowrap">
-          {selected === UNIDAD_OPERATIVA_LABEL
-            ? UNIDAD_OPERATIVA_LABEL
-            : selected}
+        <span className="text-text-invert-primary text-sm font-bold font-sans whitespace-nowrap overflow-hidden text-ellipsis">
+          {selectedNombre === UNIDAD_TODAS ? UNIDAD_OPERATIVA_LABEL : selectedNombre}
         </span>
         <FlechaIcon
           className={cn(
             ICON_SIZE,
-            'text-text-invert-primary transition-transform duration-200',
+            'text-text-invert-primary transition-transform duration-200 flex-shrink-0',
             open && 'rotate-180',
           )}
           aria-hidden="true"
@@ -290,14 +295,14 @@ export function UnidadOperativaSelector() {
           role="listbox"
           className="absolute top-full mt-[5px] left-0 inline-flex flex-col justify-start items-start gap-px z-50"
         >
-          {UNIDAD_OPERATIVA_OPTIONS.map((option) => (
+          {opciones.map((option) => (
             <DropdownItem
               key={option}
               label={option}
               bgClass="bg-primary-light"
               outlineClass="outline-primary-light"
               onClick={(label) => {
-                setSelected(label);
+                setSelectedNombre(label);
                 setOpen(false);
               }}
             />

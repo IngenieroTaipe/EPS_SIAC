@@ -1,9 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Marker, Polyline, Tooltip, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import {
-  mockComponentes,
-} from '../data/mockComponentes';
 import type {
   Componente,
   TramoConduccion,
@@ -52,9 +49,8 @@ import PlantaTratamientoIconUrl from '@/assets/icons/planta-tratamiento.svg?url'
  *   GET /api/components/?unidad=ID
  *   → { componentes: Componente[], tramos: TramoConduccion[] }
  *
- * Por ahora consume el mock en `data/mockComponentes.ts`. Para pasar a real,
- * sustituye la importación por un fetch en el body del componente y elimina
- * `mockComponentes`.
+ * Si no se pasa `data`, el componente no renderiza nada (los llamadores
+ * deben pasarle datos via el hook `useComponentes`).
  */
 
 const ICON_BY_TIPO: Record<Componente['tipo'], string> = {
@@ -137,7 +133,7 @@ interface ComponentLayerProps {
 }
 
 export function ComponentLayer({
-  data = mockComponentes,
+  data,
   selectedComponentId,
   onComponenteClick,
 }: ComponentLayerProps) {
@@ -152,16 +148,19 @@ export function ComponentLayer({
   // Memo: índice por ID para referenciar extremos del tramo en tooltips.
   const componentesPorId = useMemo(() => {
     const map = new Map<string, Componente>();
-    for (const c of data.componentes) map.set(c.id, c);
+    for (const c of (data?.componentes ?? [])) map.set(c.id, c);
     return map;
   }, [data]);
+
+  const comps = data?.componentes ?? [];
+  const tramos = data?.tramos ?? [];
 
   if (!showLayer) return null;
 
   return (
     <>
       {/* ── Tramos de línea de conducción (dibujados primero, debajo) ──── */}
-      {data.tramos.map((tramo) => {
+      {tramos.map((tramo) => {
         const origen = componentesPorId.get(tramo.origenId);
         const destino = componentesPorId.get(tramo.destinoId);
         return (
@@ -192,7 +191,7 @@ export function ComponentLayer({
       })}
 
       {/* ── Componentes puntuales (encima de los tramos) ──────────────── */}
-      {data.componentes.map((comp) => {
+      {comps.map((comp) => {
         const isSelected = selectedComponentId === comp.id;
         return (
           <MarkerAny

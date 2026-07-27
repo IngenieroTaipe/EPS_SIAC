@@ -6,11 +6,13 @@ import {
   type Componente,
   type CriticidadComponente,
 } from '@/features/mapa/types/componente';
-import { mockComponentes } from '@/features/mapa/data/mockComponentes';
 import { cn } from '@/shared/lib/cn';
-
-/** Unidades operativas disponibles. */
-const UNIDADES = ['Todas', 'Pichanaqui', 'San Ramón', 'La Merced', 'Oxapampa', 'Satipo'];
+import { useComponentes } from '@/services/useComponentes';
+import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
+import {
+  UNIDADES_OPERATIVAS,
+  UNIDAD_TODAS,
+} from '@/shared/context/UnidadOperativaContext';
 
 /** Criticidades filtrables (con dot de color). */
 const CRITICIDADES: CriticidadComponente[] = ['alta', 'media', 'baja'];
@@ -28,34 +30,38 @@ const CRITICIDAD_DOT: Record<CriticidadComponente, string> = {
  * `?id=ID` para pre-seleccionar un componente (cuando el usuario entra
  * desde el "view" del panel del mapa). En este caso, se resalta la fila
  * en la tabla y se hace scroll automático para mostrarla.
- *
- * Filtros (barra superior):
- *   - Unidad operativa (select único; "Todas" = sin filtro).
- *   - Criticidad (toggle buttons con dot de color: alta / media / baja).
- *   - Intervalo de fechas: desde / hasta. La fecha de comparación es
- *     `fechaActualizacion` (cuando se actualizó por última vez).
- *     Si más tarde el backend expone otras fechas relevantes (instalación,
- *     última inspección), se puede añadir un selector "Comparar por..."
  */
 export function HistoricoComponentesPage() {
-  // `?id=` desde URL para pre-seleccionar el componente pulsado en el mapa.
   const [searchParams] = useSearchParams();
   const preselectId = searchParams.get('id');
 
-  const [unidad, setUnidad] = useState<string>('Todas');
+  const { data } = useComponentes();
+  const { selectedNombre, setSelectedNombre, districts } = useUnidadOperativa();
+
   const [criticidadesSeleccionadas, setCriticidadesSeleccionadas] = useState<
     Set<CriticidadComponente>
   >(() => new Set(CRITICIDADES));
   const [desde, setDesde] = useState<string>('');
   const [hasta, setHasta] = useState<string>('');
-
-  // Estado de selección en la tabla. Inicia preseleccionado si `?id=` vino.
   const [selectedId, setSelectedId] = useState<string | null>(preselectId);
 
-  // Aplicar filtros al mock.
+  // Opciones del filtro: "Todas" + los 5 distritos.
+  const unidadOptions = useMemo(
+    () => [UNIDAD_TODAS, ...UNIDADES_OPERATIVAS.map((u) => u.nombre)],
+    [],
+  );
+
+  // Mapear el nombre amigable seleccionado al nombre del backend.
+  const selectedBackendName = useMemo(() => {
+    if (selectedNombre === UNIDAD_TODAS) return null;
+    const ubigeo = UNIDADES_OPERATIVAS.find((u) => u.nombre === selectedNombre)?.ubigeo;
+    if (!ubigeo) return null;
+    return districts.find((d) => d.ubigeo === ubigeo)?.name ?? null;
+  }, [selectedNombre, districts]);
+
   const componentesFiltrados = useMemo<Componente[]>(() => {
-    return mockComponentes.componentes.filter((c) => {
-      if (unidad !== 'Todas' && c.unidadOperativa !== unidad) return false;
+    return (data.componentes ?? []).filter((c) => {
+      if (selectedBackendName && c.unidadOperativa !== selectedBackendName) return false;
       if (!criticidadesSeleccionadas.has(c.criticidad)) return false;
       if (c.fechaActualizacion) {
         const ts = new Date(c.fechaActualizacion).getTime();
@@ -70,7 +76,7 @@ export function HistoricoComponentesPage() {
       }
       return true;
     });
-  }, [unidad, criticidadesSeleccionadas, desde, hasta]);
+  }, [data, selectedBackendName, criticidadesSeleccionadas, desde, hasta]);
 
   function handleToggleSelect(id: string) {
     setSelectedId((prev) => (prev === id ? null : id));
@@ -82,24 +88,21 @@ export function HistoricoComponentesPage() {
         Histórico de Componentes
       </h1>
 
-      {/* ── Barra de filtros ───────────────────────────────────────────── */}
       <div className="mb-5 flex flex-wrap items-end gap-6">
-        {/* Unidad Operativa */}
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">Unidad Operativa</label>
           <select
-            value={unidad}
-            onChange={(e) => setUnidad(e.target.value)}
+            value={selectedNombre}
+            onChange={(e) => setSelectedNombre(e.target.value)}
             className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
                        focus:outline-2 focus:outline-primary-main"
           >
-            {UNIDADES.map((u) => (
+            {unidadOptions.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
         </div>
 
-        {/* Criticidad (multi-select con dots coloreados) */}
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">Criticidad</label>
           <div className="flex flex-wrap items-center gap-2">
@@ -132,7 +135,6 @@ export function HistoricoComponentesPage() {
           </div>
         </div>
 
-        {/* Fecha desde */}
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">Desde</label>
           <input
@@ -144,7 +146,6 @@ export function HistoricoComponentesPage() {
           />
         </div>
 
-        {/* Fecha hasta */}
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">Hasta</label>
           <input
@@ -156,11 +157,10 @@ export function HistoricoComponentesPage() {
           />
         </div>
 
-        {/* Reset */}
         <button
           type="button"
           onClick={() => {
-            setUnidad('Todas');
+            setSelectedNombre(UNIDAD_TODAS);
             setCriticidadesSeleccionadas(new Set(CRITICIDADES));
             setDesde('');
             setHasta('');
@@ -176,23 +176,21 @@ export function HistoricoComponentesPage() {
         </span>
       </div>
 
-      {/* ── Tabla histórica ───────────────────────────────────────────── */}
       <ComponentsTable
         componentes={componentesFiltrados}
         selectedId={selectedId}
         onToggleSelect={handleToggleSelect}
         sortSelectedFirst
         fixedWidths
+        showNombre
       />
 
-      {/* Empty state */}
       {componentesFiltrados.length === 0 && (
         <div className="mt-6 text-center text-text-secondary text-sm font-sans">
           No hay componentes que coincidan con los filtros seleccionados.
         </div>
       )}
 
-      {/* Indicador de preselección */}
       {preselectId && (
         <div className="mt-4 text-text-secondary text-xs font-sans">
           Componente pre-seleccionado desde el mapa:{' '}

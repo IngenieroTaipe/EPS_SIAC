@@ -15,11 +15,11 @@ export interface LayerControlOption {
 }
 
 /** IDs de capas soportados (union para type-safety en el switch). */
-export type LayerId = 'precipitaciones' | 'alertas' | 'componentes';
+export type LayerId = 'precipitaciones' | 'alertas' | 'componentes' | 'distritos';
 
 interface LayerControlProps {
   /**
-   * Lista de capas disponibles para activar. Por defecto las 3 del sistema.
+   * Lista de capas disponibles para activar. Por defecto las 4 del sistema.
    * Para añadir una nueva capa: agrega un caso aqui y un `<XxxLayer />` al mapa.
    */
   options?: LayerControlOption[];
@@ -34,6 +34,7 @@ interface LayerControlProps {
 
 // Orden de capas del diseño Figma.
 const DEFAULT_OPTIONS: LayerControlOption[] = [
+  { id: 'distritos', label: 'Límites de Distritos' },
   { id: 'precipitaciones', label: 'Mapa de Precipitaciones' },
   { id: 'alertas', label: 'Mapa de Alertas' },
   { id: 'componentes', label: 'Mapa de Componentes' },

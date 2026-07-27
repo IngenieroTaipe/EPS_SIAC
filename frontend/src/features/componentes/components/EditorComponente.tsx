@@ -5,10 +5,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { cn } from '@/shared/lib/cn';
 import {
-  CRITICIDAD_LABEL,
-  TIPO_LABEL,
   type Componente,
-  type CriticidadComponente,
   type TipoComponente,
 } from '@/features/mapa/types/componente';
 import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
@@ -18,6 +15,8 @@ import {
   ZONA_LETRA_DEFAULT,
   ZONA_UTM_DEFAULT,
 } from '../utm-utils';
+import { apiComponentes } from '@/services/apiComponentes';
+import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
 
 // Iconos del componente (SVG importados como URL para el icono delSidebar).
 import CaptacionIconUrl from '@/assets/icons/captacion.svg?url';
@@ -66,54 +65,60 @@ const ICON_URL_BY_TIPO: Record<TipoComponente, string> = {
   'linea-conduccion': LineaConduccionIconUrl,
 };
 
-const CRITICIDAD_CLASES: Record<
-  CriticidadComponente,
-  { selected: string; unselected: string }
-> = {
-  'alta': {
-    selected: 'bg-danger-states-hover outline-danger-main text-danger-dark',
-    unselected: 'bg-background-main outline-button-stroke text-text-secondary hover:bg-danger-states-hover/30',
-  },
-  'media': {
-    selected: 'bg-warning-states-hover outline-warning-main text-warning-dark',
-    unselected: 'bg-background-main outline-button-stroke text-text-secondary hover:bg-warning-states-hover/30',
-  },
-  'baja': {
-    selected: 'bg-success-states-hover outline-success-main text-success-dark',
-    unselected: 'bg-background-main outline-button-stroke text-text-secondary hover:bg-success-states-hover/30',
-  },
-};
-
 const STATE_BADGE_GENERIC = 'bg-text-status-placeholder rounded-full px-3 py-[3px] text-xs font-bold font-sans';
 
-const UNIDADES = ['Pichanaqui', 'San Ramón', 'La Merced', 'Oxapampa', 'Satipo'];
-const TIPOS: Array<{ value: Exclude<TipoComponente, 'linea-conduccion'>; label: string }> = [
-  { value: 'captacion', label: 'Captación' },
-  { value: 'planta-tratamiento', label: 'Planta de Tratamiento' },
-  { value: 'reservorio', label: 'Reservorio' },
-];
-const ESTADOS_OPERACIONAL = ['Operativo', 'Inoperativo', 'En reserva'];
-const ESTADOS_FISICO = ['Bueno', 'Regular', 'Malo'];
+type OpcionSelect = { value: string; label: string };
 
 interface EditorComponenteProps {
   /** Componente a editar. Si se omite, se crea uno nuevo. */
   initial?: Componente;
+  /** Datos crudos del backend para precargar selects (IDs/codes). */
+  initialBackend?: {
+    typeId?: number;
+    districtUbigeo?: string;
+    operationalStatusCode?: string;
+    physicalStatusCode?: string;
+    criticalityId?: number;
+  };
 }
 
-export function EditorComponente({ initial }: EditorComponenteProps) {
+export function EditorComponente({ initial, initialBackend }: EditorComponenteProps) {
   const navigate = useNavigate();
 
+  // ── Opciones dinámicas desde el backend ────────────────────────────
+  const [tiposOptions, setTiposOptions] = useState<OpcionSelect[]>([]);
+  const [distritosOptions, setDistritosOptions] = useState<BackendDistrict[]>([]);
+  const [estadosOpOptions, setEstadosOpOptions] = useState<OpcionSelect[]>([]);
+  const [estadosFisOptions, setEstadosFisOptions] = useState<OpcionSelect[]>([]);
+  const [criticidadesOptions, setCriticidadesOptions] = useState<OpcionSelect[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      apiComponentes.listTipos(),
+      apiPlaces.listDistricts(),
+      apiComponentes.listEstadosOperacionales(),
+      apiComponentes.listEstadosFisicos(),
+      apiComponentes.listCriticidades(),
+    ])
+      .then(([tipos, dists, ops, fis, crits]) => {
+        setTiposOptions(tipos.map((t) => ({ value: String(t.id), label: t.name })));
+        setDistritosOptions(dists);
+        setEstadosOpOptions(ops.map((o) => ({ value: o.code, label: o.name })));
+        setEstadosFisOptions(fis.map((f) => ({ value: f.code, label: f.name })));
+        setCriticidadesOptions(crits.map((c) => ({ value: String(c.id), label: c.name })));
+      })
+      .catch(() => {});
+  }, []);
+
   // ── Estado del formulario ─────────────────────────────────────────
-  const [tipo, setTipo] = useState<Exclude<TipoComponente, 'linea-conduccion'>>(
-    initial?.tipo ?? 'captacion',
-  );
+  const [tipoId, setTipoId] = useState<string>(initialBackend?.typeId ? String(initialBackend.typeId) : '');
+  const [tipoLabel, setTipoLabel] = useState<string>(initial?.tipo ?? 'captacion');
   const [codigo, setCodigo] = useState(initial?.codigo ?? '');
-  const [unidad, setUnidad] = useState(initial?.unidadOperativa ?? 'Pichanaqui');
-  const [estadoOperacional, setEstadoOperacional] = useState<string>('Operativo');
-  const [estadoFisico, setEstadoFisico] = useState<string>('Bueno');
-  const [criticidad, setCriticidad] = useState<CriticidadComponente>(
-    initial?.criticidad ?? 'baja',
-  );
+  const [nombre, setNombre] = useState(initial?.nombre ?? '');
+  const [distritoUbigeo, setDistritoUbigeo] = useState<string>(initialBackend?.districtUbigeo ?? '');
+  const [estadoOperacionalCode, setEstadoOperacionalCode] = useState<string>(initialBackend?.operationalStatusCode ?? '');
+  const [estadoFisicoCode, setEstadoFisicoCode] = useState<string>(initialBackend?.physicalStatusCode ?? '');
+  const [criticidadId, setCriticidadId] = useState<string>(initialBackend?.criticalityId ? String(initialBackend.criticalityId) : '');
   const [especificacion, setEspecificacion] = useState(initial?.especificacion ?? '');
 
   // ── Coordenadas: UTM ↔ LatLon ──────────────────────────────────────
@@ -125,6 +130,8 @@ export function EditorComponente({ initial }: EditorComponenteProps) {
   const [utmN, setUtmN] = useState<string>(String(initUtm.northing));
   const [lat, setLat] = useState<number>(initial?.lat ?? 0);
   const [lon, setLon] = useState<number>(initial?.lng ?? 0);
+  const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
 
   function handleUtmChange(field: 'e' | 'n', value: string) {
     if (field === 'e') setUtmE(value);
@@ -145,9 +152,76 @@ export function EditorComponente({ initial }: EditorComponenteProps) {
   const MAX = 300;
   const especificacionTruncada = especificacion.slice(0, MAX);
 
-  function handleGuardar() {
-    // Mock: solo navega al histórico. Aquí se llamaría al backend.
-    navigate('/componentes/gestion');
+  async function handleGuardar() {
+    setErrorGuardar(null);
+    if (!tipoId || !distritoUbigeo || !codigo || !nombre) {
+      setErrorGuardar('Complete los campos obligatorios: tipo, código, nombre y distrito.');
+      return;
+    }
+    setGuardando(true);
+    try {
+      const bodyComp = {
+        code: codigo.padStart(4, '0'),
+        name: nombre,
+        specification: especificacion,
+        district: distritoUbigeo,
+        type: Number(tipoId),
+        operational_status: estadoOperacionalCode || null,
+        physical_status: estadoFisicoCode || null,
+      };
+
+      let compId: number;
+
+      if (initial?.id) {
+        // PATCH — editar existente
+        const comp = await apiComponentes.updateComponente(Number(initial.id), bodyComp);
+        compId = comp.id;
+      } else {
+        // POST — crear nuevo
+        const comp = await apiComponentes.createComponente(bodyComp);
+        compId = comp.id;
+      }
+
+      // Guardar coordenada (UTM → backend convierte a WGS84)
+      const e = parseFloat(utmE);
+      const n = parseFloat(utmN);
+      await apiComponentes.createCoord({
+        component: compId,
+        criticality: Number(criticidadId) || 1,
+        easting: isNaN(e) ? 0 : e,
+        northing: isNaN(n) ? 0 : n,
+        srid_origin: 18,
+      });
+
+      navigate('/componentes/gestion');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: Record<string, unknown> } };
+      const msg =
+        (e?.response?.data as { detail?: string } | undefined)?.detail ??
+        'Error al guardar el componente.';
+      setErrorGuardar(msg);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  async function handleEliminar() {
+    if (!initial?.id) return;
+    if (!confirm('¿Está seguro de eliminar este componente? Esta acción no se puede deshacer.')) return;
+    setGuardando(true);
+    setErrorGuardar(null);
+    try {
+      await apiComponentes.deleteComponente(Number(initial.id));
+      navigate('/componentes/gestion');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: Record<string, unknown> } };
+      const msg =
+        (e?.response?.data as { detail?: string } | undefined)?.detail ??
+        'Error al eliminar el componente.';
+      setErrorGuardar(msg);
+    } finally {
+      setGuardando(false);
+    }
   }
 
   function handleCancelar() {
@@ -155,11 +229,11 @@ export function EditorComponente({ initial }: EditorComponenteProps) {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full overflow-y-auto p-5 flex flex-col items-start gap-5">
       {/* ── Cuerpo: 40% izquierda (datos) + 60% derecha (mapa+vistaprevia) ── */}
-      <div className="flex-1 overflow-y-auto px-8 py-6 flex justify-center items-stretch gap-6">
+      <div className="self-stretch flex justify-center items-stretch gap-6">
         {/* Tarjeta izquierda — Datos del componente (40%) */}
-        <div className="w-[40%] min-w-[600px] max-w-[743px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-5 bg-background-main">
+        <div className="w-[600px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-5 bg-background-main">
           <h2 className="text-text-primary text-lg font-bold font-sans leading-7">
             Datos del componente
           </h2>
@@ -171,16 +245,24 @@ export function EditorComponente({ initial }: EditorComponenteProps) {
                 Tipo de Componente
               </label>
               <SelectInput
-                value={tipo}
-                onChange={(v) => setTipo(v as typeof tipo)}
-                options={TIPOS.map((t) => ({ value: t.value, label: t.label }))}
+                value={tipoId}
+                onChange={(v) => {
+                  setTipoId(v);
+                  const opt = tiposOptions.find((t) => t.value === v);
+                  setTipoLabel(opt?.label ?? 'captacion');
+                }}
+                options={tiposOptions}
                 placeholder="Seleccionar tipo de componente"
               />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-text-primary text-sm font-medium font-sans">Ícono</label>
               <div className="size-16 py-3.5 rounded-xl border border-button-stroke grid place-items-center bg-background-main">
-                <img src={ICON_URL_BY_TIPO[tipo]} alt="" className="w-10 h-10" />
+                <img
+                  src={ICON_URL_BY_TIPO[tipoLabel as TipoComponente] ?? CaptacionIconUrl}
+                  alt=""
+                  className="w-10 h-10"
+                />
               </div>
             </div>
           </div>
@@ -196,13 +278,24 @@ export function EditorComponente({ initial }: EditorComponenteProps) {
             />
           </Field>
 
-          {/* Unidad operativa */}
-          <Field label="Unidad Operativa">
+          {/* Nombre */}
+          <Field label="Nombre">
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Ej. Captación Río Pichanaqui"
+              className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-3 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+            />
+          </Field>
+
+          {/* Distrito (Unidad Operativa) */}
+          <Field label="Unidad Operativa (Distrito)">
             <SelectInput
-              value={unidad}
-              onChange={setUnidad}
-              options={UNIDADES.map((u) => ({ value: u, label: u }))}
-              placeholder="Seleccionar unidad operativa"
+              value={distritoUbigeo}
+              onChange={setDistritoUbigeo}
+              options={distritosOptions.map((d) => ({ value: d.ubigeo, label: d.name }))}
+              placeholder="Seleccionar distrito"
             />
           </Field>
 
@@ -210,45 +303,31 @@ export function EditorComponente({ initial }: EditorComponenteProps) {
           <div className="flex gap-4">
             <Field label="Estado Operacional" inline>
               <SelectInput
-                value={estadoOperacional}
-                onChange={setEstadoOperacional}
-                options={ESTADOS_OPERACIONAL.map((e) => ({ value: e, label: e }))}
+                value={estadoOperacionalCode}
+                onChange={setEstadoOperacionalCode}
+                options={estadosOpOptions}
                 placeholder="Seleccionar estado"
               />
             </Field>
             <Field label="Estado Físico" inline>
               <SelectInput
-                value={estadoFisico}
-                onChange={setEstadoFisico}
-                options={ESTADOS_FISICO.map((e) => ({ value: e, label: e }))}
+                value={estadoFisicoCode}
+                onChange={setEstadoFisicoCode}
+                options={estadosFisOptions}
                 placeholder="Seleccionar estado"
               />
             </Field>
           </div>
 
-          {/* Criticidad — 3 botones seleccionables */}
-          <div className="flex flex-col gap-2">
-            <span className="text-text-primary text-xs font-medium font-sans">Criticidad</span>
-            <div className="flex gap-3">
-              {(Object.keys(CRITICIDAD_LABEL) as CriticidadComponente[]).map((c) => {
-                const isOn = criticidad === c;
-                const cls = CRITICIDAD_CLASES[c];
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCriticidad(c)}
-                    className={cn(
-                      'w-28 py-2 rounded-xl outline outline-1 outline-offset-[-1px] text-sm font-medium font-sans transition-colors',
-                      isOn ? cls.selected : cls.unselected,
-                    )}
-                  >
-                    {CRITICIDAD_LABEL[c]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* Criticidad — select dinámico */}
+          <Field label="Criticidad">
+            <SelectInput
+              value={criticidadId}
+              onChange={setCriticidadId}
+              options={criticidadesOptions}
+              placeholder="Seleccionar criticidad"
+            />
+          </Field>
 
           {/* Especificación */}
           <Field label="Especificación (descripción - observaciones)">
@@ -305,51 +384,73 @@ export function EditorComponente({ initial }: EditorComponenteProps) {
 
         {/* Tarjeta derecha — Mapa referencial (más grande) + vista previa (60%) */}
         <div className="flex-1 flex flex-col gap-6">
-          <MapaReferencial lat={lat} lon={lon} iconUrl={ICON_URL_BY_TIPO[tipo]} />
+          <MapaReferencial lat={lat} lon={lon} iconUrl={ICON_URL_BY_TIPO[tipoLabel as TipoComponente] ?? CaptacionIconUrl} />
           <VistaPrevia
-            tipo={TIPO_LABEL[tipo]}
+            tipo={tipoLabel}
             lat={lat}
             lon={lon}
             utmE={utmE}
             utmN={utmN}
-            unidad={unidad}
-            estadoOperacional={estadoOperacional}
-            estadoFisico={estadoFisico}
-            criticidad={criticidad}
+            unidad={distritosOptions.find((d) => d.ubigeo === distritoUbigeo)?.name ?? ''}
+            estadoOperacional={estadosOpOptions.find((o) => o.value === estadoOperacionalCode)?.label ?? ''}
+            estadoFisico={estadosFisOptions.find((f) => f.value === estadoFisicoCode)?.label ?? ''}
+            criticidad={criticidadesOptions.find((c) => c.value === criticidadId)?.label ?? ''}
           />
         </div>
       </div>
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <div className="px-8 py-5 border-t border-button-stroke inline-flex justify-end items-center gap-3 bg-background-main">
-        <button
-          type="button"
-          onClick={handleCancelar}
-          className="px-6 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke text-text-primary text-sm font-medium font-sans hover:bg-primary-states-hover-main/30 transition-colors
-                     focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={handleGuardar}
-          className="px-6 py-2.5 rounded-xl bg-primary-main text-text-invert-primary text-sm font-medium font-sans
-                     inline-flex justify-start items-center gap-2
-                     hover:bg-primary-light transition-colors
-                     focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2"
-        >
-          <svg viewBox="0 0 16 16" className="size-4" aria-hidden="true">
-            <path
-              d="M3 7L7 11L13 4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.33"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Guardar Componente
-        </button>
+      <div className="px-8 py-5 border-t border-button-stroke inline-flex flex-col items-end gap-2 bg-background-main">
+        {errorGuardar && (
+          <p className="text-red-600 text-sm font-sans">{errorGuardar}</p>
+        )}
+        <div className="inline-flex justify-end items-center gap-3 w-full">
+          {initial?.id && (
+            <button
+              type="button"
+              onClick={handleEliminar}
+              disabled={guardando}
+              className="px-6 py-2.5 rounded-xl bg-secondary-main text-white text-sm font-medium font-sans
+                         hover:bg-secondary-hover transition-colors
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-main focus-visible:ring-offset-2
+                         disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
+            >
+              Eliminar
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleCancelar}
+            disabled={guardando}
+            className="px-6 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke text-text-primary text-sm font-medium font-sans hover:bg-primary-states-hover-main/30 transition-colors
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2
+                       disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleGuardar}
+            disabled={guardando}
+            className="px-6 py-2.5 rounded-xl bg-primary-main text-text-invert-primary text-sm font-medium font-sans
+                       inline-flex justify-start items-center gap-2
+                       hover:bg-primary-light transition-colors
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2
+                       disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <svg viewBox="0 0 16 16" className="size-4" aria-hidden="true">
+              <path
+                d="M3 7L7 11L13 4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.33"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {guardando ? 'Guardando…' : initial?.id ? 'Guardar Cambios' : 'Guardar Componente'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -484,7 +585,7 @@ function VistaPrevia({
   unidad: string;
   estadoOperacional: string;
   estadoFisico: string;
-  criticidad: CriticidadComponente;
+  criticidad: string;
 }) {
   return (
     <div className="self-stretch p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-text-status-placeholder flex flex-col gap-4 bg-background-main">
@@ -511,11 +612,11 @@ function VistaPrevia({
         />
         <Fila
           label="Criticidad:"
-          value={CRITICIDAD_LABEL[criticidad]}
+          value={criticidad}
           badgeColor={
-            criticidad === 'alta'
+            criticidad.toUpperCase().includes('ALT')
               ? 'bg-secondary-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-secondary-main'
-              : criticidad === 'media'
+              : criticidad.toUpperCase().includes('MED')
                 ? 'bg-warning-states-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-warning-dark'
                 : 'bg-success-states-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-success-dark'
           }

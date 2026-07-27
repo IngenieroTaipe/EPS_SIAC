@@ -200,7 +200,7 @@ class ComponentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
         fields = [
             'id',
             'code',
-            'sector',
+            'district',
             'type',
             'name',
             'specification'
@@ -244,10 +244,10 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
     easting = serializers.FloatField(write_only=True, required=False, help_text="Coordenada Este en metros (UTM)")
     northing = serializers.FloatField(write_only=True, required=False, help_text="Coordenada Norte en metros (UTM)")
     srid_origin = serializers.IntegerField(
-        write_only=True, 
-        required=False, 
-        default=32718, 
-        help_text="SRID de Origen (ej: 32718 para UTM Zona 18S, 32717 para UTM Zona 17S, 32719 para UTM Zona 19S)"
+        write_only=True,
+        required=False,
+        default=18,
+        help_text="Zona UTM de Origen (17, 18 o 19). Default: 18 (Selva Central / Junin)"
     )
 
     latitude = serializers.FloatField(write_only=True, required=False, help_text="Latitud WGS84 (-90 a 90)")
@@ -299,15 +299,21 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         easting = attrs.pop('easting', None)
         northing = attrs.pop('northing', None)
-        srid_origin = attrs.pop('srid_origin', 32718)
+        srid_origin = attrs.pop('srid_origin', 18)
+        latitude = attrs.pop('latitude', None)
+        longitude = attrs.pop('longitude', None)
         coords = attrs.get('coords', None)
 
         if easting is not None and northing is not None:
             attrs['coords'] = SpatialHelper.utm_to_wgs84(easting, northing, srid_origin)
 
+        elif latitude is not None and longitude is not None:
+            from django.contrib.gis.geos import Point
+            attrs['coords'] = Point(float(longitude), float(latitude), srid=4326)
+
         elif coords is None:
             raise ValidationError(
-                "Se deben especificar las coordenadas UTM (ej: 32718 para UTM Zona 18S, 32717 para UTM Zona 17S, 32719 para UTM Zona 19S) o las Coordenadas WGS84 (Lat, Lon)."
+                "Se deben especificar las coordenadas UTM (easting+northing+zone) o las Coordenadas WGS84 (latitude+longitude)."
             )
         
         return attrs

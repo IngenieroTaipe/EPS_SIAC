@@ -60,11 +60,12 @@ export const UNIDAD_OPERATIVA_LABEL = 'Unidad Operativa';
  * Editables aquí: añade/quita/renombra una opción sin tocar el componente.
  */
 export const UNIDAD_OPERATIVA_OPTIONS: string[] = [
+  'Todas',
   'La Merced',
   'San Ramón',
   'Oxapampa',
   'Satipo',
-  'Pichanaqui-Sangani',
+  'Pichanaqui',
 ];
 
 /**

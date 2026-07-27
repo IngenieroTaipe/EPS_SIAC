@@ -4,8 +4,9 @@ import { LayerControl, type LayerId } from '@/features/mapa/components/LayerCont
 import { MapLegend } from '@/features/mapa/components/MapLegend';
 import { PrecipitationLayer } from '@/features/mapa/components/PrecipitationLayer';
 import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
+import { DistrictLayer } from '@/features/mapa/components/DistrictLayer';
 import { MapComponentsPanel } from '@/features/componentes/components/MapComponentsPanel';
-import { mockComponentes } from '@/features/mapa/data/mockComponentes';
+import { useComponentes } from '@/services/useComponentes';
 
 /**
  * MapaComponentesPage — vista "Mapa de Componentes".
@@ -29,21 +30,23 @@ export function MapaComponentesPage() {
     null,
   );
 
+  const { data } = useComponentes();
+
   function handleToggleSelect(id: string) {
     setSelectedComponentId((prev) => (prev === id ? null : id));
   }
 
-  // Para el panel mostramos los primeros 10 componentes del mock
-  // (cuando el backend esté listo, el endpoint entregará solo los del viewport).
-  const panelComponentes = mockComponentes.componentes.slice(0, 10);
+  const panelComponentes = (data.componentes ?? []).slice(0, 10);
 
   return (
   <div className="relative h-full w-full pt-1 pr-1 pl-2 z-0">
     <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
       <BaseMap>
+        <DistrictLayer />
         {selected.has('precipitaciones') && <PrecipitationLayer />}
         {selected.has('componentes') && (
           <ComponentLayer
+            data={data}
             selectedComponentId={selectedComponentId}
             onComponenteClick={handleToggleSelect}
           />
