@@ -14,6 +14,5 @@ class DistrictService:
         """
         districts = District.objects.filter(
             geometry__isnull=False
-        ).prefetch_related('thresholds_natural_phenomenas_district__threshold', 
-                          'thresholds_natural_phenomenas_district__natural_phenomena')
+        ).prefetch_related('thresholds')
         return districts

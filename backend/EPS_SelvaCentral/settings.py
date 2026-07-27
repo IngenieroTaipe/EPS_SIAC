@@ -222,3 +222,11 @@ REST_AUTH = {
 
 # Configuration for consumption of the ECMWF API
 ECMWF_STORAGE_DIR = env('ECMWF_STORAGE_DIR', default='/app/storage')
+
+# MEDIA_ROOT: Ruta donde están físicamente los archivos en disco
+MEDIA_ROOT = ECMWF_STORAGE_DIR
+
+# MEDIA_URL: PREFIJO que usará Django para las peticiones web HTTP
+MEDIA_URL = '/media/'
+
+os.makedirs(MEDIA_ROOT, exist_ok=True)

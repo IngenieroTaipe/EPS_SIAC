@@ -92,6 +92,12 @@ class District(AuditCompleteModel):
     name = models.CharField(max_length=50, validators=[alpha_name_validator])
     geometry = models.MultiPolygonField(srid=4326, null=True, blank=True)
 
+    thresholds = models.ManyToManyField(
+        'core_predictive.Threshold',
+        through='core_predictive.ThresholdsNaturalPhenomena',
+        related_name='districts',
+        blank=True
+    )
     class Meta():
         db_table = 'districts'
         verbose_name = 'Distrito'

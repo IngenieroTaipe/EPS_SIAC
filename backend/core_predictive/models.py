@@ -26,11 +26,11 @@ class EMCWFRequest(AuditCompleteModel):
 
     geom_bounds = models.PolygonField(srid=4326, verbose_name="Límite Geométrico WGS84")
 
-    file_name = models.CharField(max_length=200)
-    file_path = models.CharField(max_length=200)
-    file_size_mb = models.FloatField()
-    download_time_seconds = models.FloatField()
-    geojson_path = models.CharField(max_length=200)
+    file_name = models.CharField(max_length=200, null=True, blank=True)
+    file_path = models.CharField(max_length=200, null=True, blank=True)
+    file_size_mb = models.FloatField(null=True, blank=True)
+    download_time_seconds = models.FloatField(null=True, blank=True)
+    geojson_path = models.CharField(max_length=200, null=True, blank=True)
 
     class Meta():
         db_table = 'emcwf_requests'

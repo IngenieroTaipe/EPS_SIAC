@@ -19,6 +19,8 @@ from core_shared.formatters import DataFormatter
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 import json
+import os
+from django.conf import settings
 
 
 # ==============================================================================
@@ -31,6 +33,9 @@ class EMCWFRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'status': DataFormatter.upper_case,
         'target_variable': DataFormatter.lower_case,
     }
+
+    geojson_url = serializers.SerializerMethodField()
+    geom_bounds = serializers.SerializerMethodField()
 
     class Meta:
         model = EMCWFRequest
@@ -45,7 +50,9 @@ class EMCWFRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'file_name',
             'file_path',
             'file_size_mb',
-            'download_time_seconds'
+            'download_time_seconds',
+            'geojson_path',
+            'geojson_url'
         ]
         read_only_fields = ['id']
 
@@ -63,6 +70,22 @@ class EMCWFRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
             return json.loads(obj.geom_bounds.geojson)
         return None
 
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_geojson_url(self, obj):
+        """
+        Mapea la ruta física del archivo local a la URL de almacenamiento estático MEDIA.
+        """
+        if not obj.geojson_path or not os.path.exists(obj.geojson_path):
+            return None
+        
+        request = self.context.get('request')
+        relative_path = os.path.relpath(obj.geojson_path, settings.MEDIA_ROOT)
+        media_url = f"{settings.MEDIA_URL}{relative_path}".replace("\\", "/")
+
+        if request is not None:
+            return request.build_absolute_uri(media_url)
+        return media_url
+
 class EMCWFRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     
     prepare_fields = {
@@ -71,6 +94,8 @@ class EMCWFRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer)
         'target_variable': DataFormatter.lower_case,
     }
 
+    geojson_url = serializers.SerializerMethodField()
+
     class Meta:
         model = EMCWFRequest
         fields = [
@@ -78,8 +103,8 @@ class EMCWFRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer)
             'request_code',
             'status',
             'target_variable',
-            'date_range_start',
-            'date_range_end'
+            'geojson_path',
+            'geojson_url'
         ]
         read_only_fields = ['id']
 
@@ -87,6 +112,22 @@ class EMCWFRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer)
         if attrs['date_range_start'] >= attrs['date_range_end']:
             raise ValidationError("La fecha de inicio debe ser menor a la fecha de fin.")
         return attrs
+    
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_geojson_url(self, obj):
+        """
+        Mapea la ruta física del archivo local a la URL de almacenamiento estático MEDIA.
+        """
+        if not obj.geojson_path or not os.path.exists(obj.geojson_path):
+            return None
+        
+        request = self.context.get('request')
+        relative_path = os.path.relpath(obj.geojson_path, settings.MEDIA_ROOT)
+        media_url = f"{settings.MEDIA_URL}{relative_path}".replace("\\", "/")
+
+        if request is not None:
+            return request.build_absolute_uri(media_url)
+        return media_url
 
 # ==============================================================================
 # SERIALIZADORES DE FENOMENOS NATURALES

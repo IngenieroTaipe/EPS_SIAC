@@ -1,8 +1,11 @@
 import logging
+
 from datetime import datetime
 from celery import shared_task
 from django.db import transaction
-
+from django.contrib.gis.geos import Polygon
+from django.utils import timezone
+from datetime import timedelta
 from core_predictive.models import EMCWFRequest
 from core_predictive.services import ECMWFDataService, ECMWFRequestService
 
@@ -40,12 +43,26 @@ def run_scheduled_ecmwf_download(self, total_hours: int = 48):
         # === Creación del registro trazable en Base de Datos (PostGIS) ===
         request_code = f"AUTO_{now_utc.strftime('%Y%m%d')}_{run_time}Z"
         
+        peru_bbox_polygon = Polygon((
+            (-81.5, -18.5),
+            (-68.5, -18.5),
+            (-68.5, 0.5),
+            (-81.5, 0.5),
+            (-81.5, -18.5)
+        ), srid=4326)
+
+        date_range_start = timezone.now()
+        date_range_end = date_range_start + timedelta(hours=total_hours)
+
         with transaction.atomic():
             request_obj, created = EMCWFRequest.objects.get_or_create(
                 request_code=request_code,
                 defaults={
                     "status": "PENDING",
-                    "file_name": f"pending_{request_code}"
+                    "file_name": f"pending_{request_code}",
+                    "date_range_start": date_range_start,
+                    "date_range_end": date_range_end,
+                    "geom_bounds": peru_bbox_polygon
                 }
             )
 

@@ -1,7 +1,10 @@
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema_view, extend_schema
+from django.http import FileResponse
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse
 from core_predictive.models import (
     NaturalPhenomena,
     EMCWFRequest,
@@ -14,6 +17,7 @@ from core_predictive.models import (
 )
 from core_predictive.serializers import (
     EMCWFRequestSerializer,
+    EMCWFRequestLightSerializer,
     NaturalPhenomenaSerializer,
     NaturalPhenomenasVariablesSerializer,
     VariableSerializer,
@@ -22,6 +26,8 @@ from core_predictive.serializers import (
     ThresholdNaturalPhenomenaSerializer,
     ThresholdSerializer
 )
+
+import os
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / EMCWF'], summary="Listar Solicitudes EMCWF"),
@@ -36,7 +42,7 @@ class EMCWFRequestViewSet(viewsets.ReadOnlyModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre    
     """
     permission_classes = [IsAuthenticated]
-    queryset = EMCWFRequest.objects.all()
+    queryset = EMCWFRequest.objects.all().order_by('-created_at')
     serializer_class = EMCWFRequestSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
@@ -53,6 +59,44 @@ class EMCWFRequestViewSet(viewsets.ReadOnlyModelViewSet):
         'date_range_start',
         'date_range_end'
     ]
+
+    @extend_schema(
+        summary="Descarga el archivo GeoJSON vectorial procesado",
+        responses={
+            200: OpenApiResponse(description="Archivo .json/.geojson descargable"),
+            404: OpenApiResponse(description="Archivo GeoJSON no encontrado en disco")
+        }
+    )
+    @action(detail=True, methods=['get'], url_path='download-geojson')
+    def download_geojson(self, request, pk=None):
+        """
+        Acción secundaria: Sirve directamente el contenido del GeoJSON como Stream 
+        si el visor WebGIS prefiere la carga por API en lugar de archivos estáticos.
+        """
+        ecmwf_request = self.get_object()
+
+        if not ecmwf_request.geojson_path or not os.path.exists(ecmwf_request.geojson_path):
+            return Response(
+                {"detail": "El archivo GeoJSON procesado no está disponible en el servidor."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Retorno optimizado vía Stream (FileResponse en bloques I/O)
+        file_handle = open(ecmwf_request.geojson_path, 'rb')
+        response = FileResponse(file_handle, content_type='application/geo+json')
+        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(ecmwf_request.geojson_path)}"'
+        return response
+    
+    def get_serializer_class(self):
+        """
+        Intercepta la acción solicitada y asigna la clase serializadora correspondiente:
+        - Acciones de Lista ('list'): Serializador Liviano.
+        - Acciones de Detalle ('retrieve', 'create', 'update'): Serializador Completo.
+        """
+        if self.action == 'retrieve':
+            return EMCWFRequestSerializer
+        
+        return EMCWFRequestLightSerializer
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / Natural Phenomena'], summary="Listar Fenómenos Naturales"),
@@ -72,8 +116,8 @@ class NaturalPhenomenaViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre    
     """
     permission_classes = [IsAuthenticated]
-    queryset = VariableType.objects.all()
-    serializer_class = VariableTypeSerializer
+    queryset = NaturalPhenomena.objects.all()
+    serializer_class = NaturalPhenomenaSerializer
     filter_backends = [
         filters.SearchFilter, 
         filters.OrderingFilter,
@@ -106,8 +150,8 @@ class VariableTypeViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre    
     """
     permission_classes = [IsAuthenticated]
-    queryset = UnitsMeasurement.objects.all()
-    serializer_class = UnitsMeasurementSerializer
+    queryset = VariableType.objects.all()
+    serializer_class = VariableTypeSerializer
     filter_backends = [
         filters.SearchFilter, 
         filters.OrderingFilter,
@@ -173,6 +217,7 @@ class VariableViewSet(viewsets.ModelViewSet):
         - Permite la búsqueda en base a campos como: Nombre, Variable Type (name).
         - Permite el ordenamiento en base a campos como: Nombre, Variable Type (name)    
     """
+    serializer_class = VariableSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
     filtered_fields = [

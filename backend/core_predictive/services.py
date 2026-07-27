@@ -129,7 +129,7 @@ class ECMWFDataService:
                     "time": dt_cfg["time"],            
                     "step": steps
                 }
-                
+
                 # === Nombre del archivo ===
                 file_name = f"ecmwf_{self.model}_tp_{tag}_date{dt_cfg['date']}_time{dt_cfg['time']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.grib2"
 
@@ -187,7 +187,7 @@ class ECMWFDataService:
                 ds_cropped = ds.sel(latitude=lat_slice, longitude=lon_slice)
 
                 # === Verificación de que el rebanado se realizó correctamente ===
-                if ds_cropped.dims["latitude"] == 0 or ds_cropped.dims["longitude"] == 0:
+                if ds_cropped.sizes["latitude"] == 0 or ds_cropped.sizes["longitude"] == 0:
                     raise ValidationError("El rebanado espacial no se realizó correctamente. No se encontraron celdas cubiertas por Perú.")
                 
                 # === Conversión de milímetros ===
@@ -223,11 +223,27 @@ class ECMWFDataService:
                 timestamps = [(run_time + np.timedelta64(h, 'h')).strftime("%Y-%m-%d %H:00 UTC") for h in step_hours]
 
                 features = []
+                tp_rate_mm_h = tp_rate_mm_h.transpose("step", "latitude", "longitude")
+                data_matrix = tp_rate_mm_h.values 
+                num_lats = len(lats)
+                num_lons = len(lons_normalized)
 
+                logger.info(f"tp_rate_mm_h.dims = {tp_rate_mm_h.dims}")
+                logger.info(f"tp_rate_mm_h.shape = {tp_rate_mm_h.shape}")
+
+                logger.info(f"len(lats) = {len(lats)}")
+                logger.info(f"len(lons_normalized) = {len(lons_normalized)}")
+                logger.info(f"data_matrix.shape = {data_matrix.shape}")
+                logger.info(tp_rate_mm_h.coords)
+                
                 # === Geoprocesamiento Vectorial: Construcción Batch de Celdas Poligonales ===
-                for i, lat in enumerate(lats):
-                    for j, lon in enumerate(lons_normalized):
-                        series_vals = tp_rate_mm_h.values[:, i, j]
+                for i in range(num_lats):
+                    lat = lats[i]
+
+                    for j in range(num_lons):
+                        lon = lons_normalized[j]
+
+                        series_vals = data_matrix[:, i, j]  
                         cleaned_series = [max(0.0, round(float(v), 2)) for v in series_vals]
 
                         # === Vértices geodésicos ===
@@ -338,10 +354,9 @@ class ECMWFIntersectionService:
                 # Intersección espacial del centroide o del polígono completo
                 if dist_data.geometry.intersects(cell_centroid) or dist_data.geometry.intersects(cell_polygon):
                     intersected_districts.append({
-                        "district_id": dist_data.id,
                         "district_name": dist_data.name,
                         "ubigeo": dist_data.ubigeo,
-                        "thresholds": dist_data.thresholds
+                        # "thresholds": dist_data.thresholds
                     })
 
             feature_properties = feature.get("properties", {})
