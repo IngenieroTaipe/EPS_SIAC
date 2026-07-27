@@ -24,6 +24,13 @@ services:
       db_postgis:
         condition: service_healthy
 
+  # =========== REDIS =========== 
+  redis:
+    image: redis:7-alpine
+    container_name: eps_redis
+    ports:
+      - "6379:6379"
+
   # =========== FRONTEND (REACT) =========== 
   frontend:
     container_name: eps_siac_frontend

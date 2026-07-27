@@ -23,6 +23,32 @@ services:
     env_file:
       - ./backend/.env.dev
   
+  # =========== CELERY () =========== 
+  celery_worker:
+    build:
+      context: ./backend
+      target: dev
+    container_name: eps_siac_celery_worker
+    command: celery -A EPS_SelvaCentral worker --loglevel=info --concurrency=2
+    volumes:
+      - .:/app
+      - /app/storage:/app/storage
+    depends_on:
+      - redis
+      - api
+    
+  celery_beat:
+    build:
+      context: ./backend
+      target: dev
+    container_name: eps_siac_celery_beat
+    command: celery -A EPS_SelvaCentral beat --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - celery_worker
+  
   # =========== FRONTEND (REACT) =========== 
   frontend:
     build:

@@ -10,10 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-import os
+from celery.schedules import crontab
 from pathlib import Path
 from datetime import timedelta
+
+import os
 import environ
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -220,7 +223,34 @@ REST_AUTH = {
     'JWT_AUTH_HEADER_PREFIX': 'Bearer',
 }
 
-# Configuration for consumption of the ECMWF API
+# Configuración del Broker y Resultados (Redis)
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
+
+# Formatos de serialización seguros para geoprocesamiento
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/Lima'
+
+# === Planificador Periódico (Celery Beat) ===
+CELERY_BEAT_SCHEDULE = {
+    'descarga-automatica-ecmwf-diaria': {
+        # === Nombre de la tarea a ejecutar ===
+        'task': 'core_predictive.tasks.run_scheduled_ecmwf_download',
+        
+        # === Programación de ejecución (08:15 y 20:15 UTC todos los días) ===
+        # Los valores se establecen en base a las horas de ejecución del modelo, solo que 1 hora después para evitar problemas y garantizar la descarga.
+        # 00 UTC = 19:00  (Hora de Perú) + 1:15 (periodo adicional) => 20:15
+        # 12 UTC = 7:00  (Hora de Perú) + 1:15 => 8:15
+        'schedule': crontab(hour='8,20', minute=15),
+        
+        # === Parámetros por defecto a enviar a la función run_scheduled_ecmwf_download ===
+        'kwargs': {'total_hours': 48},
+    },
+}
+
+# === Configuración almacenamiento del modelo ECMWF ===
 ECMWF_STORAGE_DIR = env('ECMWF_STORAGE_DIR', default='/app/storage')
 
 # MEDIA_ROOT: Ruta donde están físicamente los archivos en disco

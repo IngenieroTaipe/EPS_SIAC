@@ -20,6 +20,5 @@ python manage.py seed_components
 python manage.py seed_core_predictive
 python manage.py shell -c "from core_predictive.tasks import run_scheduled_ecmwf_download; result = run_scheduled_ecmwf_download(); print(result)"
 
-
 echo "=== Inicialización completada. Arrancando servidor... ==="
 exec "$@"

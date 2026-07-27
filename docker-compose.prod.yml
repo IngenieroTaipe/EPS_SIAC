@@ -16,6 +16,31 @@ services:
       target: prod
     env_file:
       - ./backend/.env.prod
+    volumes:
+      - ecmwf_media_data:/app/storage
+      
+  # =========== CELERY () =========== 
+  celery_worker:
+    build:
+      context: ./backend
+      target: prod
+    container_name: eps_siac_celery_worker
+    command: celery -A EPS_SelvaCentral worker --loglevel=info --concurrency=2
+    volumes:
+      - ecmwf_media_data:/app/storage
+    depends_on:
+      - redis
+      - api
+    
+  celery_beat:
+    build:
+      context: ./backend
+      target: prod
+    container_name: eps_siac_celery_beat
+    command: celery -A EPS_SelvaCentral beat --loglevel=info
+    depends_on:
+      - redis
+      - celery_worker
 
   # =========== FRONTEND (REACT) =========== 
   frontend:
@@ -37,3 +62,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  ecmwf_media_data:

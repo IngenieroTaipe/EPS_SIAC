@@ -102,6 +102,17 @@ class ECMWFDataService:
         steps = list(range(0, total_hours + 1, 3))
         
         # === Definición de fechas y horas de ejecución ===
+        """
+            La configuración define el orden de prioridad para la descarga de los archivos GRIB2.
+            Se especifica qué ejecuciones (fecha y hora UTC) debe intentar descargar el sistema.
+
+            Solo se utilizan los datos del modelo más preciso ejecutado a las 00Z y 12Z, si bien existe el modelo ejecutado a las 06Z y 18Z, utilizan menos parámetros, por lo que la predicción puede no tener la misma calidad.
+
+            Algo a considerar es que el estándar UTC está adelantada a la hora de Perú por 5 horas (UTC-5), por ello, los horarios de ejecución del modelo por parte del ECMWF son de:
+            - 00Z: 7 PM (19:00) (Del día anterior)
+            - 12Z: 7 AM (07:00)
+            
+        """
         datetime_config = [
             {"date": 0, "time": 12},   # Ejecución hoy 12Z
             {"date": 0, "time": 0},    # Ejecución hoy 00Z
