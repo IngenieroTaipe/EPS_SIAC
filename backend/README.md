@@ -25,7 +25,7 @@ Para acceder a la documentación del backend debemos dirigirnos a los siguientes
     </thead>
     <tbody>
         <tr>
-            <td>Admin</td>
+            <td>admin</td>
             <td>admin@eps-siac.gob.pe</td>
             <td>AdminPassword123!</td>
         </tr>

@@ -234,25 +234,25 @@ class ThresholdsNaturalPhenomena(AuditCompleteModel):
     natural_phenomena = models.ForeignKey(
         'NaturalPhenomena', 
         on_delete=models.CASCADE, 
-        related_name='thresholds_natural_phenomenas_natural_phenomena'
+        related_name='thresholds_relation'
     )
 
     variable = models.ForeignKey(
         'Variable',
         on_delete=models.CASCADE,
-        related_name='thresholds_natural_phenomenas_variable'
+        related_name='thresholds_relation'
     )
 
     threshold = models.ForeignKey(
         'Threshold',
         on_delete=models.CASCADE,
-        related_name='thresholds_natural_phenomenas_threshold'
+        related_name='thresholds_relation'
     )
     
     district = models.ForeignKey(
         'places.District',
         on_delete=models.CASCADE,
-        related_name='thresholds_natural_phenomenas_district'
+        related_name='thresholds_relation'
     )
 
     min_value = models.FloatField(null=True, blank=True)

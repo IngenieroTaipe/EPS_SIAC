@@ -108,7 +108,7 @@ class ECMWFDataService:
             {"date": -1, "time": 12},  # Ejecución ayer 12Z
             {"date": -1, "time": 0},   # Ejecución ayer 00Z
         ]
-        
+
         output_grib = None
         download_success = False
 
@@ -131,7 +131,7 @@ class ECMWFDataService:
                 }
 
                 # === Nombre del archivo ===
-                file_name = f"ecmwf_{self.model}_tp_{tag}_date{dt_cfg['date']}_time{dt_cfg['time']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.grib2"
+                file_name = f"ecmwf_{self.model}_tp_{tag}_date_{dt_cfg['date']}_time_{dt_cfg['time']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.grib2"
 
                 # === Ruta de almacenamiento local ===
                 output_grib = os.path.join(self.grib2_storage_dir, file_name)
@@ -152,6 +152,9 @@ class ECMWFDataService:
                     logger.warning(f"[ECMWF Aviso] La ejecución con date={dt_cfg['date']} no está lista o falló (HTTP 404). Reintentando... {str(e)}")
                     if os.path.exists(output_grib):
                         os.remove(output_grib)
+            
+            if download_success:
+                break
 
         if not download_success:
             raise ValidationError("No fue posible obtener el archivo GRIB2 en la ejecución actual o la ejecución anterior en ECMWF.")
@@ -314,7 +317,7 @@ class ECMWFDataService:
             exitosamente en la tabla EMCWFRequest para evitar I/O redundante.
         """
         
-        search_pattern = f"date{date_offset}_time{run_time}"
+        search_pattern = f"date_{date_offset}_time_{run_time}_{datetime.now().strftime('%Y%m%d')}"
         
         return EMCWFRequest.objects.filter(
             file_name__contains=search_pattern,
@@ -356,7 +359,12 @@ class ECMWFIntersectionService:
                     intersected_districts.append({
                         "district_name": dist_data.name,
                         "ubigeo": dist_data.ubigeo,
-                        # "thresholds": dist_data.thresholds
+                        "thresholds": [{
+                            "natural_phenomena_name": relation.natural_phenomena.name,
+                            "threshold_name": relation.threshold.name,
+                            "min_value": relation.min_value,
+                            "max_value": relation.max_value,
+                        } for relation in dist_data.thresholds_relation.all()]
                     })
 
             feature_properties = feature.get("properties", {})
