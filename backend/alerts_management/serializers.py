@@ -16,10 +16,7 @@ from core_predictive.models import (
     NaturalPhenomena, 
     GFSRequest
 )
-from organization.models import (
-    Branch
-)
-from organization.serializers import BranchLightSerializer
+
 from core_predictive.serializers import (
     NaturalPhenomenaLightSerializer, 
     GFSRequestSerializer
@@ -143,52 +140,15 @@ class AlertSerializer(serializers.ModelSerializer):
         queryset=NaturalPhenomena.objects.all(),
         help_text="ID del fenómeno natural"
     )
-    branch = serializers.PrimaryKeyRelatedField(
-        queryset=Branch.objects.all(),
-        help_text="ID de la sucursal"
-    )
 
     class Meta:
         model = Alert
         fields = [
             'id',
             'natural_phenomena',
-            'branch',
             'code'
         ]
         read_only_fields = ['id']
-
-    def to_representation(self, instance):
-        """
-            Reemplaza las relaciones con la demás tablas de las FK a la información detallada del objeto para responder las peticiones HTTP
-        """
-        representation = super().to_representation(instance)
-        if instance.natural_phenomena:
-            representation['natural_phenomena'] = NaturalPhenomenaLightSerializer(instance.natural_phenomena).data
-        if instance.branch:
-            representation['branch'] = BranchLightSerializer(instance.branch).data
-        return representation
-
-class AlertSerializer(serializers.ModelSerializer):
-    natural_phenomena = serializers.PrimaryKeyRelatedField(
-        queryset=NaturalPhenomena.objects.all(),
-        help_text="ID del fenómeno natural"
-    )
-    branch = serializers.PrimaryKeyRelatedField(
-        queryset=Branch.objects.all(),
-        help_text="ID de la sucursal"
-    )
-
-    class Meta:
-        model = Alert
-        fields = [
-            'id',
-            'natural_phenomena',
-            'branch',
-            'code'
-        ]
-        read_only_fields = ['id']
-
 
 # ==============================================================================
 # SERIALIZADORES DE HISTÓRICO DE ALERTAS
@@ -202,10 +162,6 @@ class AlertHistorySerializer(serializers.ModelSerializer):
         queryset=AlertStatusPhase.objects.all(),
         help_text="ID del estado y fase de la alerta"
     )
-    gfs_request = serializers.PrimaryKeyRelatedField(
-        queryset=GFSRequest.objects.all(),
-        help_text="ID de la solicitud GFS"
-    )
 
     class Meta:
         model = AlertHistory
@@ -213,9 +169,6 @@ class AlertHistorySerializer(serializers.ModelSerializer):
             'id',
             'alert',
             'alert_status_phase',
-            'gfs_request',
-            'natural_phenomena_value',
-            'date_predicted_start'
         ]
         read_only_fields = ['id']
 
@@ -228,8 +181,6 @@ class AlertHistorySerializer(serializers.ModelSerializer):
             representation['alert'] = AlertSerializer(instance.alert).data
         if instance.alert_status_phase:
             representation['alert_status_phase'] = AlertStatusPhaseSerializer(instance.alert_status_phase).data
-        if instance.gfs_request:
-            representation['gfs_request'] = GFSRequestSerializer(instance.gfs_request).data
         return representation
 
 class AlertHistoryLightSerializer(serializers.ModelSerializer):

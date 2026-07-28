@@ -151,6 +151,7 @@ class Component(AuditCompleteModel):
 
     class Meta():
         db_table = 'components'
+        ordering = ['id']
         verbose_name = 'Componente'
         verbose_name_plural = 'Componentes'
         unique_together = ['district', 'type', 'code']
@@ -187,6 +188,7 @@ class ComponentCoord(AuditCompleteModel):
 
     class Meta():
         db_table = 'components_coords'
+        ordering = ['id']
         verbose_name = 'Coordenada de Componente'
         verbose_name_plural = 'Coordenadas de Componentes'
 

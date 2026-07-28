@@ -7,12 +7,14 @@ from core_predictive.views import (
     UnitsMeasurementViewSet,
     VariableViewSet,
     NaturalPhenomenasVariablesViewSet,
-    ThresholdsNaturalPhenomenaViewSet
+    ThresholdsNaturalPhenomenaViewSet,
+    GFSActiveCellViewSet
 )
 
 router = routers.DefaultRouter()
 
 router.register(r'gfs-requests', GFSRequestViewSet, basename='gfs-request')
+router.register(r'gfs-active-cells', GFSActiveCellViewSet, basename='gfs-active-cells')
 router.register(r'natural-phenomenas', NaturalPhenomenaViewSet, basename='natural-phenomenas')
 router.register(r'variable-types', VariableTypeViewSet, basename='variable-type')
 router.register(r'units-measurements', UnitsMeasurementViewSet, basename='units-measurement')

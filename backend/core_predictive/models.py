@@ -1,5 +1,5 @@
 from django.contrib.gis.db import models
-from core_shared.models import AuditCompleteModel
+from core_shared.models import AuditCreateModel, AuditCompleteModel
 
 from core_shared.validators import alpha_name_validator
 
@@ -18,20 +18,19 @@ class GFSRequest(AuditCompleteModel):
         `@str`: Devuelve el nombre de la solicitud como representación en cadena del objeto.
     '''
     # Django crea internamente el campo 'id' de forma automática
-    request_code = models.CharField(max_length=100, unique=True)
+    request_code = models.CharField(max_length=100, unique=True, verbose_name="Código de Solicitud")
     status = models.CharField(max_length=20, validators=[alpha_name_validator])
     target_variable = models.CharField(max_length=50, validators=[alpha_name_validator])
-    date_range_start = models.DateField()
-    date_range_end = models.DateField()
+    date_range_start = models.DateTimeField(verbose_name="Inicio del Pronóstico (UTC)")
+    date_range_end = models.DateTimeField(verbose_name="Fin del Pronóstico (UTC)")
 
-    geom_bounds = models.PolygonField(srid=4326, verbose_name="Límite Geométrico WGS84")
+    geom_bounds = models.PolygonField(srid=4326, verbose_name="Límite Geométrico WGS84 de la petición.")
 
-    file_name = models.CharField(max_length=200, null=True, blank=True)
-    file_path = models.CharField(max_length=200, null=True, blank=True)
-    file_size_mb = models.FloatField(null=True, blank=True)
-    download_time_seconds = models.FloatField(null=True, blank=True)
-    geojson_path = models.CharField(max_length=200, null=True, blank=True)
-
+    file_name = models.CharField(max_length=200, null=True, blank=True, verbose_name="Nombre del Archivo")
+    file_path = models.CharField(max_length=200, null=True, blank=True, verbose_name="Ruta del Archivo grib2 o netcdf")
+    file_size_mb = models.FloatField(null=True, blank=True, verbose_name="Tamaño del Archivo (MB)")
+    download_time_seconds = models.FloatField(null=True, blank=True, verbose_name="Tiempo de Descarga (segundos)")
+    
     class Meta():
         db_table = 'gfs_requests'
         verbose_name = 'Solicitud GFS'
@@ -39,6 +38,35 @@ class GFSRequest(AuditCompleteModel):
 
     def __str__(self):
         return self.request_code
+
+class GFSActiveCell(AuditCreateModel):
+    '''
+        Modelo que representa una celda activa de GFS.
+        Almacena directamente las celdas activas con precipitación (> 0.1 mm/h) (Recuerda que previamente cada elemento del geojson tenía asociado su propia serie de intensidades de precipitación)
+        sin pasar por archivos GeoJSON estáticos en disco.
+    '''
+    gfs_request = models.ForeignKey(
+        'GFSRequest',
+        on_delete=models.CASCADE, 
+        related_name='gfs_cells'
+    )
+
+    geometry = models.PolygonField(srid=4326, spatial_index=True, verbose_name="Geometría Celda")
+    
+    max_intensity_mm_h = models.FloatField(verbose_name="Intensidad Pico (mm/h)")
+    intensity_series = models.JSONField(verbose_name="Serie Temporal Horaria [t1..t12]")
+    threshold_names = models.JSONField(null=True, blank=True, verbose_name="Nombres de Umbral [t1..t12]")
+    
+    class Meta:
+        db_table = 'gfs_active_cells'
+        verbose_name = 'Celda Activa GFS'
+        verbose_name_plural = 'Celdas Activas GFS'
+        indexes = [
+            models.Index(fields=['gfs_request', 'max_intensity_mm_h']),
+        ]
+
+    def __str__(self):
+        return f"Celda {self.id} - Solicitud: {self.gfs_request.request_code}"
 
 class NaturalPhenomena(AuditCompleteModel):
     '''

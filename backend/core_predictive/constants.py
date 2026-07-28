@@ -25,5 +25,12 @@ GFS_RUN_HOURS = [
 # Número máximo de horas de pronóstico a descargar (por defecto 12 horas con paso de 1 hora)
     # Esto equivale a 12 archivos .grib2 (f001 a f012)
 GFS_TOTAL_HOURS_FORECAST = 12
+MIN_THRESHOLD_MM_H = 0.1
 
 LIMA_TZ = zoneinfo.ZoneInfo("America/Lima")
+
+# Resolución nativa del modelo GFS en grados
+GFS_NATIVE_GRID_RES = 0.25
+
+# Resolución objetivo del raster interpolado en grados
+TARGET_GRID_RES = 0.10

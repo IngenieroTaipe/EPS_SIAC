@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from core_predictive.models import (
     GFSRequest,
+    GFSActiveCell,
     NaturalPhenomena,
     VariableType,
     UnitsMeasurement,
@@ -34,7 +35,6 @@ class GFSRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'target_variable': DataFormatter.lower_case,
     }
 
-    geojson_url = serializers.SerializerMethodField()
     geom_bounds = serializers.SerializerMethodField()
 
     class Meta:
@@ -50,9 +50,7 @@ class GFSRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'file_name',
             'file_path',
             'file_size_mb',
-            'download_time_seconds',
-            'geojson_path',
-            'geojson_url'
+            'download_time_seconds'
         ]
         read_only_fields = ['id']
 
@@ -70,22 +68,6 @@ class GFSRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
             return json.loads(obj.geom_bounds.geojson)
         return None
 
-    @extend_schema_field(OpenApiTypes.STR)
-    def get_geojson_url(self, obj):
-        """
-        Mapea la ruta física del archivo local a la URL de almacenamiento estático MEDIA.
-        """
-        if not obj.geojson_path or not os.path.exists(obj.geojson_path):
-            return None
-        
-        request = self.context.get('request')
-        relative_path = os.path.relpath(obj.geojson_path, settings.MEDIA_ROOT)
-        media_url = f"{settings.MEDIA_URL}{relative_path}".replace("\\", "/")
-
-        if request is not None:
-            return request.build_absolute_uri(media_url)
-        return media_url
-
 class GFSRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     
     prepare_fields = {
@@ -94,17 +76,13 @@ class GFSRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
         'target_variable': DataFormatter.lower_case,
     }
 
-    geojson_url = serializers.SerializerMethodField()
-
     class Meta:
         model = GFSRequest
         fields = [
             'id',
             'request_code',
             'status',
-            'target_variable',
-            'geojson_path',
-            'geojson_url'
+            'target_variable'
         ]
         read_only_fields = ['id']
 
@@ -112,22 +90,63 @@ class GFSRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
         if attrs['date_range_start'] >= attrs['date_range_end']:
             raise ValidationError("La fecha de inicio debe ser menor a la fecha de fin.")
         return attrs
-    
-    @extend_schema_field(OpenApiTypes.STR)
-    def get_geojson_url(self, obj):
-        """
-        Mapea la ruta física del archivo local a la URL de almacenamiento estático MEDIA.
-        """
-        if not obj.geojson_path or not os.path.exists(obj.geojson_path):
-            return None
-        
-        request = self.context.get('request')
-        relative_path = os.path.relpath(obj.geojson_path, settings.MEDIA_ROOT)
-        media_url = f"{settings.MEDIA_URL}{relative_path}".replace("\\", "/")
 
-        if request is not None:
-            return request.build_absolute_uri(media_url)
-        return media_url
+# ==============================================================================
+# SERIALIZADORES DE CELULAS ACTIVAS DE GFS
+# ==============================================================================
+class GFSActiveLightCellSerializer(serializers.ModelSerializer):
+    
+    geometry = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GFSActiveCell
+        fields = [
+            'id',
+            'gfs_request',
+            'geometry',
+            'max_intensity_mm_h',
+            'intensity_series',
+            'threshold_names',
+        ]
+        read_only_fields = ['id']
+    
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_geometry(self, obj):
+        if obj.geometry:
+            return json.loads(obj.geometry.geojson)
+        return None
+
+class GFSActiveCellGeoJSONSerializer(serializers.ModelSerializer):
+    """
+    Serializador que transforma el modelo PostGIS GFSActiveCell 
+    en un objeto Feature GeoJSON estricto (RFC 7946) para Leaflet / Mapbox.
+    """
+    type = serializers.SerializerMethodField()
+    geometry = serializers.SerializerMethodField()
+    properties = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GFSActiveCell
+        fields = ['type', 'id', 'geometry', 'properties']
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_type(self, obj):
+        return "Feature"
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_geometry(self, obj):
+        if obj.geometry:
+            return json.loads(obj.geometry.geojson)
+        return None
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_properties(self, obj):
+        return {
+            "gfs_request_id": obj.gfs_request_id,
+            "max_intensity_mm_h": obj.max_intensity_mm_h,
+            "intensity_series": obj.intensity_series,
+            "threshold_names": obj.threshold_names,
+        }
 
 # ==============================================================================
 # SERIALIZADORES DE FENOMENOS NATURALES
@@ -420,18 +439,24 @@ class ThresholdNaturalPhenomenaSerializer(PrepareDataMixin, serializers.ModelSer
         ]
         read_only_fields = ['id']
 
-    def validate(self, obj):
-        if obj['min_value'] > obj['max_value']:
-            raise serializers.ValidationError("El valor mínimo debe ser menor al valor máximo.")
+    def validate(self, attrs):
+        min_val = attrs.get('min_value')
+        max_val = attrs.get('max_value')
 
-        if obj.get('min_value') is None and obj.get('max_value') is None:
-            raise serializers.ValidationError("Debe indicar un valor mínimo o máximo.")
-        return obj
+        if min_val is None and max_val is None:
+            raise serializers.ValidationError("Debe indicar al menos un valor límite (mínimo o máximo).")
+
+        # === Validación para ambos campos presentes ===
+        if min_val is not None and max_val is not None:
+            if min_val > max_val: # No se valida directamente porque el mínimo y el máximo umbral tendrán uno de los 2 valores en None
+                raise serializers.ValidationError("El valor mínimo no puede ser mayor que el valor máximo.")
+
+        return attrs
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        if instance.natural_phenomenon:
-            representation['natural_phenomenon'] = NaturalPhenomenaLightSerializer(instance.natural_phenomenon).data
+        if instance.natural_phenomena:
+            representation['natural_phenomena'] = NaturalPhenomenaLightSerializer(instance.natural_phenomena).data
         if instance.variable:
             representation['variable'] = VariableLightSerializer(instance.variable).data
         if instance.district:

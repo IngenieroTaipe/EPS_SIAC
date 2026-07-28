@@ -139,12 +139,12 @@ class Command(BaseCommand):
 
         natural_phenomenas = [
             {'name': 'Sequía', 'description': 'Fenómeno meteorológico caracterizado por la falta de agua en un periodo de tiempo.'},
-            {'name': 'Lluvias Intensas - Precipitaciones', 'description': 'Fenómeno meteorológico caracterizado por la presencia de lluvias en un periodo de tiempo.'},
+            {'name': 'Lluvias Intensas', 'description': 'Fenómeno meteorológico caracterizado por la presencia de lluvias en un periodo de tiempo.'},
             {'name': 'Heladas', 'description': 'Fenómeno meteorológico caracterizado por la variación de temperaturas en un periodo de tiempo.'}
         ]
 
         for natural_phenomena in natural_phenomenas:
-            name = natural_phenomena['name']
+            name = natural_phenomena['name'].upper()
             NaturalPhenomena.objects.update_or_create(
                 name=name,
                 defaults={
@@ -167,7 +167,7 @@ class Command(BaseCommand):
             {
                 'district': 'Pichanaqui', 
                 'threshold': 'Extremadamente Lluvioso', 
-                'natural_phenomena': 'Lluvias Intensas - Precipitaciones', 
+                'natural_phenomena': 'Lluvias Intensas', 
                 'variable': 'Precipitación Acumulada / Hora',
                 'min_value': 10.1,
                 'max_value': None
@@ -175,7 +175,7 @@ class Command(BaseCommand):
             {
                 'district': 'Pichanaqui', 
                 'threshold': 'Muy Lluvioso', 
-                'natural_phenomena': 'Lluvias Intensas - Precipitaciones', 
+                'natural_phenomena': 'Lluvias Intensas', 
                 'variable': 'Precipitación Acumulada / Hora',
                 'min_value': 7.5,
                 'max_value': 10.1
@@ -183,7 +183,7 @@ class Command(BaseCommand):
             {
                 'district': 'Pichanaqui', 
                 'threshold': 'Lluvioso', 
-                'natural_phenomena': 'Lluvias Intensas - Precipitaciones', 
+                'natural_phenomena': 'Lluvias Intensas', 
                 'variable': 'Precipitación Acumulada / Hora',
                 'min_value': 3.2,
                 'max_value': 7.5
@@ -191,7 +191,7 @@ class Command(BaseCommand):
             {
                 'district': 'Pichanaqui', 
                 'threshold': 'Moderadamente Lluvioso', 
-                'natural_phenomena': 'Lluvias Intensas - Precipitaciones', 
+                'natural_phenomena': 'Lluvias Intensas', 
                 'variable': 'Precipitación Acumulada / Hora',
                 'min_value': 1.6,
                 'max_value': 3.2

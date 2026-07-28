@@ -36,3 +36,24 @@ Para acceder a la documentación del backend debemos dirigirnos a los siguientes
         </tr>
     </tbody>
 </table>
+
+
+# **PENDIENTES**
+
+Realizar las nuevas relaciones de la tabla alertas con los clústers y después con los componentes.
+
+Actualizar la relación de los componentes con las branches
+
+Desarrollar el endpoint para recuperar el último archivo geojson (el más actualizado)
+
+Evaluar si el geojson está bien estructurado a nivel de horas (parece que en un punto pasa de la hora 12 del dia de hoy a la hora 0 del dia de ayer, a pesar de que se le envie la data en el orden correcto)
+
+Verificar si es más sencillo utilizar la tabla AlertsStatusesPhases o por separado las tablas Statuses y Phases.
+
+Verificar si los polígonos dentro del geojson pueden ser suavizados, porque actualmente son muy cuadráticos.
+
+establecer de qué manera se generarán los clúster de las 6 horas (si se crearán todo cuando el nuevo archivo geojson sea creado o por medio de un job a cada hora).
+
+Desarrollar el motor de notificaciones mediante botfather de telegram.
+
+Establecer la manera de asociar al clúster su nivel de threshold.

@@ -1,4 +1,4 @@
-from django.db import models
+from django.contrib.gis.db import models
 from core_shared.models import AuditCreateModel, AuditCompleteModel
 
 from core_shared.validators import alpha_name_validator
@@ -72,12 +72,15 @@ class Alert(AuditCreateModel):
         on_delete=models.PROTECT,
         related_name='alerts_natural_phenomena'
     )
-    branch = models.ForeignKey(
-        'organization.Branch',
-        on_delete=models.PROTECT,
-        related_name='alerts_branches'
-    )
     code = models.CharField(max_length=9, unique=True, validators=[code_alert_validator])
+    peak_intensity_mm_h = models.DecimalField(max_digits=6, decimal_places=2)
+    max_threshold = models.ForeignKey(
+        'core_predictive.ThresholdsNaturalPhenomena',
+        on_delete=models.PROTECT,
+        related_name='alerts_max_threshold'
+    )
+    start_time_utc = models.DateTimeField()
+    end_time_utc = models.DateTimeField()
 
     class Meta:
         db_table = 'alerts'
@@ -86,6 +89,86 @@ class Alert(AuditCreateModel):
 
     def __str__(self):
         return self.code
+
+class AlertClusters(AuditCompleteModel):
+    '''
+        Modelo para representar los clusters de las alertas.
+    '''
+    alert = models.ForeignKey(
+        'Alert',
+        on_delete=models.PROTECT,
+        related_name='alerts_clusters_alerts'
+    )
+
+    step_time_utc = models.DateTimeField() # Marca de Tiempo de esta "Foto Espacial" (Paso de 1 hora)
+    step_number = models.IntegerField() # Paso 1 (+1h), Paso 2 (+2h), etc.
+    step_intensity_mm_h = models.DecimalField(max_digits=6, decimal_places=2)
+    step_threshold = models.ForeignKey(
+        'core_predictive.ThresholdsNaturalPhenomena',
+        on_delete=models.PROTECT,
+        related_name='alerts_clusters_step_threshold'
+    )
+
+    cluster_geom = models.GeometryField(srid=4326)
+
+    class Meta:
+        db_table = 'alerts_clusters'
+        verbose_name = 'Cluster de Alerta'
+        verbose_name_plural = 'Clusters de Alertas'
+
+    def __str__(self):
+        return self.name
+
+class AlertClustersComponents(AuditCompleteModel):
+    '''
+        Modelo para representar los componentes de los clusters de las alertas.
+    '''
+    alert_cluster = models.ForeignKey(
+        'AlertClusters',
+        on_delete=models.PROTECT,
+        related_name='alerts_clusters_components_clusters'
+    )
+    component = models.ForeignKey(
+        'components.Component',
+        on_delete=models.PROTECT,
+        related_name='alerts_clusters_components_components'
+    )
+
+    class Meta:
+        db_table = 'alerts_clusters_components'
+        verbose_name = 'Componente de Cluster de Alerta'
+        verbose_name_plural = 'Componentes de Clusters de Alertas'
+        unique_together = ('alert_cluster', 'component')
+
+    def __str__(self):
+        return f"{self.component.name} - {self.alert_cluster.name}"
+
+class AlertComponents(AuditCreateModel):
+    '''
+        Modelo para representar los componentes de las alertas.
+    '''
+    alert = models.ForeignKey(
+        'Alert',
+        on_delete=models.PROTECT,
+        related_name='alerts_components_alerts'
+    )
+
+    component = models.ForeignKey(
+        'components.Component',
+        on_delete=models.PROTECT,
+        related_name='alerts_components_components'
+    )
+
+    pk = models.CompositePrimaryKey('alert', 'component')
+
+    class Meta:
+        db_table = 'alerts_components'
+        verbose_name = 'Componente de Alerta'
+        verbose_name_plural = 'Componentes de Alertas'
+        unique_together = ('alert', 'component')
+
+    def __str__(self):
+        return f"{self.component.name} - {self.alert.code}"
 
 class AlertHistory(AuditCreateModel):
     '''
@@ -102,13 +185,6 @@ class AlertHistory(AuditCreateModel):
         on_delete=models.PROTECT,
         related_name='alerts_historic_status_phase'
     )
-    gfs_request = models.ForeignKey(
-        'core_predictive.GFSRequest', # Referenciamos a otro módulo (core_predictive)
-        on_delete=models.PROTECT,
-        related_name='alerts_historic_gfs_request'
-    )
-    natural_phenomena_value = models.FloatField()
-    date_predicted_start = models.DateTimeField()
 
     class Meta:
         db_table = 'alerts_historic'

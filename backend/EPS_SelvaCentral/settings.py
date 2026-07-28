@@ -92,7 +92,8 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173", # Si usa Vite
-    "http://localhost:3000", # Si usa Create React App
+    "http://localhost:3000", # Si usa Create React App,
+    "http://172.24.0.4:5173"
 ]
 
 ROOT_URLCONF = 'EPS_SelvaCentral.urls'

@@ -1,13 +1,19 @@
 from rest_framework import viewsets, filters, status
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from datetime import datetime
 from django_filters.rest_framework import DjangoFilterBackend
-from django.http import FileResponse
-from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes
+
+from core_shared.permissions import IsAdminUserOrReadOnly
+
 from core_predictive.models import (
     NaturalPhenomena,
     GFSRequest,
+    GFSActiveCell,
     VariableType,
     UnitsMeasurement,
     Variable,
@@ -18,16 +24,15 @@ from core_predictive.models import (
 from core_predictive.serializers import (
     GFSRequestSerializer,
     GFSRequestLightSerializer,
+    GFSActiveCellGeoJSONSerializer,
     NaturalPhenomenaSerializer,
     NaturalPhenomenasVariablesSerializer,
     VariableSerializer,
     VariableTypeSerializer,
     UnitsMeasurementSerializer,
     ThresholdNaturalPhenomenaSerializer,
-    ThresholdSerializer
+    ThresholdSerializer,
 )
-
-import os
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / GFS'], summary="Listar Solicitudes GFS"),
@@ -48,45 +53,15 @@ class GFSRequestViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = [
         'request_code',
         'status',
-        'target_variable',
-        'date_range_start',
-        'date_range_end'
+        'target_variable'
     ]
     ordering_fields = [
         'request_code',
         'status',
-        'target_variable',
         'date_range_start',
-        'date_range_end'
+        'created_at'
     ]
 
-    @extend_schema(
-        summary="Descarga el archivo GeoJSON vectorial procesado",
-        responses={
-            200: OpenApiResponse(description="Archivo .json/.geojson descargable"),
-            404: OpenApiResponse(description="Archivo GeoJSON no encontrado en disco")
-        }
-    )
-    @action(detail=True, methods=['get'], url_path='download-geojson')
-    def download_geojson(self, request, pk=None):
-        """
-        Acción secundaria: Sirve directamente el contenido del GeoJSON como Stream 
-        si el visor WebGIS prefiere la carga por API en lugar de archivos estáticos.
-        """
-        ecmwf_request = self.get_object()
-
-        if not ecmwf_request.geojson_path or not os.path.exists(ecmwf_request.geojson_path):
-            return Response(
-                {"detail": "El archivo GeoJSON procesado no está disponible en el servidor."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Retorno optimizado vía Stream (FileResponse en bloques I/O)
-        file_handle = open(ecmwf_request.geojson_path, 'rb')
-        response = FileResponse(file_handle, content_type='application/geo+json')
-        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(ecmwf_request.geojson_path)}"'
-        return response
-    
     def get_serializer_class(self):
         """
         Intercepta la acción solicitada y asigna la clase serializadora correspondiente:
@@ -99,6 +74,139 @@ class GFSRequestViewSet(viewsets.ReadOnlyModelViewSet):
         return GFSRequestLightSerializer
 
 @extend_schema_view(
+    list=extend_schema(tags=['Predictive / GFS'], summary="Listar Células Activas de GFS"),
+    retrieve=extend_schema(tags=['Predictive / GFS'], summary="Obtener detalle de una Célula Activa de GFS"),
+)
+class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+        Controlador de Lectura para las Celdas Activas de GFS.
+        - Permite el uso de los métodos HTTP de Lectura (GET). Los métodos de Lectura no requieren de autenticación.
+    """
+    permission_classes = [AllowAny]
+    queryset = GFSActiveCell.objects.all().select_related('gfs_request')
+    serializer_class = GFSActiveCellGeoJSONSerializer
+
+    filter_backends = [
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+
+    search_fields = ['gfs_request__request_code']
+    ordering_fields = ['max_intensity_mm_h', 'created_at']
+
+
+    @extend_schema(
+        tags=['Predictive / GFS'],
+        summary="Obtener las celdas activas de la ÚLTIMA ejecución GFS completada",
+        responses={200: GFSActiveCellGeoJSONSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='latest')
+    def get_latest_geojson(self, request):
+        """
+        Endpoint: /api/gfs-active-cells/latest/
+        Retorna el FeatureCollection de celdas vectoriales de la ejecución más reciente (COMPLETED).
+        Resuelve el traslape seleccionando únicamente los datos de la última ejecución procesada.
+        """
+        latest_request = GFSRequest.objects.filter(
+            status='COMPLETED'
+        ).order_by('-date_range_start', '-created_at').first()
+
+        if not latest_request:
+            return Response({
+                "type": "FeatureCollection",
+                "features": [],
+                "metadata": {
+                    "message": "No existen solicitudes GFS procesadas en estado COMPLETED."
+                }
+            }, status=status.HTTP_200_OK)
+
+        # Consulta acelerada de celdas asociadas a la última solicitud
+        active_cells_qs = GFSActiveCell.objects.filter(
+            gfs_request=latest_request
+        )
+
+        serializer = self.get_serializer(active_cells_qs, many=True)
+        
+        geojson_response = {
+            "type": "FeatureCollection",
+            "metadata": {
+                "request_code": latest_request.request_code,
+                "target_variable": latest_request.target_variable,
+                "run_start_utc": latest_request.date_range_start,
+                "run_end_utc": latest_request.date_range_end,
+                "total_features": active_cells_qs.count()
+            },
+            "features": serializer.data
+        }
+        return Response(geojson_response, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=['Predictive / GFS'],
+        summary="Obtener FeatureCollection GeoJSON por fecha (YYYY-MM-DD)",
+        description="Devuelve la malla vectorial (FeatureCollection) correspondiente a la ÚLTIMA ejecución completada para la fecha consultada, lista para ser renderizada en Leaflet.",
+        parameters=[
+            OpenApiParameter(
+                name='date',
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Fecha de consulta en formato YYYY-MM-DD",
+                required=True
+            )
+        ]
+    )
+    @action(detail=False, methods=['get'], url_path='by-date')
+    def get_geojson_by_date(self, request):
+        """
+        Endpoint: /api/gfs-active-cells/by-date/?date=YYYY-MM-DD
+
+        Resuelve el traslape temporal seleccionando la ejecución 'COMPLETED' más reciente
+        que cubre la fecha consultada y retorna una estructura GeoJSON FeatureCollection.
+        """
+        date_str = request.query_params.get('date')
+        if not date_str:
+            raise ValidationError({"date": "El parámetro de fecha 'date' es obligatorio (Formato YYYY-MM-DD)."})
+
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            raise ValidationError({"date": "Formato de fecha inválido. Utilice YYYY-MM-DD."})
+
+        # === Lógica para obtener la última solicitud ===
+        latest_request_for_date = GFSRequest.objects.filter(
+            date_range_start__date__lte=target_date,
+            date_range_end__date__gte=target_date,
+            status='COMPLETED'
+        ).order_by('-date_range_start', '-created_at').first()
+
+        if not latest_request_for_date:
+            return Response({
+                "type": "FeatureCollection",
+                "features": [],
+                "metadata": {
+                    "message": f"No se encontraron pronósticos completados para la fecha {date_str}."
+                }
+            }, status=status.HTTP_200_OK)
+
+        # === Obtener celdas vectoriales en PostGIS ===
+        active_cells_qs = GFSActiveCell.objects.filter(gfs_request=latest_request_for_date)
+        serializer = GFSActiveCellGeoJSONSerializer(active_cells_qs, many=True)
+
+        # === Construcción de la respuesta en formato GeoJSON FeatureCollection (RFC 7946) ===
+        geojson_response = {
+            "type": "FeatureCollection",
+            "metadata": {
+                "request_code": latest_request_for_date.request_code,
+                "target_variable": latest_request_for_date.target_variable,
+                "run_start_utc": latest_request_for_date.date_range_start,
+                "run_end_utc": latest_request_for_date.date_range_end,
+                "total_features": active_cells_qs.count()
+            },
+            "features": serializer.data
+        }
+
+        return Response(geojson_response, status=status.HTTP_200_OK)
+
+@extend_schema_view(
     list=extend_schema(tags=['Predictive / Natural Phenomena'], summary="Listar Fenómenos Naturales"),
     retrieve=extend_schema(tags=['Predictive / Natural Phenomena'], summary="Obtener detalle de un Fenómeno Natural"),
     create=extend_schema(tags=['Predictive / Natural Phenomena'], summary="Registrar un nuevo Fenómeno Natural"),
@@ -106,7 +214,6 @@ class GFSRequestViewSet(viewsets.ReadOnlyModelViewSet):
     partial_update=extend_schema(tags=['Predictive / Natural Phenomena'], summary="Actualizar parcialmente un Fenómeno Natural"),
     destroy=extend_schema(tags=['Predictive / Natural Phenomena'], summary="Eliminar un Fenómeno Natural")
 )
-
 class NaturalPhenomenaViewSet(viewsets.ModelViewSet):
     """
         Controlador de Lectura para los Fenómenos Naturales.
@@ -326,7 +433,8 @@ class ThresholdsNaturalPhenomenaViewSet(viewsets.ModelViewSet):
         - Permite la búsqueda en base a campos como: Umbral, Fenómeno Natural (name).
         - Permite el ordenamiento en base a campos como: Umbral, Fenómeno Natural (name)    
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUserOrReadOnly]
+
     serializer_class = ThresholdNaturalPhenomenaSerializer
     filter_backends = [
         filters.SearchFilter, 
@@ -337,6 +445,7 @@ class ThresholdsNaturalPhenomenaViewSet(viewsets.ModelViewSet):
         'natural_phenomena',
         'variable',
         'district',
+        'threshold',
         'variable__name',
         'natural_phenomena__name',
         'district__name',
@@ -346,16 +455,18 @@ class ThresholdsNaturalPhenomenaViewSet(viewsets.ModelViewSet):
         'variable__name',
         'natural_phenomena__name',
         'district__name',
-        'district__ubigeo'
+        'district__ubigeo',
+        'threshold__name'
     ]
     ordering_fields = [
         'natural_phenomena__name',
         'variable__name',
         'district__name',
         'district__ubigeo',
+        'threshold__name'
     ]
 
     def get_queryset(self):
         return ThresholdsNaturalPhenomena.objects.select_related(
-            'natural_phenomena', 'variable', 'district'
-        ).filter()
+            'natural_phenomena', 'variable', 'district', 'threshold'
+        ).filter(is_deleted=False)

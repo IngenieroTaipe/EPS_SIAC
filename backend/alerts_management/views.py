@@ -144,23 +144,19 @@ class AlertViewSet(viewsets.ModelViewSet):
     serializer_class = AlertSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = [
-        'natural_phenomena',
-        'branch'
+        'natural_phenomena'
     ]
     search_fields = [
-        'natural_phenomena__name',
-        'branch__name'
+        'natural_phenomena__name'
     ]
     ordering_fields = [
-        'natural_phenomena__name',
-        'branch__name' 
+        'natural_phenomena__name'
     ]
     ordering = ['id']
 
     def get_queryset(self):
         return Alert.objects.select_related(
-            'natural_phenomena',
-            'branch'
+            'natural_phenomena'
         ).all() 
 
 @extend_schema_view(
