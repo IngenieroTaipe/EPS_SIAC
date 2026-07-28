@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework import routers
 from core_predictive.views import (
-    EMCWFRequestViewSet,
+    GFSRequestViewSet,
     NaturalPhenomenaViewSet,
     VariableTypeViewSet,
     UnitsMeasurementViewSet,
@@ -12,7 +12,7 @@ from core_predictive.views import (
 
 router = routers.DefaultRouter()
 
-router.register(r'emcwf-requests', EMCWFRequestViewSet, basename='emcwf-request')
+router.register(r'gfs-requests', GFSRequestViewSet, basename='gfs-request')
 router.register(r'natural-phenomenas', NaturalPhenomenaViewSet, basename='natural-phenomenas')
 router.register(r'variable-types', VariableTypeViewSet, basename='variable-type')
 router.register(r'units-measurements', UnitsMeasurementViewSet, basename='units-measurement')

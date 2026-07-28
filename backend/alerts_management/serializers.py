@@ -14,7 +14,7 @@ from alerts_management.models import (
 
 from core_predictive.models import (
     NaturalPhenomena, 
-    EMCWFRequest
+    GFSRequest
 )
 from organization.models import (
     Branch
@@ -22,7 +22,7 @@ from organization.models import (
 from organization.serializers import BranchLightSerializer
 from core_predictive.serializers import (
     NaturalPhenomenaLightSerializer, 
-    EMCWFRequestSerializer
+    GFSRequestSerializer
 )
 
 # ==============================================================================
@@ -202,9 +202,9 @@ class AlertHistorySerializer(serializers.ModelSerializer):
         queryset=AlertStatusPhase.objects.all(),
         help_text="ID del estado y fase de la alerta"
     )
-    emcwf_request = serializers.PrimaryKeyRelatedField(
-        queryset=EMCWFRequest.objects.all(),
-        help_text="ID de la solicitud EMCWF"
+    gfs_request = serializers.PrimaryKeyRelatedField(
+        queryset=GFSRequest.objects.all(),
+        help_text="ID de la solicitud GFS"
     )
 
     class Meta:
@@ -213,7 +213,7 @@ class AlertHistorySerializer(serializers.ModelSerializer):
             'id',
             'alert',
             'alert_status_phase',
-            'emcwf_request',
+            'gfs_request',
             'natural_phenomena_value',
             'date_predicted_start'
         ]
@@ -228,8 +228,8 @@ class AlertHistorySerializer(serializers.ModelSerializer):
             representation['alert'] = AlertSerializer(instance.alert).data
         if instance.alert_status_phase:
             representation['alert_status_phase'] = AlertStatusPhaseSerializer(instance.alert_status_phase).data
-        if instance.emcwf_request:
-            representation['emcwf_request'] = EMCWFRequestSerializer(instance.emcwf_request).data
+        if instance.gfs_request:
+            representation['gfs_request'] = GFSRequestSerializer(instance.gfs_request).data
         return representation
 
 class AlertHistoryLightSerializer(serializers.ModelSerializer):

@@ -175,11 +175,13 @@ class ComponentCoord(AuditCompleteModel):
     # Django crea internamente el campo 'id' de forma automática
     component = models.ForeignKey(
         'Component', 
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        related_name='coords_relation'
     )
     criticality = models.ForeignKey(
         to='Criticality',
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        related_name='coords_relation'
     )
     coords = models.PointField(srid=4326, verbose_name="Ubicación WGS84")
 

@@ -18,6 +18,8 @@ services:
       target: dev
     ports:
       - "8000:8000"
+    environment:
+      - CONTAINER_ROLE=api
     volumes:
       - ./backend/:/app
     env_file:
@@ -31,10 +33,10 @@ services:
     container_name: eps_siac_celery_worker
     command: celery -A EPS_SelvaCentral worker --loglevel=info --concurrency=2
     volumes:
-      - .:/app
-      - /app/storage:/app/storage
+      - ./backend/:/app
+    environment:
+      - CONTAINER_ROLE=worker
     depends_on:
-      - redis
       - api
     
   celery_beat:
@@ -44,10 +46,11 @@ services:
     container_name: eps_siac_celery_beat
     command: celery -A EPS_SelvaCentral beat --loglevel=info
     volumes:
-      - .:/app
+      - ./backend/:/app
+    environment:
+      - CONTAINER_ROLE=beat
     depends_on:
-      - redis
-      - celery_worker
+      - api
   
   # =========== FRONTEND (REACT) =========== 
   frontend:

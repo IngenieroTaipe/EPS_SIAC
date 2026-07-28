@@ -21,7 +21,7 @@ from django.test import TestCase, override_settings
 from django.conf import settings
 from django.contrib.gis.geos import Polygon, MultiPolygon
 
-from core_predictive.models import EMCWFRequest
+from core_predictive.models import GFSRequest
 from places.models import District
 
 import numpy as np
@@ -139,7 +139,7 @@ class ECMWFServicesTestCase(TestCase):
 
         # Creación de la instancia de solicitud en BD
         self.request_code = "TEST_REQ_20260726_001"
-        self.request_obj, _ = EMCWFRequest.objects.get_or_create(
+        self.request_obj, _ = GFSRequest.objects.get_or_create(
                 request_code=self.request_code,
                 defaults={
                     "status": "PENDING",

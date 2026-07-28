@@ -3,17 +3,17 @@ from core_shared.models import AuditCompleteModel
 
 from core_shared.validators import alpha_name_validator
 
-class EMCWFRequest(AuditCompleteModel):
+class GFSRequest(AuditCompleteModel):
     '''
-        Modelo que representa una solicitud de EMCWF. Contiene un identificador único, un nombre y una descripción.
+        Modelo que representa una solicitud de GFS. Contiene un identificador único, un nombre y una descripción.
 
         `@extends AuditCompleteModel`: Hereda de AuditCompleteModel para incluir campos de fecha de creación, actualización y eliminación suave.
 
-        `@db_table`: Define el nombre de la tabla en la base de datos como 'emcwf_requests'.
+        `@db_table`: Define el nombre de la tabla en la base de datos como 'gfs_requests'.
 
-        `@verbose_name`: Define el nombre legible para el modelo como 'Solicitud EMCWF'.
+        `@verbose_name`: Define el nombre legible para el modelo como 'Solicitud GFS'.
         
-        `@verbose_name_plural`: Define el nombre legible en plural para el modelo como 'Solicitudes EMCWF'.
+        `@verbose_name_plural`: Define el nombre legible en plural para el modelo como 'Solicitudes GFS'.
         
         `@str`: Devuelve el nombre de la solicitud como representación en cadena del objeto.
     '''
@@ -33,9 +33,9 @@ class EMCWFRequest(AuditCompleteModel):
     geojson_path = models.CharField(max_length=200, null=True, blank=True)
 
     class Meta():
-        db_table = 'emcwf_requests'
-        verbose_name = 'Solicitud EMCWF'
-        verbose_name_plural = 'Solicitudes EMCWF'
+        db_table = 'gfs_requests'
+        verbose_name = 'Solicitud GFS'
+        verbose_name_plural = 'Solicitudes GFS'
 
     def __str__(self):
         return self.request_code
@@ -234,25 +234,25 @@ class ThresholdsNaturalPhenomena(AuditCompleteModel):
     natural_phenomena = models.ForeignKey(
         'NaturalPhenomena', 
         on_delete=models.CASCADE, 
-        related_name='thresholds_relation'
+        related_name='thresholds_natural_phenomena'
     )
 
     variable = models.ForeignKey(
         'Variable',
         on_delete=models.CASCADE,
-        related_name='thresholds_relation'
+        related_name='thresholds_variable'
     )
 
     threshold = models.ForeignKey(
         'Threshold',
         on_delete=models.CASCADE,
-        related_name='thresholds_relation'
+        related_name='thresholds_threshold'
     )
     
     district = models.ForeignKey(
         'places.District',
         on_delete=models.CASCADE,
-        related_name='thresholds_relation'
+        related_name='thresholds_district'
     )
 
     min_value = models.FloatField(null=True, blank=True)

@@ -1,13 +1,13 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.http import FileResponse
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse
 from core_predictive.models import (
     NaturalPhenomena,
-    EMCWFRequest,
+    GFSRequest,
     VariableType,
     UnitsMeasurement,
     Variable,
@@ -16,8 +16,8 @@ from core_predictive.models import (
     ThresholdsNaturalPhenomena
 )
 from core_predictive.serializers import (
-    EMCWFRequestSerializer,
-    EMCWFRequestLightSerializer,
+    GFSRequestSerializer,
+    GFSRequestLightSerializer,
     NaturalPhenomenaSerializer,
     NaturalPhenomenasVariablesSerializer,
     VariableSerializer,
@@ -30,20 +30,20 @@ from core_predictive.serializers import (
 import os
 
 @extend_schema_view(
-    list=extend_schema(tags=['Predictive / EMCWF'], summary="Listar Solicitudes EMCWF"),
-    retrieve=extend_schema(tags=['Predictive / EMCWF'], summary="Obtener detalle de una Solicitud EMCWF"),
+    list=extend_schema(tags=['Predictive / GFS'], summary="Listar Solicitudes GFS"),
+    retrieve=extend_schema(tags=['Predictive / GFS'], summary="Obtener detalle de una Solicitud GFS"),
 )
-class EMCWFRequestViewSet(viewsets.ReadOnlyModelViewSet):
+class GFSRequestViewSet(viewsets.ReadOnlyModelViewSet):
     """
-        Controlador de Lectura para las Solicitudes EMCWF.
+        Controlador de Lectura para las Solicitudes GFS.
         - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET, CREATE, UPDATE, PATCH, DELETE). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
         - Los registros solo podrán ser eliminados si no tienen registros relacionados en otros modelos.
         - Permite la búsqueda en base a campos como: Nombre.
         - Permite el ordenamiento en base a campos como: Nombre    
     """
-    permission_classes = [IsAuthenticated]
-    queryset = EMCWFRequest.objects.all().order_by('-created_at')
-    serializer_class = EMCWFRequestSerializer
+    permission_classes = [AllowAny]
+    queryset = GFSRequest.objects.all().order_by('-created_at')
+    serializer_class = GFSRequestSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
         'request_code',
@@ -94,9 +94,9 @@ class EMCWFRequestViewSet(viewsets.ReadOnlyModelViewSet):
         - Acciones de Detalle ('retrieve', 'create', 'update'): Serializador Completo.
         """
         if self.action == 'retrieve':
-            return EMCWFRequestSerializer
+            return GFSRequestSerializer
         
-        return EMCWFRequestLightSerializer
+        return GFSRequestLightSerializer
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / Natural Phenomena'], summary="Listar Fenómenos Naturales"),

@@ -102,10 +102,10 @@ class AlertHistory(AuditCreateModel):
         on_delete=models.PROTECT,
         related_name='alerts_historic_status_phase'
     )
-    emcwf_request = models.ForeignKey(
-        'core_predictive.EMCWFRequest', # Referenciamos a otro módulo (core_predictive)
+    gfs_request = models.ForeignKey(
+        'core_predictive.GFSRequest', # Referenciamos a otro módulo (core_predictive)
         on_delete=models.PROTECT,
-        related_name='alerts_historic_emcwf_request'
+        related_name='alerts_historic_gfs_request'
     )
     natural_phenomena_value = models.FloatField()
     date_predicted_start = models.DateTimeField()

@@ -1,3 +1,5 @@
+import zoneinfo
+
 ##Constantes para el servicio ECMWFOpenDataService
 
 # Formato Geodésico: [North, West, South, East] - Perú
@@ -6,16 +8,22 @@ PERU_BBOX = [
     -18.5, -68.5
 ]
 
-# Parámetros del Modelo ECMWF Open Data
-ECMWF_DEFAULT_MODEL = "ifs"
-ECMWF_DEFAULT_RESOL = "0p25"
-ECMWF_DEFAULT_SOURCE = ["ecmwf", "aws", "azure"]
-ECMWF_NATIVE_STEP_INTERVAL_HOURS = 3
+# Representa la resolución del modelo GFS en grados
+GFS_DEFAULT_RESOL = "0p25"
 
+# URL base del bucket de AWS S3 donde se encuentran los archivos GFS
+GFS_AWS_S3_BASE_URL = "https://noaa-gfs-bdp-pds.s3.amazonaws.com"
 
-# Variable del fenómeno climático
-ECMWF_PARAMETER = "tp" # Total Precipitation (m)
+# Horas de ejecución nominales del modelo GFS (UTC) (El modelo incluye estas 4 ejecuciones diarias)
+GFS_RUN_HOURS = [
+    0, 
+    6, 
+    12, 
+    18
+]
 
-# Parámetros de control para la descarga
-ECMWF_STREAM = "oper" # Operativo
-ECMWF_TYPE = "fc" # Pronóstico (Forecast)
+# Número máximo de horas de pronóstico a descargar (por defecto 12 horas con paso de 1 hora)
+    # Esto equivale a 12 archivos .grib2 (f001 a f012)
+GFS_TOTAL_HOURS_FORECAST = 12
+
+LIMA_TZ = zoneinfo.ZoneInfo("America/Lima")

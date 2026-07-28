@@ -6,43 +6,52 @@ from django.db import transaction
 from django.contrib.gis.geos import Polygon
 from django.utils import timezone
 from datetime import timedelta
-from core_predictive.models import EMCWFRequest
-from core_predictive.services import ECMWFDataService, ECMWFRequestService
+from core_predictive.models import GFSRequest
+from core_predictive.services import (
+    GFSDataService,
+    ForecastRainRequestService
+)
+
+from core_predictive.constants import (
+    GFS_TOTAL_HOURS_FORECAST
+)
 
 logger = logging.getLogger(__name__)
 
 @shared_task(
-    name="core_predictive.tasks.run_scheduled_ecmwf_download",
+    name="core_predictive.tasks.run_scheduled_gfs_download",
     bind=True,
     max_retries=3,
     default_retry_delay=600  # Reintento después de 10 min
 )
-def run_scheduled_ecmwf_download(self, total_hours: int = 48):
+def run_scheduled_gfs_download(self):
     """
         Tarea Celery de Fondo (Worker):
-        Orquesta la descarga periódica del modelo IFS de ECMWF.
+        Orquesta la descarga periódica del modelo GFS de NOAA.
         Verifica la existencia previa de la ejecución, crea el registro en BD
         y ejecuta la conversión y la intersección de distritos.
     """
-    now_utc = datetime.utcnow()
+    now_utc = datetime.utcnow() # Hora Universal
     
-    # Determinación de la ejecución nominal más cercana (00Z o 12Z)
-    run_time = "0" if now_utc.hour < 12 else "12"
-    date_offset = "0"
+    # === Creación del código de Request ===
+    run_hour_int = 0 if now_utc.hour < 12 else 12
+    run_time_str = f"{run_hour_int:02d}Z" # Genera '00Z' o '12Z'
+    date_str = now_utc.strftime('%Y%m%d')
+    
+    # Clave de Negocio Unívoca Trazable (Business Key)
+    request_code = f"AUTO_{date_str}_{run_time_str}"
 
-    data_service = ECMWFDataService()
+    gfs_service = GFSDataService()
 
     # === Verifica que el archivo no haya sido descargado previamente ===
-    if data_service.is_run_already_processed(date_offset=date_offset, run_time=run_time):
-        logger.info(f"⚡ [Skip Download] La ejecución (Date Offset: {date_offset}, Time: {run_time}Z) ya existe en estado COMPLETED.")
+    if gfs_service.is_data_already_processed(request_code=request_code):
+        logger.info(f"⚡ [Skip Download] La ejecución {request_code} ya existe en estado COMPLETED.")
         return {"status": "SKIPPED", "message": "Ejecución previamente descargada."}
 
-    logger.info(f"🚀 [Job ECMWF] Iniciando automatización para ejecución {run_time}Z...")
+    logger.info(f"🚀 [Job GFS] Iniciando automatización para ejecución {request_code}...")
 
     try:
         # === Creación del registro trazable en Base de Datos (PostGIS) ===
-        request_code = f"AUTO_{now_utc.strftime('%Y%m%d')}_{run_time}Z"
-        
         peru_bbox_polygon = Polygon((
             (-81.5, -18.5),
             (-68.5, -18.5),
@@ -52,10 +61,10 @@ def run_scheduled_ecmwf_download(self, total_hours: int = 48):
         ), srid=4326)
 
         date_range_start = timezone.now()
-        date_range_end = date_range_start + timedelta(hours=total_hours)
+        date_range_end = date_range_start + timedelta(hours=GFS_TOTAL_HOURS_FORECAST)
 
         with transaction.atomic():
-            request_obj, created = EMCWFRequest.objects.get_or_create(
+            request_obj, created = GFSRequest.objects.get_or_create(
                 request_code=request_code,
                 defaults={
                     "status": "PENDING",
@@ -66,14 +75,13 @@ def run_scheduled_ecmwf_download(self, total_hours: int = 48):
                 }
             )
 
-        # === Invocación del servicio orquestador ===
-        orchestrator = ECMWFRequestService(ecmwf_request_instance=request_obj)
-        result = orchestrator.process_request(total_hours=total_hours)
+        data_service = ForecastRainRequestService(request_obj)
+        result = data_service.process_request()
 
-        logger.info(f"✅ [Job ECMWF] Ingesta completada exitosamente: {request_code}")
+        logger.info(f"[Job GFS] Ingesta completada exitosamente: {request_code}")
         return result
 
     except Exception as exc:
-        logger.error(f"❌ [Job ECMWF Error] Falló la ejecución automática: {str(exc)}")
+        logger.error(f"[Job GFS Error] Falló la ejecución automática: {str(exc)}")
         # Reintento programado ante fallos de red o HTTP 404 momentáneos en ECMWF
         raise self.retry(exc=exc)

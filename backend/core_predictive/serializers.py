@@ -4,7 +4,7 @@ from places.models import District
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from core_predictive.models import (
-    EMCWFRequest,
+    GFSRequest,
     NaturalPhenomena,
     VariableType,
     UnitsMeasurement,
@@ -26,7 +26,7 @@ from django.conf import settings
 # ==============================================================================
 # SERIALIZADORES DE PREDICCIÓN
 # ==============================================================================
-class EMCWFRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
+class GFSRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
     
     prepare_fields = {
         'request_id': DataFormatter.upper_case,
@@ -38,7 +38,7 @@ class EMCWFRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
     geom_bounds = serializers.SerializerMethodField()
 
     class Meta:
-        model = EMCWFRequest
+        model = GFSRequest
         fields = [
             'id',
             'request_code',
@@ -86,7 +86,7 @@ class EMCWFRequestSerializer(PrepareDataMixin, serializers.ModelSerializer):
             return request.build_absolute_uri(media_url)
         return media_url
 
-class EMCWFRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
+class GFSRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     
     prepare_fields = {
         'request_id': DataFormatter.upper_case,
@@ -97,7 +97,7 @@ class EMCWFRequestLightSerializer(PrepareDataMixin, serializers.ModelSerializer)
     geojson_url = serializers.SerializerMethodField()
 
     class Meta:
-        model = EMCWFRequest
+        model = GFSRequest
         fields = [
             'id',
             'request_code',

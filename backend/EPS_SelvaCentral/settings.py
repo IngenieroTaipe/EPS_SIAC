@@ -231,30 +231,30 @@ CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'America/Lima'
+CELERY_TIMEZONE = 'America/Lima' # El schedule usará la zona horario de América Latina
+CELERY_ENABLE_UTC = True
 
 # === Planificador Periódico (Celery Beat) ===
 CELERY_BEAT_SCHEDULE = {
-    'descarga-automatica-ecmwf-diaria': {
+    'descarga-automatica-gfs-diaria': {
         # === Nombre de la tarea a ejecutar ===
-        'task': 'core_predictive.tasks.run_scheduled_ecmwf_download',
+        'task': 'core_predictive.tasks.run_scheduled_gfs_download',
         
         # === Programación de ejecución (08:15 y 20:15 UTC todos los días) ===
         # Los valores se establecen en base a las horas de ejecución del modelo, solo que 1 hora después para evitar problemas y garantizar la descarga.
-        # 00 UTC = 19:00  (Hora de Perú) + 1:15 (periodo adicional) => 20:15
-        # 12 UTC = 7:00  (Hora de Perú) + 1:15 => 8:15
-        'schedule': crontab(hour='8,20', minute=15),
-        
-        # === Parámetros por defecto a enviar a la función run_scheduled_ecmwf_download ===
-        'kwargs': {'total_hours': 48},
+        # 00/24 UTC + 1:45 (periodo adicional) => 1:45 UTC (20:45 -> Perú)
+        # 06 UTC + 1:45 (periodo adicional) => 7:45 UTC (02:45 -> Perú)
+        # 12 UTC + 1:45 (periodo adicional) => 13:45 UTC (08:45 -> Perú)
+        # 18 UTC + 1:45 (periodo adicional) => 19:45 UTC (14:45 -> Perú)
+        'schedule': crontab(hour='1,7,13,19', minute=45),
     },
 }
 
-# === Configuración almacenamiento del modelo ECMWF ===
-ECMWF_STORAGE_DIR = env('ECMWF_STORAGE_DIR', default='/app/storage')
+# === Configuración almacenamiento del modelo GFS ===
+GFS_STORAGE_DIR = env('GFS_STORAGE_DIR', default='/app/storage')
 
 # MEDIA_ROOT: Ruta donde están físicamente los archivos en disco
-MEDIA_ROOT = ECMWF_STORAGE_DIR
+MEDIA_ROOT = GFS_STORAGE_DIR
 
 # MEDIA_URL: PREFIJO que usará Django para las peticiones web HTTP
 MEDIA_URL = '/media/'
