@@ -1,4 +1,5 @@
-import { GeoJSON as GeoJSONComponent } from 'react-leaflet';
+import { useEffect } from 'react';
+import { GeoJSON as GeoJSONComponent, useMap } from 'react-leaflet';
 import {
   PRECIP_FILL,
   PRECIP_FILL_OPACITY,
@@ -6,91 +7,73 @@ import {
   PRECIP_LABEL,
   type PrecipNivel,
 } from '../types/precipitacion';
-import mockGeoJson from '../data/mockPrecipitaciones.geojson.json';
+import { usePrecipitaciones } from '@/services/usePrecipitaciones';
 
-/**
- * PrecipitationLayer — capa de precipitaciones renderizada como FeatureCollection
- * de polígonos (isohyets) sobre el mapa.
- *
- * Cada Feature del GeoJSON debe traer `properties.nivel` con uno de los 4
- * valores definidos en `PrecipNivel`. El color del polígono se asigna
- * automáticamente según ese nivel usando los tokens de marca (ver
- * `types/precipitacion.ts`).
- *
- * Por ahora consume un mock estático (`mockPrecipitaciones.geojson.json`).
- * Cuando el backend esté listo, sustituir el import por un fetch:
- *
- *   const [data, setData] = useState<FeatureCollection | null>(null);
- *   useEffect(() => {
- *     httpClient.get('/precipitations/current/').then(r => setData(r.data));
- *   }, []);
- *   if (!data) return null;
- *
- * Contrato esperado del backend (ECMWF → JSON):
- *   GET /api/precipitations/current/?unidad=ID
- *   → FeatureCollection con features Polygon. Cada feature:
- *     {
- *       "properties": {
- *         "nivel": "muy-lluvioso" | "lluvioso" |
- *                  "moderadamente-lluvioso" | "extremadamente-lluvioso",
- *         "mm_h": 18.7,
- *         "timestamp": "2026-07-18T08:00:00Z",
- *         "fuente": "ECMWF-ERA5"
- *       },
- *       "geometry": { "type": "Polygon", "coordinates": [[[lng, lat], ...]] }
- *     }
- *
- * IMPORTANTE — Workaround de tipos:
- *  `react-leaflet@5` y `@types/leaflet@1.9` no se ven bien bajo TS6/bundler.
- *  Casteamos el `<GeoJSON>` a `any` solo en este archivo. Sustituir cuando
- *  librería corrija sus definiciones.
- */
-
-// Discreción: el cast ayuda tanto a props como a tipos internos.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const GeoJSONAny = GeoJSONComponent as any;
 
-interface PrecipitationLayerProps {
-  /** GeoJSON FeatureCollection a renderizar (default: mock). */
+/**
+ * PrecipitationLayer — capa de precipitaciones renderizada como FeatureCollection
+ * de polígonos sobre el mapa.
+ *
+ * Consume el GeoJSON del backend (última solicitud ECMWF completada) via
+ * `usePrecipitaciones`. Si no hay token o falla, cae al mock estático.
+ *
+ * Optimización: usa **Canvas renderer** en vez de SVG para poder renderizar
+ * miles de polígonos (4081 celdas ECMWF) sin congelar el navegador.
+ *
+ * Filtra automáticamente por el distrito seleccionado en el contexto de
+ * Unidad Operativa (via `intersected_districts`).
+ */
+export function PrecipitationLayer() {
+  const { data, loading } = usePrecipitaciones();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: any;
-}
+  const map = useMap() as any;
 
-/**
- * Asigna estilo Leaflet según el `nivel` del feature.
- */
-function featureStyle(feature?: { properties?: { nivel?: PrecipNivel } }) {
-  const nivel = feature?.properties?.nivel ?? 'moderadamente-lluvioso';
-  return {
-    fillColor: PRECIP_FILL[nivel],
-    fillOpacity: PRECIP_FILL_OPACITY[nivel],
-    color: PRECIP_STROKE[nivel],
-    weight: 2,
-    opacity: 1,
-  };
-}
+  // Forzar Canvas renderer para máxima performance con miles de polígonos.
+  useEffect(() => {
+    if (!map) return;
+    // Prefer canvas over svg for rendering many polygons.
+    map.options.preferCanvas = true;
+  }, [map]);
 
-/**
- * Tooltip por feature: muestra nivel + mm/h al pasar el cursor.
- */
-function bindTooltip(feature: { properties?: Record<string, unknown> }, layer: { bindTooltip: (s: string, o?: unknown) => void }) {
-  const props = feature.properties ?? {};
-  const nivel = (props.nivel as PrecipNivel) ?? 'moderadamente-lluvioso';
-  const mmh = typeof props.mm_h === 'number' ? `${props.mm_h} mm/h` : '—';
-  const label = PRECIP_LABEL[nivel];
+  if (loading || !data) return null;
 
-  layer.bindTooltip(
-    `<div style="font-family: var(--eps-font-family-sans); color: var(--eps-text-primary);">
-       <strong style="color: var(--eps-primary-main);">${label}</strong><br/>
-       <span style="font-size: 12px;">${mmh}</span>
-     </div>`,
-    { sticky: true, direction: 'top', offset: [0, -5] },
-  );
-}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function featureStyle(feature?: any) {
+    const nivel: PrecipNivel = feature?.properties?.nivel ?? 'moderadamente-lluvioso';
+    return {
+      fillColor: PRECIP_FILL[nivel],
+      fillOpacity: PRECIP_FILL_OPACITY[nivel],
+      color: PRECIP_STROKE[nivel],
+      weight: 1,
+      opacity: 0.8,
+    };
+  }
 
-export function PrecipitationLayer({ data = mockGeoJson }: PrecipitationLayerProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function bindTooltip(feature: any, layer: any) {
+    const props = feature?.properties ?? {};
+    const nivel: PrecipNivel = props.nivel ?? 'moderadamente-lluvioso';
+    const mmh = typeof props.mm_h === 'number' ? `${props.mm_h} mm/h` : '—';
+    const label = PRECIP_LABEL[nivel];
+    const accumulated =
+      typeof props.accumulated_period_mm === 'number'
+        ? `${props.accumulated_period_mm} mm acumulado`
+        : '';
+
+    layer.bindTooltip(
+      `<div style="font-family: var(--eps-font-family-sans); color: var(--eps-text-primary);">
+         <strong style="color: var(--eps-primary-main);">${label}</strong><br/>
+         <span style="font-size: 12px;">${mmh}</span>${accumulated ? `<br/><span style="font-size: 11px; color: var(--eps-text-secondary);">${accumulated}</span>` : ''}
+       </div>`,
+      { sticky: true, direction: 'top', offset: [0, -5] },
+    );
+  }
+
   return (
     <GeoJSONAny
+      key={JSON.stringify(data).slice(0, 80)}
       data={data}
       style={featureStyle}
       onEachFeature={bindTooltip}

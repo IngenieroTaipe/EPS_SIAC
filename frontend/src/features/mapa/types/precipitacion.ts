@@ -55,3 +55,18 @@ export const PRECIP_LABEL: Record<PrecipNivel, string> = {
 
 /** Tipos de capa disponibles (reexportado para conveniencia desde aquí). */
 export type { LayerId };
+
+/**
+ * Deriva el nivel de precipitación a partir de la intensidad en mm/h.
+ * Umbrales basados en estándares meteorológicos:
+ *   0–2.5 mm/h   → moderadamente-lluvioso
+ *   2.5–10 mm/h  → lluvioso
+ *   10–30 mm/h   → muy-lluvioso
+ *   >30 mm/h     → extremadamente-lluvioso
+ */
+export function nivelFromIntensity(mmh: number): PrecipNivel {
+  if (mmh >= 30) return 'extremadamente-lluvioso';
+  if (mmh >= 10) return 'muy-lluvioso';
+  if (mmh >= 2.5) return 'lluvioso';
+  return 'moderadamente-lluvioso';
+}
