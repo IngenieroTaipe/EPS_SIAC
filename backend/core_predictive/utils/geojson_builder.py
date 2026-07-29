@@ -46,6 +46,15 @@ class PostGISGeoJSONExtractor:
         db_table = model_class._meta.db_table
         properties_sql = ", ".join([f"'{f}', c.{f}" for f in properties_fields])
 
+        # El JOIN a thresholds solo aplica cuando la tabla/expediente declara FK threshold_id (GFSClusterSnapshot).
+        # GFSActiveCell no tiene dicho FK (usa threshold_names JSONField), por lo que la union se omite ahi.
+        if 'threshold_id' in properties_fields:
+            threshold_name_sql = ", 'threshold_name', COALESCE(t.name, 'Normal / Sin Alerta')"
+            join_sql = "LEFT JOIN thresholds t ON c.threshold_id = t.id"
+        else:
+            threshold_name_sql = ""
+            join_sql = ""
+
         raw_query = f"""
             SELECT json_build_object(
                 'type', 'FeatureCollection',
@@ -62,14 +71,13 @@ class PostGISGeoJSONExtractor:
                         'id', c.id,
                         'geometry', ST_AsGeoJSON(c.{geometry_field_name})::json,
                         'properties', json_build_object(
-                            {properties_sql},
-                            'threshold_name', COALESCE(t.name, 'Normal / Sin Alerta') -- Incluimos el nombre del umbral para facilitar su identificación en el frontend.
+                            {properties_sql}{threshold_name_sql}
                         )
                     )
                 ), '[]'::json)
             )
             FROM {db_table} c
-            LEFT JOIN thresholds t ON c.threshold_id = t.id -- Especificamos que la tabla se une mediante el campo threshold_id.
+            {join_sql}
             WHERE c.gfs_request_id = %s;
         """
 
@@ -114,6 +122,15 @@ class PostGISGeoJSONExtractor:
         db_table = model_class._meta.db_table
         properties_sql = ", ".join([f"'{f}', c.{f}" for f in properties_fields])
 
+        # El JOIN a thresholds solo aplica cuando la tabla/expediente declara FK threshold_id (GFSClusterSnapshot).
+        # GFSActiveCell no tiene dicho FK (usa threshold_names JSONField), por lo que la union se omite ahi.
+        if 'threshold_id' in properties_fields:
+            threshold_name_sql = ", 'threshold_name', COALESCE(t.name, 'Normal / Sin Alerta')"
+            join_sql = "LEFT JOIN thresholds t ON c.threshold_id = t.id"
+        else:
+            threshold_name_sql = ""
+            join_sql = ""
+
         # === Consulta SQL: Une las 6h de la corrida anterior + 12h de la corrida actual ===
         raw_query = f"""
             WITH previous_slice AS (
@@ -147,15 +164,14 @@ class PostGISGeoJSONExtractor:
                         'id', c.id,
                         'geometry', ST_AsGeoJSON(c.{geometry_field_name})::json,
                         'properties', json_build_object(
-                            {properties_sql},
-                            'threshold_name', COALESCE(t.name, 'Normal / Sin Alerta'), -- Incluimos el nombre del umbral para facilitar su identificación en el frontend.
+                            {properties_sql}{threshold_name_sql},
                             'temporal_status', c.temporal_status
                         )
                     )
                 ), '[]'::json)
             )
             FROM combined_window c
-            LEFT JOIN thresholds t ON c.threshold_id = t.id; -- Especificamos que la tabla se une mediante el campo threshold_id.
+            {join_sql};
         """
 
         # === Ejecución de la Consulta SQL con los parámetros ===

@@ -133,17 +133,17 @@ class ComponentViewSet(viewsets.ModelViewSet):
     queryset = Component.objects.all()
     serializer_class = ComponentSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['code', 'sector', 'name', 'type', 'operational_status', 'physical_status']
-    ordering_fields = ['code', 'sector', 'name', 'type']
+    search_fields = ['code', 'district', 'name', 'type', 'operational_status', 'physical_status']
+    ordering_fields = ['code', 'district', 'name', 'type']
 
     ordering = ['id'] # Default
 
     def get_queryset(self):
         return Component.objects.select_related(
-            'sector',
+            'district',
             'operational_status',
             'physical_status'
-        ).filter(is_deleted=False).order_by('id')
+        ).order_by('id')
 
 @extend_schema_view(
     list=extend_schema(tags=['Components / Coord'], summary="Listar coordenadas"),
@@ -173,4 +173,4 @@ class ComponentCoordViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return ComponentCoord.objects.select_related(
             'component'
-        ).filter(is_deleted=False).order_by('id')
+        ).order_by('id')

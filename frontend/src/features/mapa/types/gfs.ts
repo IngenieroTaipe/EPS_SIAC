@@ -1,15 +1,21 @@
 /**
- * Tipado y clasificación de precipitación GFS (celdas activas ~10km).
+ * Tipado y clasificación de precipitación GFS — Clústeres Espacio-Temporales.
  *
- * Contrato del endpoint:
- *   GET /api/v1/core_predictive/gfs-active-cells/latest/
+ * Contrato del endpoint (Etapa 2 — optimización DBSCAN):
+ *   GET /api/v1/core_predictive/gfs-clusters-snapshots/window-18h/
  *
- * Respuesta resumida (ver interfaces):
- *   - FeatureCollection con `metadata` (request_code, run_start_utc, total_features).
- *   - Cada Feature trae un `properties.intensity_series` con 12 valores en mm/h,
- *     `timestamps` con 12 strings en hora local Perú (PET, formato
- *     "YYYY-MM-DD HH:mm PET") y `threshold_names` (12 strings, '-' cuando el
- *     backend todavía no clasifica).
+ * Respuesta resumida:
+ *   - FeatureCollection con `metadata` (latest_request_code,
+ *     previous_request_code, window_duration_hours, total_features).
+ *   - Cada Feature es un clúster disuelto (MultiPolygon) para UN `(time_step,
+ *     temporal_status)`:
+ *       * `max_intensity_mm_h`, `avg_intensity_mm_h`
+ *       * `cluster_index`, `total_cells`
+ *       * `threshold_name` (string en Title Case, ej. "Lluvioso",
+ *         "Moderadamente Lluvioso", "Normal / Sin Alerta")
+ *       * `temporal_status` = 'HISTORIC' (steps 1..6 de la corrida previa)
+ *                          | 'FORECAST' (steps 1..12 de la corrida actual)
+ *       * `affected_ubigeos`
  *
  * El backend referencia los umbrales por distrito en:
  *   backend/core_predictive/data/thresholds.json
@@ -17,6 +23,7 @@
  * Lluvioso/Extremadamente Lluvioso) — usada aquí como default provisional.
  */
 
+import type { MultiPolygon, Polygon } from 'geojson';
 import type { LayerId } from '@/features/mapa/components/LayerControl';
 
 /** Categoría de umbral o '-' (sin lluvia significativa). */
@@ -27,41 +34,77 @@ export type GfsCategory =
   | 'extremadamente-lluvioso'
   | '-';
 
-/** Properties de cada feature del GeoJSON devuelto por el endpoint GFS. */
-export interface GfsFeatureProperties {
-  gfs_request_id: number;
-  /** Intensidad máxima de la serie (mm/h). Sirve para tooltip estático. */
-  max_intensity_mm_h: number;
-  /** 12 timestamps en hora local PET — defensivo: puede venir null/undefined. */
-  timestamps?: string[] | null;
-  /** 12 valores mm/h en el mismo orden que `timestamps`. */
-  intensity_series?: number[] | null;
-  /** 12 categorías o '-' cuando el backend aún no clasifica. */
-  threshold_names?: string[] | null;
+/** Etiqueta temporal del clúster: pasado (corrida previa) o futuro (actual). */
+export type GfsTemporalStatus = 'HISTORIC' | 'FORECAST';
+
+/** Identidad única de un frame temporal dentro de la ventana 18h. */
+export interface GfsFrameId {
+  temporal_status: GfsTemporalStatus;
+  time_step: number;
 }
 
-/** Una feature del GeoJSON GFS (polígono celda grilla). */
-export interface GfsFeature {
+/** Properties de cada feature devuelto por el endpoint de clústeres. */
+export interface GfsClusterFeatureProperties {
+  gfs_request_id: number;
+  /** Paso horario dentro de su corrida (1..12 FORECAST, 1..6 HISTORIC). */
+  time_step: number;
+  /** Timestamp legible en hora local PET — ej. "2026-07-28 20:00 PET". */
+  timestamp_str: string;
+  /** Índice de clúster asignado por DBSCAN dentro del step. */
+  cluster_index: number;
+  /** Nº de celdas GFS originales agrupadas en este clúster. */
+  total_cells: number;
+  /** Intensidad pico del clúster (mm/h). */
+  max_intensity_mm_h: number;
+  /** Intensidad promedio del clúster (mm/h). */
+  avg_intensity_mm_h: number;
+  /** FK al umbral (null si no clasificado todavía). */
+  threshold_id?: number | null;
+  /** Nombre del umbral en Title Case — ej. "Lluvioso", "Normal / Sin Alerta". */
+  threshold_name?: string | null;
+  /** UBIGEOS afectados (array, puede contener null). */
+  affected_ubigeos?: unknown[];
+  /** Origen temporal del clúster dentro de la ventana 18h. */
+  temporal_status?: GfsTemporalStatus;
+
+  /**
+   * FRONTAL ONLY — NO es parte del contrato del backend.
+   * Geometría suavizada (closing morfológico) generada una sola vez al recibir
+   * el GeoJSON (ver `smoothGeometry.ts`). Usada EXCLUSIVAMENTE para pintar en
+   * Leaflet; NO para cálculos espaciales (point-in-polygon, intersecciones).
+   * `feature.geometry` queda intacto para toda la lógica de negocio.
+   */
+  _smoothedGeometry?: Polygon | MultiPolygon | null;
+}
+
+/** Una feature clúster (MultiPolygon disuelto por DBSCAN). */
+export interface GfsClusterFeature {
   type: 'Feature';
   id?: number | string;
-  geometry: {
-    type: 'Polygon' | 'MultiPolygon';
-    // Polygon: Ring[] ; MultiPolygon: Ring[][] — tipado laxo por compat.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    coordinates: any;
-  };
-  properties: GfsFeatureProperties;
+  geometry: Polygon | MultiPolygon;
+  properties: GfsClusterFeatureProperties;
 }
 
-/** FeatureCollection GFS con metadata del request. */
-export interface GfsFeatureCollection {
+/**
+ * Metadata de la FeatureCollection. Campos opcionales porque el endpoint de
+ * celdas usa `request_code`/`run_start_utc`/etc. y el de clusters usa
+ * `latest_request_code`/`previous_request_code`/`window_duration_hours`.
+ */
+export interface GfsWindowMetadata {
+  request_code?: string;
+  run_start_utc?: string;
+  run_end_utc?: string;
+  target_variable?: string;
+  latest_request_code?: string;
+  previous_request_code?: string;
+  window_duration_hours?: number;
+  total_features?: number;
+}
+
+export interface GfsClusterFeatureCollection {
   type: 'FeatureCollection';
-  metadata?: {
-    request_code?: string;
-    run_start_utc?: string;
-    total_features?: number;
-  };
-  features: GfsFeature[];
+  metadata?: GfsWindowMetadata;
+  features: GfsClusterFeature[];
 }
 
 /**
@@ -93,7 +136,7 @@ export const GFS_ORDER: Exclude<GfsCategory, '-'>[] = [
 ];
 
 /**
- * Clasifica una intensidad mm/h en una categoría GFS.
+ * Clasifica una intensidad mm/h en una categoría GFS (fallback en el frontend).
  *
  * ============ TODO / DEFERRED ============
  * Estos umbrales son los únicos definidos actualmente en
@@ -108,13 +151,15 @@ export const GFS_ORDER: Exclude<GfsCategory, '-'>[] = [
  * Esto es un umbral ÚNICO (Pichanaqui) aplicado como default para toda la
  * zona. PENDIENTE de:
  *   1) Reemplazar por umbral específico por distrito cuando
- *      `intersected_districts.*.thresholds` venga lleno en el GeoJSON.
+ *      `affected_ubigeos` venga lleno en el GeoJSON (para lookup en
+ *      thresholds.json por ubigeo).
  *   2) Actualizar cuando se cambie de Unidad Operativa — otro distrito puede
  *      tener otros rangos min/max definidos en thresholds.json.
- *   3) Cuando el backend termine de poblar `threshold_names[i]` por feature,
- *      evaluar si conviene consumirlo directamente desde el payload
- *      (en lugar de re-computar aquí) según impacto en memoria / latencia en
- *      despliegue con ~12 000 features.
+ *
+ * En la Etapa 2 (clústeres) el backend SUELE poblar `threshold_name` ya
+ * clasificado desde su FK a `Threshold`. En ese caso se prefiere el dato del
+ * backend y este `getThreshold` sólo actúa como respaldo cuando el backend
+ * entrega "Normal / Sin Alerta" o null.
  */
 export function getThreshold(mmh: number): GfsCategory {
   if (mmh < 1.6) return '-';
@@ -125,10 +170,99 @@ export function getThreshold(mmh: number): GfsCategory {
 }
 
 /**
- * Intensidad mm/h de una feature en una hora dada (defensivo).
+ * Normaliza el `threshold_name` que entrega el backend (Title Case con
+ * espacios) a nuestras claves kebab-case internas.
+ *
+ *   "Moderadamente Lluvioso" → 'moderadamente-lluvioso'
+ *   "Lluvioso"               → 'lluvioso'
+ *   "Muy Lluvioso"           → 'muy-lluvioso'
+ *   "Extremadamente Lluvioso"→ 'extremadamente-lluvioso'
+ *   "Normal / Sin Alerta"    → null  (no clasificado → fallback a getThreshold)
+ *
+ * Devuelve `null` cuando el backend no entrega un umbral significativo,
+ * indicando al caller que debe re-clasificar con `getThreshold`.
+ */
+export function normalizeThresholdName(name?: string | null): GfsCategory | null {
+  if (!name) return null;
+  const n = name.trim().toLowerCase();
+  if (n === '' || n === '-' || n.startsWith('normal')) return null;
+  if (n === 'moderadamente lluvioso') return 'moderadamente-lluvioso';
+  if (n === 'lluvioso') return 'lluvioso';
+  if (n === 'muy lluvioso') return 'muy-lluvioso';
+  if (n === 'extremadamente lluvioso') return 'extremadamente-lluvioso';
+  return null;
+}
+
+/**
+ * Clasifica un clúster prefiriendo el `threshold_name` del backend y cayendo a
+ * `getThreshold(max_intensity_mm_h)` cuando el backend entrega "Normal / Sin
+ * Alerta" o null.
+ */
+export function classifyCluster(p: GfsClusterFeatureProperties): GfsCategory {
+  const fromBackend = normalizeThresholdName(p.threshold_name);
+  if (fromBackend) return fromBackend;
+  return getThreshold(p.max_intensity_mm_h ?? 0);
+}
+
+/**
+ * Extrae "HH:mm" de un `timestamp_str` con formato "YYYY-MM-DD HH:mm PET".
+ * Defensivo: si el string no parsea, devuelve '—'.
+ */
+export function extractHHmm(timestampStr?: string | null): string {
+  if (typeof timestampStr !== 'string' || !timestampStr) return '—';
+  const m = timestampStr.match(/(\d{2}:\d{2})/);
+  return m ? m[1] : '—';
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Tipos del endpoint de celdas individuales (~12 000) — v2 para comparación.
+// GET /api/v1/core_predictive/gfs-active-cells/latest/
+//
+// Cada feature trae series temporales de 12 valores (intensity_series +
+// timestamps); el slider recolorea por índice. TEMPORAL — borrar al cerrar
+// la comparación con clusters.
+// ──────────────────────────────────────────────────────────────────────
+
+/** Properties de cada celda GFS个体. */
+export interface GfsCellProperties {
+  gfs_request_id: number;
+  /** Intensidad máxima de la serie (mm/h). */
+  max_intensity_mm_h: number;
+  /** 12 timestamps en hora local PET — defensivo: puede venir null/undefined. */
+  timestamps?: string[] | null;
+  /** 12 valores mm/h en el mismo orden que `timestamps`. */
+  intensity_series?: number[] | null;
+}
+
+/** Una feature del GeoJSON de celdas individuales (Polygon grilla ~10km). */
+export interface GfsCellFeature {
+  type: 'Feature';
+  id?: number | string;
+  geometry: Polygon | MultiPolygon;
+  properties: GfsCellProperties & {
+    /**
+     * FRONTAL ONLY — copia suavizada (closing morfológico) generada una sola
+     * vez. Sólo para pintar en Leaflet; el `feature.geometry` original se
+     * conserva para cálculos espaciales.
+     */
+    _smoothedGeometry?: Polygon | MultiPolygon | null;
+  };
+}
+
+export interface GfsCellFeatureCollection {
+  type: 'FeatureCollection';
+  metadata?: GfsWindowMetadata;
+  features: GfsCellFeature[];
+}
+
+/**
+ * Intensidad mm/h de una celda en una hora dada (defensivo).
  * Devuelve 0 si la feature o el índice no son válidos.
  */
-export function intensityAt(feature: GfsFeature | undefined | null, hourIndex: number): number {
+export function intensityAt(
+  feature: GfsCellFeature | undefined | null,
+  hourIndex: number,
+): number {
   const series = feature?.properties?.intensity_series ?? null;
   if (!Array.isArray(series)) return 0;
   if (hourIndex < 0 || hourIndex >= series.length) return 0;

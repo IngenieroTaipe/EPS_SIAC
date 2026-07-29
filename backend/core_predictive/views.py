@@ -421,4 +421,4 @@ class ThresholdsNaturalPhenomenaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return ThresholdsNaturalPhenomena.objects.select_related(
             'natural_phenomena', 'variable', 'district', 'threshold'
-        ).filter(is_deleted=False)
+        )
