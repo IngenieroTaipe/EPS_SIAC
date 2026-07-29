@@ -45,3 +45,11 @@ TARGET_GRID_RES = 0.10
 DBSCAN_EPS_DEGREES = 0.15
 # Número mínimo de celdas para formar un clúster
 MIN_CELLS_PER_CLUSTER = 2
+
+
+# Intensidad mínima para participar en el análisis
+MIN_ACTIVE_INTENSITY = 0.1
+
+# Distancia usada para determinar vecinos.
+# Debe ajustarse según la separación real de la grilla GFS.
+LOCAL_MORAN_NEIGHBOR_DISTANCE = 0.36
