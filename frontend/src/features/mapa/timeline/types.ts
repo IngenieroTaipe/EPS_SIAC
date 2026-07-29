@@ -9,4 +9,12 @@ export interface GfsFrame extends GfsFrameId {
   label: string;
   temporal_status: GfsTemporalStatus;
   time_step: number;
+  /**
+   * Fecha/hora real de Perú del frame (parseada de `timestamp_str`,
+   * formato "YYYY-MM-DD HH:mm PET"). Wall-clock peruano interpretado en
+   * el timezone del runtime (ver `parsePetTimestamp` para detalles).
+   * Define el origen DEL FRAME en el eje del timeline — el slot 0 es
+   * `frames[0].timestampDate`, no "hoy a las 20:00".
+   */
+  timestampDate: Date;
 }

@@ -15,6 +15,7 @@ import {
   type GfsTemporalStatus,
 } from '@/features/mapa/types/gfs';
 import {
+  parsePetTimestamp,
   peruNow,
   peruStartOfDay,
 } from '@/features/mapa/timeline/peruTime';
@@ -99,6 +100,8 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
           temporal_status: status,
           time_step: step,
           label: extractHHmm(p.timestamp_str),
+          timestampDate:
+            parsePetTimestamp(p.timestamp_str) ?? peruNow(),
         });
       }
     }
@@ -116,14 +119,14 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
   const maxSlot = totalSlots > 0 ? Math.max(1, totalSlots - 1) : 1;
   const clampedFrameIndex = totalSlots > 0 ? clamp(frameIndex, 0, maxSlot) : 0;
 
-  // ── Eje de tiempo: base anclada al inicio del día de Perú ────────────
-  const base = useMemo(() => {
-    const firstLabel = frames[0]?.label ?? '0:00';
-    const hh = parseInt(firstLabel.split(':')[0], 10) || 0;
-    const b = peruStartOfDay();
-    b.setHours(hh, 0, 0, 0);
-    return b;
-  }, [frames]);
+  // ── Eje de tiempo: base = timestamp real del primer frame (no "hoy a
+  //    HH:00"). Si HISTORIC cubre horas del día anterior, la base cae en
+  //    ese día anterior, lo que hace que la franja roja (hora real Perú)
+  //    quede en su slot correcto dentro del eje.
+  const base = useMemo<Date>(
+    () => frames[0]?.timestampDate ?? peruStartOfDay(),
+    [frames],
+  );
 
   // Hora real de Perú, refrescada por `nowTick` (cada 60s) además de en
   // cada render. useMemo con `nowTick` en deps fuerza recálculo cuando
@@ -131,17 +134,36 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
   // `nowTick` está en deps deliberadamente: no se usa en el cuerpo (lo que
   // infla el lint) pero fuerza el reproceso cuando el ticker dispara.
   const currentRealHour = useMemo(() => peruNow(), [nowTick]); // eslint-disable-line react-hooks/exhaustive-deps
-  const selectedHour = useMemo(
-    () => addHours(base, clampedFrameIndex),
-    [base, clampedFrameIndex],
+
+  // Slot correspondiente a la hora real (franja roja). Calculado como
+  // diferencia de ms entre `currentRealHour` y `base` divida en horas. Por
+  // construcción, `base` y `currentRealHour` están en el mismo frame de
+  // referencia (wall-clock Perú interpretado en el runtime del browser),
+  // así que la aritmética es coherente sin importar el timezone del cliente.
+  const realSlot = useMemo(() => {
+    if (totalSlots === 0) return 0;
+    const slot = Math.round(
+      (currentRealHour.getTime() - base.getTime()) / MS_PER_HOUR,
+    );
+    return clamp(slot, 0, maxSlot);
+  }, [currentRealHour, base, totalSlots, maxSlot]);
+
+  // `slotHours[i]` = hora absoluta (0..23) del frame i. Derivada de los
+  // `timestampDate` reales del backend, así soporta cruces de medianoche.
+  const slotHours = useMemo<number[]>(
+    () => frames.map((f) => f.timestampDate.getHours()),
+    [frames],
   );
 
   // ── Días agrupados (para etiquetas de fila superior) ─────────────────
+  // Un nuevo grupo arranca cuando cambia el día natural (vía getDay() +
+  // getDate() encapsulados en `dayLabelFor`). Cada grupo cubre horas NO
+  // cruzando medianoche: al cruzar, se abre un nuevo grupo con hora 0.
   const days = useMemo<TimelineDay[]>(() => {
     if (totalSlots === 0) return [];
     const groups: TimelineDay[] = [];
     for (let i = 0; i < totalSlots; i++) {
-      const d = addHours(base, i);
+      const d = frames[i]?.timestampDate ?? addHours(base, i);
       const label = dayLabelFor(d);
       const h = d.getHours();
       const last = groups[groups.length - 1];
@@ -152,16 +174,16 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
       }
     }
     return groups;
-  }, [base, totalSlots]);
+  }, [frames, totalSlots, base]);
 
-  // ── Selección desde TimelineBar (Date → slot) ───────────────────────
-  const onSelectHour = useCallback(
-    (hour: Date) => {
-      const slot = Math.round((hour.getTime() - base.getTime()) / MS_PER_HOUR);
-      const clamped = totalSlots > 0 ? clamp(slot, 0, maxSlot) : 0;
-      setFrameIndex(clamped);
+  // Selección desde TimelineBar: llega un slot ya entero (no un Date), así
+  // que basta con clampar y setFrameIndex. Cero aritmética de Date aquí.
+  const onSelectSlot = useCallback(
+    (slot: number) => {
+      if (totalSlots === 0) return;
+      setFrameIndex(clamp(slot, 0, maxSlot));
     },
-    [base, totalSlots, maxSlot],
+    [totalSlots, maxSlot],
   );
 
   const onTogglePlay = useCallback(() => setIsPlaying((v) => !v), []);
@@ -249,9 +271,10 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
     activeFrame: frames[clampedFrameIndex],
     timelineProps: {
       days,
-      currentRealHour,
-      selectedHour,
-      onSelectHour,
+      slotHours,
+      selectedSlot: clampedFrameIndex,
+      realSlot,
+      onSelectSlot,
       isPlaying,
       onTogglePlay,
     },

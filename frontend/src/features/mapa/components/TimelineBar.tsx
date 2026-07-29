@@ -18,49 +18,35 @@ export interface TimelineDay {
 
 export interface TimelineBarProps {
   /**
-   * Días que conforman la línea de tiempo. La concatenación ordenada de los
-   * `hourRange` define el rango continuo de horas disponibles (de la primera
-   * hora del primer día a la última hora del último día).
-   * Se asume que llegan ordenados cronológicamente, sin solapes.
+   * Días agrupados con su etiqueta y rango de horas (para la fila superior y
+   * el reparto de marcas). La suma de `hourRange` entre todos los días es la
+   * longitud del eje (== `slotHours.length`).
    */
   days: TimelineDay[];
 
   /**
-   * Hora REAL del sistema (en SIACS: hora de Perú, PET). Marcada con la
-   * franja roja vertical fija. Independiente de `selectedHour`: no se mueve
-   * con el drag.
+   * Valor absoluto de hora (0..23) por cada slot del eje en orden creciente,
+   * ej. [20, 21, 22, 23, 0, 1, ..., 13]. Soporta cruces de medianoche
+   * (cuando el día natural cambia, la lista arranca en 0). Longitud = total
+   * de slots.
    */
-  currentRealHour: Date;
+  slotHours: number[];
 
-  /** Hora actualmente seleccionada/explorada por el usuario. */
-  selectedHour: Date;
+  /** Índice del slot actualmente seleccionado (thumb). 0..maxSlot. */
+  selectedSlot: number;
 
-  /** Notifica al padre cada vez que el usuario cambia la hora seleccionada. */
-  onSelectHour: (hour: Date) => void;
+  /** Índice del slot correspondiente a la hora real (franja roja). 0..maxSlot. */
+  realSlot: number;
 
-  /** Indica si la animación automática (play) está activa. Controlado por el padre. */
+  /** Notifica cada vez que el usuario arrastra/clica para cambiar el slot. */
+  onSelectSlot: (slot: number) => void;
+
+  /** Indica si la animación automática (play) está activa. */
   isPlaying: boolean;
 
   /** Alterna play/pausa. La barra lo invoca ante clic en el botón o al
    *  interrumpir el playback con un drag manual del usuario. */
   onTogglePlay: () => void;
-}
-
-const MS_PER_HOUR = 1000 * 60 * 60;
-
-function startOfDay(d: Date): Date {
-  const next = new Date(d);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function addHours(d: Date, hours: number): Date {
-  return new Date(d.getTime() + hours * MS_PER_HOUR);
-}
-
-/** Slot-floor: número de horas enteras entre `base` y `d`. */
-function hourSlot(base: Date, d: Date): number {
-  return Math.round((d.getTime() - base.getTime()) / MS_PER_HOUR);
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -80,48 +66,34 @@ interface DaySegment {
  * Características:
  *   - Eje de tiempo continuo multi-día con etiquetas de día + horas (dos
  *     filas). Scroll horizontal en mobile.
- *   - Franja roja fija que marca `currentRealHour` (hora real de Perú),
- *     independiente del thumb de exploración.
+ *   - Franja roja fija que marca `realSlot` (hora real de Perú), independiente
+ *     del thumb de exploración.
  *   - Thumb arrastrable (pointer events) + tooltip con la hora seleccionada
  *     y flecha hacia el thumb; persiste unos segundos tras soltar.
- *   - Botón play controlado por el padre (`isPlaying`/`onTogglePlay`). La
- *    animación del playback la gestiona el contexto
- *     `PrecipitationTimelineProvider` con requestAnimationFrame (no aquí).
- *   - Al llegar al final del eje, el playback detiene y vuelve al frame 0
+ *   - Botón play controlado por el padre (`isPlaying`/`onTogglePlay`). El
+ *     playback lo gestiona `PrecipitationTimelineProvider` con rAF (no aquí).
+ *   - Al llegar al final del eje, el playback detiene y vuelve al slot 0
  *     (sin rebote). Cualquier drag manual cancela el playback.
- *   - Diseño compacto (~50% más bajo que v1): botón play size-8, track h-7,
- *     text-bold en etiquetas, marcas reducidas.
+ *   - Diseño compacto: botón play size-8, track h-7, font-bold en etiquetas.
+ *
+ * Cronología: este componente NO hace aritmética de Date. Toda la resolución
+ * de horarios vive en `PrecipitationTimelineProvider` (que conoce los
+ * `timestamp_str` reales del backend). Aquí sólo se posiciona por slot.
  *
  * Implementación sin librerías externas de timeline/slider: useRef + pointer
- * events. Sólo usa tokens ya definidos en `tailwind.config.ts`.
+ * events. Sólo usa tokens de `tailwind.config.ts`.
  */
 export function TimelineBar({
   days,
-  currentRealHour,
-  selectedHour,
-  onSelectHour,
+  slotHours,
+  selectedSlot,
+  realSlot,
+  onSelectSlot,
   isPlaying,
   onTogglePlay,
 }: TimelineBarProps) {
-  // ── Eje de tiempo: origen derivado de props (puro, sin Date.now) ─────
-  const totalSlots = days.reduce(
-    (acc, d) => acc + (d.hourRange[1] - d.hourRange[0] + 1),
-    0,
-  );
-
-  const base = useMemo(() => {
-    const b = startOfDay(currentRealHour);
-    b.setHours(days[0]?.hourRange[0] ?? 0, 0, 0, 0);
-    return b;
-  }, [currentRealHour, days]);
-
+  const totalSlots = slotHours.length;
   const maxSlot = totalSlots > 0 ? Math.max(1, totalSlots - 1) : 1;
-  const selectedSlot = totalSlots
-    ? clamp(hourSlot(base, selectedHour), 0, maxSlot)
-    : 0;
-  const realSlot = totalSlots
-    ? clamp(hourSlot(base, currentRealHour), 0, maxSlot)
-    : 0;
 
   // Segmentos por día para pintar etiquetas de día encima de su rango.
   const segments = useMemo<DaySegment[]>(() => {
@@ -138,10 +110,9 @@ export function TimelineBar({
     }, []);
   }, [days]);
 
-  const axisBaseHour = days[0]?.hourRange[0] ?? 0;
-  const absHourForSlot = useCallback(
-    (slotIdx: number): string => `${axisBaseHour + slotIdx}:00`,
-    [axisBaseHour],
+  const labelForSlot = useCallback(
+    (slotIdx: number): string => `${slotHours[slotIdx] ?? 0}:00`,
+    [slotHours],
   );
 
   // ── Medición del track para drag y posicionamiento en % ───────────────
@@ -172,13 +143,12 @@ export function TimelineBar({
         0,
         1,
       );
-      // Snap a la hora entera más cercana: round para que un clic por encima
-      // de la mitad de un intervalo caiga en la siguiente hora.
-      const slot = Math.round(ratio * maxSlot);
-      const newHour = addHours(base, slot);
-      onSelectHour(newHour);
+      // Snap al slot entero más cercano: round para que un clic por encima
+      // de la mitad de un intervalo caiga en el siguiente slot.
+      const slot = clamp(Math.round(ratio * maxSlot), 0, maxSlot);
+      onSelectSlot(slot);
     },
-    [onSelectHour, maxSlot, totalSlots, base],
+    [onSelectSlot, maxSlot, totalSlots],
   );
 
   // Tooltip visible durante interacción y unos segundos tras soltar.
@@ -243,10 +213,12 @@ export function TimelineBar({
   }, []);
 
   // ── Posicionamiento de thumb / línea roja en % ──────────────────────
-  const thumbPct = trackWidth > 0 ? (selectedSlot / maxSlot) * 100 : 0;
-  const realPct = trackWidth > 0 ? (realSlot / maxSlot) * 100 : 0;
+  const thumbPct =
+    trackWidth > 0 ? (clamp(selectedSlot, 0, maxSlot) / maxSlot) * 100 : 0;
+  const realPct =
+    trackWidth > 0 ? (clamp(realSlot, 0, maxSlot) / maxSlot) * 100 : 0;
 
-  const tooltipHourLabel = `${selectedHour.getHours()}:00`;
+  const tooltipHourLabel = labelForSlot(selectedSlot);
   const disabled = totalSlots === 0;
 
   return (
@@ -254,7 +226,6 @@ export function TimelineBar({
       role="group"
       aria-label="Línea de tiempo del pronóstico"
       className={cn(
-        // Footer permanente al fondo. z alto para no ser tapada.
         'relative z-[1100] w-full',
         'flex items-stretch bg-background-main/95 backdrop-blur',
         'shadow-[0px_-5px_5px_0px_rgba(0,0,0,0.25)]',
@@ -360,7 +331,7 @@ export function TimelineBar({
                   />
                   {major && (
                     <span className="mt-0.5 text-[10px] tabular-nums font-bold text-text-secondary font-sans whitespace-nowrap">
-                      {absHourForSlot(i)}
+                      {labelForSlot(i)}
                     </span>
                   )}
                 </div>
@@ -375,7 +346,7 @@ export function TimelineBar({
               )}
               style={{ left: `${realPct}%` }}
               aria-hidden="true"
-              title={`Hora real: ${currentRealHour.getHours()}:00`}
+              title={`Hora real: ${labelForSlot(realSlot)}`}
             />
 
             {/* Thumb circular = hora seleccionada. Compacto, size-4. */}
@@ -393,12 +364,11 @@ export function TimelineBar({
               aria-valuemin={0}
               aria-valuemax={maxSlot}
               aria-valuenow={selectedSlot}
-              aria-valuetext={`${selectedHour.getHours()}:00`}
+              aria-valuetext={tooltipHourLabel}
             />
           </div>
         </div>
-
-        </div>
+      </div>
     </div>
   );
 }

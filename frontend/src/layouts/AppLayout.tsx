@@ -2,9 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { Sidebar } from '@/layouts/sidebar/Sidebar';
 import { TopBar } from '@/layouts/topbar/TopBar';
 import { useAuth } from '@/shared/context/AuthContext.hooks';
-import { TimelineBar } from '@/features/mapa/components/TimelineBar';
-import { PrecipitationTimelineProvider } from '@/features/mapa/timeline/PrecipitationTimelineProvider';
-import { usePrecipitationTimeline } from '@/features/mapa/timeline/usePrecipitationTimeline';
+import { PrecipitationTimelineFooter } from '@/features/mapa/timeline/PrecipitationTimelineFooter';
 
 /**
  * AppLayout: contenedor para páginas PROTEGIDAS (requieren auth).
@@ -35,11 +33,10 @@ export function AppLayout() {
     return <Navigate to="/" replace />;
   }
 
-  return (
-    <PrecipitationTimelineProvider>
-      <div className="h-screen flex bg-background-main">
-        <Sidebar />
-<div className="flex-1 flex flex-col overflow-hidden">
+return (
+    <div className="h-screen flex bg-background-main">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
         <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="flex-1 min-h-0 overflow-hidden">
@@ -48,18 +45,6 @@ export function AppLayout() {
           <PrecipitationTimelineFooter />
         </main>
       </div>
-      </div>
-    </PrecipitationTimelineProvider>
+    </div>
   );
-}
-
-/**
- * PrecipitationTimelineFooter — wrapper que lee el contexto y decide si
- * renderizar la timeline (sólo cuando hay frames GFS disponibles). Si la
- * ventana está vacía (sin pronóstico) no muestra nada para no ocupar altura.
- */
-function PrecipitationTimelineFooter() {
-  const { frames, timelineProps } = usePrecipitationTimeline();
-  if (frames.length === 0) return null;
-  return <TimelineBar {...timelineProps} />;
 }

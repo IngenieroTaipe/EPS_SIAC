@@ -20,7 +20,13 @@ export interface PrecipitationTimelineContextValue {
   /** Props listas para pasar a <TimelineBar />. */
   timelineProps: Pick<
     TimelineBarProps,
-    'days' | 'currentRealHour' | 'selectedHour' | 'onSelectHour' | 'isPlaying' | 'onTogglePlay'
+    | 'days'
+    | 'slotHours'
+    | 'selectedSlot'
+    | 'realSlot'
+    | 'onSelectSlot'
+    | 'isPlaying'
+    | 'onTogglePlay'
   >;
 }
 

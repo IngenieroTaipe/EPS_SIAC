@@ -45,3 +45,36 @@ export function peruStartOfDay(): Date {
   now.setHours(0, 0, 0, 0);
   return now;
 }
+
+const PET_TS_PARTS = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/;
+
+/**
+ * ParsePetTimestamp — construye un `Date` a partir de un `timestamp_str`
+ * con formato "YYYY-MM-DD HH:mm PET" (la convención usada por el backend
+ * GFS de SIACS para Portugal... bueno, Perú, zona horaria PET = UTC-5 fija,
+ * sin horario de verano).
+ *
+ * El `Date` resultante interpreta los partes de wall-clock peruano como
+ * wall-clock del runtime (igual que `peruNow`), de modo que `.getHours()`,
+ * `.getDay()` y `.getDate()` devuelvan directamente los valores de Perú
+ * sin depender del timezone del contenedor. Esta es la misma convención
+ * usada por `peruNow` y la frontend; si el runtime es UTC (Docker) o
+ * America/Lima (browser local), los partes se interpretan igual.
+ *
+ * Devuelve `null` si el formato no coincide (defensivo).
+ */
+export function parsePetTimestamp(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const m = s.match(PET_TS_PARTS);
+  if (!m) return null;
+  const [, y, mo, d, h, mi] = m;
+  return new Date(
+    Number(y),
+    Number(mo) - 1,
+    Number(d),
+    Number(h),
+    Number(mi),
+    0,
+    0,
+  );
+}
