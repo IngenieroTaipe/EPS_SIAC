@@ -26,6 +26,37 @@
   body {
     @apply bg-background-main text-text-primary font-sans antialiased;
   }
+
+  /* Escala global por defecto = 80% del zoom del navegador.
+     Se aplica a `html` (no a #root) para que también se vean afectados
+     los portales renderizados en body (modals/drawers de Leaflet y React),
+     manteniéndolos consistentes con el resto de la UI. Los elementos con
+     `position: fixed` siguen anclados al viewport (= html), por lo que
+     popups/tooltips de Leaflet y paneles flotantes conservan su anclaje.
+     Solo se activa en desktop (>= 1024px) para no comprimir mobile/tablet. */
+  @media (min-width: 1024px) {
+    html {
+      zoom: 0.8;
+    }
+  }
+}
+
+/* ── Compensación de altura por zoom (fuera de @layer para ganar prioridad)
+   Las utilidades `*-h-screen` de Tailwind viven en `@layer utilities`, que
+   tiene mayor prioridad que `@layer base`. Por eso este override va FUERA
+   de cualquier @layer: así gana la cascada y reemplaza a `100vh` por
+   `125vh` (100vh / 0.8) solo en desktop, evitando la franja blanca que
+   deja el zoom al reducir `100vh` a un 80% visual. */
+@media (min-width: 1024px) {
+  .h-screen {
+    height: 125vh;
+  }
+  .min-h-screen {
+    min-height: 125vh;
+  }
+  .max-h-screen {
+    max-height: 125vh;
+  }
 }
 
 /* ── Leaflet custom: el container debe tener altura o no renderiza. ── */

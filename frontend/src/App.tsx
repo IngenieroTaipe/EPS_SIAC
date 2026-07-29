@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { GuestLayout } from '@/layouts/GuestLayout';
 import { AppLayout } from '@/layouts/AppLayout';
+import { PrecipitationTimelineProvider } from '@/features/mapa/timeline/PrecipitationTimelineProvider';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MapaAlertasPage } from '@/pages/MapaAlertasPage';
@@ -32,8 +33,9 @@ import { EditorComponentePage } from '@/pages/EditorComponentePage';
  */
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <PrecipitationTimelineProvider>
+      <BrowserRouter>
+        <Routes>
         {/* ── Páginas públicas ─────────────────────────────────────────── */}
         {/* HomePage usa GuestLayout (con TopBar + botón Iniciar Sesión). */}
         <Route element={<GuestLayout />}>
@@ -58,7 +60,8 @@ function App() {
         {/* ── Fallback ────────────────────────────────────────────────── */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </PrecipitationTimelineProvider>
   );
 }
 
