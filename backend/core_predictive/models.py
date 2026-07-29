@@ -55,6 +55,7 @@ class GFSActiveCell(AuditCreateModel):
     
     max_intensity_mm_h = models.FloatField(verbose_name="Intensidad Pico (mm/h)")
     intensity_series = models.JSONField(verbose_name="Serie Temporal Horaria [t1..t12]")
+    timestamps = models.JSONField(null=True, blank=True, verbose_name="Marcas de Tiempo Horarias [t1..t12]")
     threshold_names = models.JSONField(null=True, blank=True, verbose_name="Nombres de Umbral [t1..t12]")
     
     class Meta:

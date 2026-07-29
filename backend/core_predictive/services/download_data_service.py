@@ -203,6 +203,7 @@ class GFSDataService(StorageService):
         """
         # === Concatenar la dimensión temporal 'step' ===
         ds_final = xr.concat(datasets, dim="step", combine_attrs="override")
+        ds_final = ds_final.sortby("step")
         ds_final = ds_final.transpose("step", "latitude", "longitude")
 
         # === Generación del nombre y ruta del archivo NetCDF4 ===

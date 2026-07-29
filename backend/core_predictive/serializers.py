@@ -144,6 +144,7 @@ class GFSActiveCellGeoJSONSerializer(serializers.ModelSerializer):
         return {
             "gfs_request_id": obj.gfs_request_id,
             "max_intensity_mm_h": obj.max_intensity_mm_h,
+            "timestamps": obj.timestamps,
             "intensity_series": obj.intensity_series,
             "threshold_names": obj.threshold_names,
         }

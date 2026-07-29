@@ -3,6 +3,8 @@ import logging
 import numpy as np
 # pyrefly: ignore [missing-import]
 import xarray as xr
+import zoneinfo
+from datetime import datetime, timedelta
 
 from typing import Dict, Any, List, Tuple
 from django.db import transaction
@@ -15,7 +17,7 @@ from core_predictive.constants import (
     MIN_THRESHOLD_MM_H,
     TARGET_GRID_RES,
     GFS_NATIVE_GRID_RES,
-    
+    LIMA_TZ
 )
 
 logger = logging.getLogger(__name__)
@@ -155,15 +157,43 @@ class InsertDataToPostGIS:
         # === Cálculo del offset para centrar las celdas ===
         half_res = res_deg / 2.0
 
+        # === Transposición para asegurar el orden (Tiempo, Lat, Lon) ===
+        time_dim = "step" if "step" in tp_rate_resampled.dims else "valid_time"
+        tp_rate_resampled = tp_rate_resampled.sortby(time_dim)
+        tp_rate_resampled = tp_rate_resampled.transpose(time_dim, "latitude", "longitude")
+
+        timestamps_per = []
+        if "valid_time" in tp_rate_resampled.coords:
+            time_vals = tp_rate_resampled.valid_time.values
+            for idx, t in enumerate(time_vals):
+                # Convertir numpy.datetime64 a segundos epoch
+                epoch_sec = int(t.astype('M8[s]').astype('int64'))
+                dt_utc = datetime.fromtimestamp(epoch_sec, tz=zoneinfo.ZoneInfo("UTC"))
+                dt_pet = dt_utc.astimezone(LIMA_TZ)
+                timestamps_per.append((idx, epoch_sec, dt_pet.strftime("%Y-%m-%d %H:00 PET")))
+        else:
+            # Fallback en caso de usar dimensión de pasos (step)
+            time_dim = "step" if "step" in tp_rate_resampled.dims else "valid_time"
+            steps = tp_rate_resampled[time_dim].values
+            start_dt = gfs_request.date_range_start
+            
+            for idx, s in enumerate(steps):
+                step_hours = int(s)
+                dt_step = start_dt + timedelta(hours=step_hours)
+                dt_pet = dt_step.astimezone(LIMA_TZ)
+                epoch_sec = int(dt_step.timestamp())
+                timestamps_per.append((idx, epoch_sec, dt_pet.strftime("%Y-%m-%d %H:00 PET")))
+                
         lats = tp_rate_resampled.latitude.values
         lons = tp_rate_resampled.longitude.values
         lons_normalized = np.where(lons > 180, lons - 360, lons)
 
-        # === Transposición para asegurar el orden (Tiempo, Lat, Lon) ===
-        time_dim = "step" if "step" in tp_rate_resampled.dims else "valid_time"
-        tp_rate_resampled = tp_rate_resampled.transpose(time_dim, "latitude", "longitude")
+        # === Ordenamiento de las series temporales ===
+        sorted_tuples = sorted(timestamps_per, key=lambda x: x[1])
+        sorted_indices = [tup[0] for tup in sorted_tuples]
+        sorted_timestamps_per = [tup[2] for tup in sorted_tuples]
         
-        data_matrix = tp_rate_resampled.values
+        data_matrix = tp_rate_resampled.values[sorted_indices, :, :]
 
         # === Inicializamos el buffer de objetos a persistir ===
         staging_objects: List[GFSActiveCell] = []
@@ -203,6 +233,7 @@ class InsertDataToPostGIS:
                         gfs_request=gfs_request,
                         geometry=cell_polygon,
                         max_intensity_mm_h=max_intensity,
+                        timestamps=sorted_timestamps_per,
                         intensity_series=cleaned_series
                     )
                 )

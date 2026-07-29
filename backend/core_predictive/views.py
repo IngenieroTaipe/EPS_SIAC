@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from datetime import datetime
 from django_filters.rest_framework import DjangoFilterBackend
+from django.core.cache import cache
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes
 
 from core_shared.permissions import IsAdminUserOrReadOnly
@@ -107,6 +108,12 @@ class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
         Retorna el FeatureCollection de celdas vectoriales de la ejecución más reciente (COMPLETED).
         Resuelve el traslape seleccionando únicamente los datos de la última ejecución procesada.
         """
+        cache_key = "gfs_latest_geojson_feature_collection"
+        cached_geojson = cache.get(cache_key)
+
+        if cached_geojson:
+            return Response(cached_geojson, status=status.HTTP_200_OK)
+
         latest_request = GFSRequest.objects.filter(
             status='COMPLETED'
         ).order_by('-date_range_start', '-created_at').first()
@@ -138,6 +145,9 @@ class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
             },
             "features": serializer.data
         }
+
+        cache.set(cache_key, geojson_response, timeout=60 * 60 * 6)
+
         return Response(geojson_response, status=status.HTTP_200_OK)
 
     @extend_schema(

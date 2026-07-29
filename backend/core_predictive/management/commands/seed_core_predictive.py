@@ -163,9 +163,8 @@ class Command(BaseCommand):
             self.style.MIGRATE_HEADING("Procesando Threshold Natural Phenomean")
         )
 
-        threshold_natural_phenomenas = [
+        base_threshold_natural_phenomenas = [
             {
-                'district': 'Pichanaqui', 
                 'threshold': 'Extremadamente Lluvioso', 
                 'natural_phenomena': 'Lluvias Intensas', 
                 'variable': 'Precipitación Acumulada / Hora',
@@ -173,7 +172,6 @@ class Command(BaseCommand):
                 'max_value': None
             },
             {
-                'district': 'Pichanaqui', 
                 'threshold': 'Muy Lluvioso', 
                 'natural_phenomena': 'Lluvias Intensas', 
                 'variable': 'Precipitación Acumulada / Hora',
@@ -181,7 +179,6 @@ class Command(BaseCommand):
                 'max_value': 10.1
             },
             {
-                'district': 'Pichanaqui', 
                 'threshold': 'Lluvioso', 
                 'natural_phenomena': 'Lluvias Intensas', 
                 'variable': 'Precipitación Acumulada / Hora',
@@ -189,7 +186,6 @@ class Command(BaseCommand):
                 'max_value': 7.5
             },
             {
-                'district': 'Pichanaqui', 
                 'threshold': 'Moderadamente Lluvioso', 
                 'natural_phenomena': 'Lluvias Intensas', 
                 'variable': 'Precipitación Acumulada / Hora',
@@ -198,29 +194,32 @@ class Command(BaseCommand):
             }
         ]
 
-        for threshold_natural_phenomena in threshold_natural_phenomenas:
-            district = District.objects.filter(
-                name=threshold_natural_phenomena['district'].upper()
-            ).first()
+        districts = District.objects.all()
+
+        for threshold_data in base_threshold_natural_phenomenas:
             threshold = Threshold.objects.filter(
-                name=threshold_natural_phenomena['threshold'].upper()
+                name=threshold_data['threshold'].upper()
             ).first()
             natural_phenomena = NaturalPhenomena.objects.filter(
-                name=threshold_natural_phenomena['natural_phenomena']
+                name=threshold_data['natural_phenomena'].upper()
             ).first()
             variable = Variable.objects.filter(
-                name=threshold_natural_phenomena['variable'].upper()
+                name=threshold_data['variable'].upper()
             ).first()
-            ThresholdsNaturalPhenomena.objects.update_or_create(
-                district=district,
-                threshold=threshold,
-                natural_phenomena=natural_phenomena,
-                variable=variable,
-                defaults={
-                    'min_value' : threshold_natural_phenomena['min_value'],
-                    'max_value' : threshold_natural_phenomena['max_value']
-                }
-            )
+            
+            for district in districts:
+                if not district:
+                    continue
+                ThresholdsNaturalPhenomena.objects.update_or_create(
+                    district=district,
+                    threshold=threshold,
+                    natural_phenomena=natural_phenomena,
+                    variable=variable,
+                    defaults={
+                        'min_value' : threshold_data['min_value'],
+                        'max_value' : threshold_data['max_value']
+                    }
+                )
 
         self.stdout.write(
             "ThresholdNaturalPhenomean insertadas"
