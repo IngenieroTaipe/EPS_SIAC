@@ -7,7 +7,7 @@ echo "Esperando a PostgreSQL..."
 # === CONTROL DE ROL: Solo el contenedor API ejecuta migraciones y seeders ===
 if [ "$CONTAINER_ROLE" = "api" ]; then
     echo "Aplicando Migraciones..."
-    python manage.py makemigrations
+    python manage.py makemigrations --noinput
     python manage.py migrate --noinput
 
     echo "Aplicando Seeders..."

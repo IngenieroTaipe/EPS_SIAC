@@ -25,7 +25,7 @@ services:
     env_file:
       - ./backend/.env.dev
   
-  # =========== CELERY () =========== 
+# =========== CELERY () =========== 
   celery_worker:
     build:
       context: ./backend
@@ -34,11 +34,20 @@ services:
     command: celery -A EPS_SelvaCentral worker --loglevel=info --concurrency=2
     volumes:
       - ./backend/:/app
+    env_file:
+      - ./backend/.env.dev
     environment:
       - CONTAINER_ROLE=worker
+    networks:
+      - eps_siac_network
     depends_on:
-      - api
-    
+      api:
+        condition: service_started
+      db_postgis:
+        condition: service_healthy
+      redis:
+        condition: service_started
+     
   celery_beat:
     build:
       context: ./backend
@@ -47,10 +56,19 @@ services:
     command: celery -A EPS_SelvaCentral beat --loglevel=info
     volumes:
       - ./backend/:/app
+    env_file:
+      - ./backend/.env.dev
     environment:
       - CONTAINER_ROLE=beat
+    networks:
+      - eps_siac_network
     depends_on:
-      - api
+      api:
+        condition: service_started
+      db_postgis:
+        condition: service_healthy
+      redis:
+        condition: service_started
   
   # =========== FRONTEND (REACT) =========== 
   frontend:
