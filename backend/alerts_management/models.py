@@ -9,7 +9,7 @@ class AlertStatus(AuditCompleteModel):
     '''
         Modelo para representar los estados de las alertas.
     '''
-    # Django crea internamente el campo 'id' de forma transparente
+    # Django crea internamente el campo 'id' de forma automática
     name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
     description = models.TextField(blank=True, null=True)
 
@@ -25,7 +25,7 @@ class AlertPhase(AuditCompleteModel):
     '''
         Modelo para representar las fases de las alertas.
     '''
-    # Django crea internamente el campo 'id' de forma transparente
+    # Django crea internamente el campo 'id' de forma automática
     name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
     description = models.TextField(blank=True, null=True)
 
@@ -41,7 +41,7 @@ class AlertStatusPhase(AuditCompleteModel):
     '''
         Modelo para representar la relación entre los estados y fases de las alertas.
     '''
-    # Django crea internamente el campo 'id' de forma transparente
+    # Django crea internamente el campo 'id' de forma automática
     alert_status = models.ForeignKey(
         'AlertStatus', 
         on_delete=models.CASCADE,
@@ -66,7 +66,7 @@ class Alert(AuditCreateModel):
     '''
         Modelo para representar las alertas.
     '''
-    # Django crea internamente el campo 'id' de forma transparente
+    # Django crea internamente el campo 'id' de forma automática
     natural_phenomena = models.ForeignKey(
         'core_predictive.NaturalPhenomena',
         on_delete=models.PROTECT,
@@ -94,30 +94,31 @@ class AlertClusters(AuditCompleteModel):
     '''
         Modelo para representar los clusters de las alertas.
     '''
+    # Django crea internamente el campo 'id' de forma automática
     alert = models.ForeignKey(
         'Alert',
         on_delete=models.PROTECT,
         related_name='alerts_clusters_alerts'
     )
 
-    step_time_utc = models.DateTimeField() # Marca de Tiempo de esta "Foto Espacial" (Paso de 1 hora)
-    step_number = models.IntegerField() # Paso 1 (+1h), Paso 2 (+2h), etc.
-    step_intensity_mm_h = models.DecimalField(max_digits=6, decimal_places=2)
-    step_threshold = models.ForeignKey(
-        'core_predictive.ThresholdsNaturalPhenomena',
+    cluster = models.ForeignKey(
+        'core_predictive.GFSClusterSnapshot',
         on_delete=models.PROTECT,
-        related_name='alerts_clusters_step_threshold'
+        related_name='alerts_clusters_clusters_snapshots'
     )
-
-    cluster_geom = models.GeometryField(srid=4326)
 
     class Meta:
         db_table = 'alerts_clusters'
         verbose_name = 'Cluster de Alerta'
         verbose_name_plural = 'Clusters de Alertas'
+        unique_together = ('alert', 'cluster')
+        # indices optimizan las consultas
+        indexes = [
+            models.Index(fields=['alert', 'cluster']),
+        ]
 
     def __str__(self):
-        return self.name
+        return f"{self.alert.code} - {self.cluster.cluster_id}"
 
 class AlertClustersComponents(AuditCompleteModel):
     '''
@@ -139,36 +140,12 @@ class AlertClustersComponents(AuditCompleteModel):
         verbose_name = 'Componente de Cluster de Alerta'
         verbose_name_plural = 'Componentes de Clusters de Alertas'
         unique_together = ('alert_cluster', 'component')
+        indexes = [
+            models.Index(fields=['alert_cluster', 'component']),
+        ]
 
     def __str__(self):
-        return f"{self.component.name} - {self.alert_cluster.name}"
-
-class AlertComponents(AuditCreateModel):
-    '''
-        Modelo para representar los componentes de las alertas.
-    '''
-    alert = models.ForeignKey(
-        'Alert',
-        on_delete=models.PROTECT,
-        related_name='alerts_components_alerts'
-    )
-
-    component = models.ForeignKey(
-        'components.Component',
-        on_delete=models.PROTECT,
-        related_name='alerts_components_components'
-    )
-
-    pk = models.CompositePrimaryKey('alert', 'component')
-
-    class Meta:
-        db_table = 'alerts_components'
-        verbose_name = 'Componente de Alerta'
-        verbose_name_plural = 'Componentes de Alertas'
-        unique_together = ('alert', 'component')
-
-    def __str__(self):
-        return f"{self.component.name} - {self.alert.code}"
+        return f"Componente: {self.component.name} - del Cluster: {self.alert_cluster.alert.code}"
 
 class AlertHistory(AuditCreateModel):
     '''

@@ -148,25 +148,36 @@ class SpatialClusteringService:
             ORDER BY dc.time_step, dc.cluster_id;
         """
 
-        with connection.cursor() as cursor:
-            cursor.execute(cluster_query, [
-                gfs_request_id, 
-                cls.DBSCAN_EPS_DEGREES, 
-                cls.MIN_CELLS_PER_CLUSTER
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(cluster_query, [
+                    gfs_request_id, 
+                    cls.DBSCAN_EPS_DEGREES, 
+                    cls.MIN_CELLS_PER_CLUSTER
             ])
-            return cursor.fetchall()
+                results = cursor.fetchall()
+                logger.info(f"[PostGIS DBSCAN Query] Filas obtenidas de la base de datos: {len(results)}")
+                return results
+
+        except Exception as e:
+            logger.error(f"[PostGIS Error] Falló la ejecución del query de clústeres: {str(e)}")
+            return []
 
     @classmethod
     def _build_and_classify_snapshots(
         cls, 
         gfs_request: GFSRequest, 
-        raw_rows: List[Tuple], 
+        raw_rows: List[Tuple],
         district_rules_map: Dict[str, List[Dict]]
     ) -> List[GFSClusterSnapshot]:
         """
         Sub-método 3: Transforma los resultados de PostGIS en instancias del ORM 
         asignando el nombre de umbral correspondiente según los distritos intersecados.
         """
+        if not raw_rows:
+            logger.warning(f"[Cluster Engine] No hay filas devueltas por PostGIS para procesar.")
+            return []
+
         cluster_objects = []
 
         for row in raw_rows:
