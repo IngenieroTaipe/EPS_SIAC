@@ -35,6 +35,14 @@ class SpatialClusteringService:
     ) -> int:
         """
         Método Orquestador Delgado (Thin Pipeline Coordinator).
+
+        `@params`:
+            - gfs_request_id: ID de la solicitud GFS.
+            - target_variable_id: ID de la variable objetivo.
+            - natural_phenomena_id: ID del fenómeno natural.
+
+        `@return`:
+            - Número de clústeres generados y persistidos.
         """
         logger.info(f"[Cluster Engine] Iniciando orquestación de clústeres para GFSRequest #{gfs_request_id}...")
 
@@ -693,7 +701,6 @@ class SpatialClusteringService:
             ORDER BY dc.time_step, dc.cluster_id;
         """
         try:
-            # 💥 CORRECCIÓN CRÍTICA DE INDENTACIÓN: La lectura fetchall() está dentro del bloque with
             with connection.cursor() as cursor:
                 cursor.execute(cluster_query, [
                     gfs_request_id, 
@@ -701,11 +708,11 @@ class SpatialClusteringService:
                     cls.MIN_CELLS_PER_CLUSTER
                 ])
                 results = cursor.fetchall()
-                logger.info(f"✅ [PostGIS Getis-Ord Query] Filas obtenidas exitosamente: {len(results)}")
+                logger.info(f"[PostGIS Getis-Ord Query] Filas obtenidas exitosamente: {len(results)}")
                 return results if results is not None else []
 
         except Exception as e:
-            logger.error(f"❌ [PostGIS Error] Falló la ejecución del query Getis-Ord: {str(e)}")
+            logger.error(f"[PostGIS Error] Falló la ejecución del query Getis-Ord: {str(e)}")
             return []
 
     @classmethod
@@ -718,6 +725,12 @@ class SpatialClusteringService:
         """
         Sub-método 3: Transforma los resultados de PostGIS en instancias del ORM 
         asignando el nombre de umbral correspondiente según los distritos intersecados.
+
+            `@param gfs_request`: Instancia del modelo GFSRequest que contiene la información de la solicitud.
+            `@param raw_rows`: Lista de tuplas provenientes de la consulta PostGIS.
+            `@param district_rules_map`: Diccionario con las reglas de umbrales para cada distrito.
+
+            `@return`: Lista de instancias del modelo GFSClusterSnapshot.
         """
         if not raw_rows:
             logger.warning(f"[Cluster Engine] No hay filas devueltas por PostGIS para procesar.")

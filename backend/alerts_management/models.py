@@ -1,9 +1,10 @@
+from django.conf import settings
 from django.contrib.gis.db import models
+from django.db import connection
 from core_shared.models import AuditCreateModel, AuditCompleteModel
 
 from core_shared.validators import alpha_name_validator
 from alerts_management.validators import code_alert_validator
-# Create your models here.
 
 class AlertStatus(AuditCompleteModel):
     '''
@@ -72,8 +73,14 @@ class Alert(AuditCreateModel):
         on_delete=models.PROTECT,
         related_name='alerts_natural_phenomena'
     )
-    code = models.CharField(max_length=9, unique=True, validators=[code_alert_validator])
-    peak_intensity_mm_h = models.DecimalField(max_digits=6, decimal_places=2)
+    code = models.CharField(
+        max_length=9, 
+        unique=True, 
+        validators=[code_alert_validator], 
+        verbose_name="Código Único de Alerta (000000001)"
+    )
+    
+    max_intensity_mm_h = models.DecimalField(max_digits=6, decimal_places=2, default=0.0)
     max_threshold = models.ForeignKey(
         'core_predictive.ThresholdsNaturalPhenomena',
         on_delete=models.PROTECT,
@@ -89,6 +96,19 @@ class Alert(AuditCreateModel):
 
     def __str__(self):
         return self.code
+    
+    @classmethod
+    def generate_next_code(cls) -> str:
+        """
+            Generador Atómico de Códigos Secuenciales en PostgreSQL.
+        """
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE SEQUENCE IF NOT EXISTS alert_code_seq START 1;")
+            cursor.execute("SELECT nextval('alert_code_seq');")
+            next_val = cursor.fetchone()[0]
+
+        # Formatea el entero a 9 dígitos rellenados con ceros a la izquierda
+        return f"{next_val:09d}"
 
 class AlertClusters(AuditCompleteModel):
     '''
@@ -107,6 +127,15 @@ class AlertClusters(AuditCompleteModel):
         related_name='alerts_clusters_clusters_snapshots'
     )
 
+    representative_point = models.PointField(
+        srid=4326, 
+        null=True, 
+        blank=True, 
+        verbose_name="Punto Representativo de Impacto"
+    )
+
+    is_active_forecast = models.BooleanField(default=True)
+
     class Meta:
         db_table = 'alerts_clusters'
         verbose_name = 'Cluster de Alerta'
@@ -114,7 +143,7 @@ class AlertClusters(AuditCompleteModel):
         unique_together = ('alert', 'cluster')
         # indices optimizan las consultas
         indexes = [
-            models.Index(fields=['alert', 'cluster']),
+            models.Index(fields=['alert', 'cluster', 'is_active_forecast']),
         ]
 
     def __str__(self):
@@ -134,6 +163,8 @@ class AlertClustersComponents(AuditCompleteModel):
         on_delete=models.PROTECT,
         related_name='alerts_clusters_components_components'
     )
+
+    intensity_at_component = models.FloatField(default=0.0, verbose_name="Intensidad estimada en la infraestructura (mm/h)")
 
     class Meta:
         db_table = 'alerts_clusters_components'
@@ -163,13 +194,37 @@ class AlertHistory(AuditCreateModel):
         related_name='alerts_historic_status_phase'
     )
 
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,  
+        on_delete=models.PROTECT,
+        related_name='alerts_historic_created_by',
+        null=True,                 
+        blank=True
+    )
+
     class Meta:
         db_table = 'alerts_historic'
         verbose_name = 'Histórico de Alertas'
         verbose_name_plural = 'Históricos de Alertas'
+        indexes = [
+            models.Index(fields=['alert', 'created_at']),
+        ]
 
     def __str__(self):
-        return f"{self.alert.code} - {self.alert_status_phase.alert_status.name}"
+        user_str = self.created_by.get_full_name() if self.created_by else "SISTEMA (AUTOMÁTICO)"
+        return f"{self.alert.code} - {self.alert_status_phase.alert_status.name} [{user_str}]"
+
+class NotificationChannel(models.TextChoices):
+    TELEGRAM = 'TELEGRAM', 'Telegram'
+    WHATSAPP = 'WHATSAPP', 'WhatsApp'
+    EMAIL = 'EMAIL', 'Correo Electrónico'
+
+
+class NotificationType(models.TextChoices):
+    INITIAL = 'INITIAL', 'Alerta Inicial'
+    RESCHEDULED = 'RESCHEDULED', 'Reprogramación Horaria'
+    CANCELLED = 'CANCELLED', 'Cancelación / Rectificación'
+    EXPIRED = 'EXPIRED', 'Cierre Nominal'
 
 class AlertNotification(AuditCreateModel):
     '''
@@ -182,10 +237,29 @@ class AlertNotification(AuditCreateModel):
         related_name='alerts_notifications_alerts_history'
     )
 
+    channel = models.CharField(
+        max_length=20, 
+        choices=NotificationChannel.choices, 
+        default=NotificationChannel.TELEGRAM
+    )
+    
+    notification_type = models.CharField(
+        max_length=20, 
+        choices=NotificationType.choices,
+        default=NotificationType.INITIAL
+    )
+    is_sent = models.BooleanField(default=False, verbose_name="¿Fue despachado con éxito?")
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name="Fecha/Hora de Envío Real")
+    
+    notification_reason = models.TextField(null=True, blank=True, verbose_name="Motivo de Cancelación o Reajuste")
+
     class Meta:
         db_table = 'alert_notifications'
         verbose_name = 'Notificación de Alerta'
         verbose_name_plural = 'Notificaciones de Alerta'
+        indexes = [
+            models.Index(fields=['alert_history', 'is_sent', 'notification_type']),
+        ]
 
     def __str__(self):
         return f"{self.alert_notification_id} - {self.alert_history.alert.code}"

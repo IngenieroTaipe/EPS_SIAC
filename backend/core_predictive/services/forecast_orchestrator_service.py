@@ -12,6 +12,8 @@ from core_predictive.services.download_data_service import GFSDataService
 from core_predictive.services.cluster_service import SpatialClusteringService
 from core_predictive.constants import GFS_TOTAL_HOURS_FORECAST
 
+from alerts_management.tasks import process_forecast_and_adapt_alerts_task
+
 logger = logging.getLogger(__name__)
 
 
@@ -74,7 +76,8 @@ class ForecastRainRequestService:
             total_active_cells = self._ingest_raster_data(file_path=file_path)
 
             # === Generación de Clústeres === 
-            self._generate_clusters()
+            clusters = self._generate_clusters()
+            
 
             # === Spatial Join ST_Intersects y Clasificación de Umbrales === 
             # self._evaluate_spatial_intersections()
@@ -85,6 +88,12 @@ class ForecastRainRequestService:
                 file_path=file_path,
                 file_size_mb=file_size_mb,
                 download_duration=download_duration
+            )
+
+            # === Desencadenar el proceso de adaptación de las alertas al nuevo pronóstico ===
+            process_forecast_and_adapt_alerts_task.apply_async(
+                args=[self.request_obj.id],
+                countdown=2  # Pequeño buffer para asegurar la visibilidad del COMMIT en BD
             )
 
             logger.info(

@@ -7,6 +7,7 @@ from alerts_management.views import (
     AlertViewSet, 
     AlertHistoryViewSet, 
     AlertNotificationViewSet,
+    AlertTransitionViewSet,
     AlertResultViewSet
 )
 
@@ -18,6 +19,7 @@ router.register(r'alert', AlertViewSet, basename='alert')
 router.register(r'alert-history', AlertHistoryViewSet, basename='alert-history')
 router.register(r'alert-notification', AlertNotificationViewSet, basename='alert-notification')
 router.register(r'alert-result', AlertResultViewSet, basename='alert-result')
+router.register(r'alerts-transition', AlertTransitionViewSet, basename='alert-transition')
 
 urlpatterns = [
     path('', include(router.urls)),

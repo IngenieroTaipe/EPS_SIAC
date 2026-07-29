@@ -152,6 +152,13 @@ class InsertDataToPostGIS:
     ) -> List[GFSActiveCell]:
         """
             El método nos permite transformar la matriz vectorial a objetos Polygon WGS84 (EPSG:4326).
+
+            `@param tp_rate_resampled`: Xarray DataArray con la precipitación. Debe tener dimensiones 'latitude' y 'longitude'.
+            `@param res_deg`: Resolución de la malla en grados.
+            `@param gfs_request`: Objeto GFSRequest.
+            `@param min_threshold_mm_h`: Umbral mínimo de precipitación en mm/h.
+
+            `@return`: Lista de objetos GFSActiveCell.
         """
 
         # === Cálculo del offset para centrar las celdas ===
@@ -162,15 +169,15 @@ class InsertDataToPostGIS:
         tp_rate_resampled = tp_rate_resampled.sortby(time_dim)
         tp_rate_resampled = tp_rate_resampled.transpose(time_dim, "latitude", "longitude")
 
-        timestamps_per = []
+        timestamps_utc = []
         if "valid_time" in tp_rate_resampled.coords:
             time_vals = tp_rate_resampled.valid_time.values
             for idx, t in enumerate(time_vals):
                 # Convertir numpy.datetime64 a segundos epoch
                 epoch_sec = int(t.astype('M8[s]').astype('int64'))
                 dt_utc = datetime.fromtimestamp(epoch_sec, tz=zoneinfo.ZoneInfo("UTC"))
-                dt_pet = dt_utc.astimezone(LIMA_TZ)
-                timestamps_per.append((idx, epoch_sec, dt_pet.strftime("%Y-%m-%d %H:00 PET")))
+                iso_utc_str = dt_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+                timestamps_utc.append((idx, epoch_sec, iso_utc_str))
         else:
             # Fallback en caso de usar dimensión de pasos (step)
             time_dim = "step" if "step" in tp_rate_resampled.dims else "valid_time"
@@ -180,18 +187,18 @@ class InsertDataToPostGIS:
             for idx, s in enumerate(steps):
                 step_hours = int(s)
                 dt_step = start_dt + timedelta(hours=step_hours)
-                dt_pet = dt_step.astimezone(LIMA_TZ)
                 epoch_sec = int(dt_step.timestamp())
-                timestamps_per.append((idx, epoch_sec, dt_pet.strftime("%Y-%m-%d %H:00 PET")))
+                iso_utc_str = dt_step.strftime("%Y-%m-%dT%H:%M:%SZ")
+                timestamps_utc.append((idx, epoch_sec, iso_utc_str))
                 
         lats = tp_rate_resampled.latitude.values
         lons = tp_rate_resampled.longitude.values
         lons_normalized = np.where(lons > 180, lons - 360, lons)
 
         # === Ordenamiento de las series temporales ===
-        sorted_tuples = sorted(timestamps_per, key=lambda x: x[1])
+        sorted_tuples = sorted(timestamps_utc, key=lambda x: x[1])
         sorted_indices = [tup[0] for tup in sorted_tuples]
-        sorted_timestamps_per = [tup[2] for tup in sorted_tuples]
+        sorted_timestamps_utc = [tup[2] for tup in sorted_tuples]
         
         data_matrix = tp_rate_resampled.values[sorted_indices, :, :]
 
@@ -233,7 +240,7 @@ class InsertDataToPostGIS:
                         gfs_request=gfs_request,
                         geometry=cell_polygon,
                         max_intensity_mm_h=max_intensity,
-                        timestamps=sorted_timestamps_per,
+                        timestamps=sorted_timestamps_utc,
                         intensity_series=cleaned_series
                     )
                 )

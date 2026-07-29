@@ -1,4 +1,7 @@
 from rest_framework import serializers
+from django.utils import timezone
+from datetime import timedelta
+
 from core_shared.mixins import PrepareDataMixin
 from core_shared.formatters import DataFormatter
 
@@ -149,6 +152,80 @@ class AlertSerializer(serializers.ModelSerializer):
             'code'
         ]
         read_only_fields = ['id']
+
+# ==============================================================================
+# SERIALIZADOR DE TRANSICIÓN DE ESTADOS DE LA ALERTA
+# ==============================================================================
+class AlertTransitionSerializer(serializers.ModelSerializer):
+    """
+    Serializador para la actualización de estado, fase y resultados sobre una Alerta existente.
+    """
+    status_name = serializers.ChoiceField(
+        choices=["Confirmado", "No Confirmado"],
+        required=False,
+        write_only=True
+    )
+    phase_name = serializers.ChoiceField(
+        choices=["En Espera de Reporte", "En Proceso de Atención", "Atendido"],
+        required=False,
+        write_only=True
+    )
+    
+    # === CAMPOS DE DOMINIO PARA ALERTRESULT / ALERT ===
+    real_start_time = serializers.DateTimeField(required=False, allow_null=True, write_only=True)
+    has_damage = serializers.BooleanField(required=False, write_only=True)
+    damage_report = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    taken_actions = serializers.CharField(required=False, allow_blank=True, write_only=True)
+
+    class Meta:
+        model = Alert
+        fields = [
+            'id', 'code', 'start_time_utc', 'end_time_utc',
+            'status_name', 'phase_name', 'real_start_time', 
+            'has_damage', 'damage_report', 'taken_actions'
+        ]
+        read_only_fields = ['id', 'code', 'start_time_utc', 'end_time_utc']
+
+    def validate(self, attrs):
+        if attrs.get("has_damage") is True and not attrs.get("damage_report"):
+            raise serializers.ValidationError({"damage_report": "Debe especificar el reporte si declara que existieron daños."})
+        
+        if attrs.get("phase_name") == "Atendido" and not attrs.get("taken_actions"):
+            raise serializers.ValidationError({"taken_actions": "Debe registrar las acciones tomadas para marcar la alerta como Atendida."})
+            
+        return attrs
+
+# ==============================================================================
+# SERIALIZADOR DE ACTUALIZACIÓN DE RESULTADOS DE LA ALERTA
+# ==============================================================================
+class AlertResultUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializador de entrada para actualizar exclusivamente los campos de AlertResult 
+    dentro de la ventana de gracia de 2 días (Caso 6).
+    """
+
+    alert = serializers.PrimaryKeyRelatedField(
+        queryset=Alert.objects.all(),
+        help_text="ID de la alerta"
+    )
+
+    class Meta:
+        model = AlertResult
+        fields = ['has_damage', 'damage_report', 'taken_actions']
+
+    def validate(self, attrs):
+        alert = self.context['alert']
+        latest_history = alert.history.order_by('-created_at').first()
+
+        if not latest_history or latest_history.alert_status_phase.alert_phase.name != "Atendido":
+            raise serializers.ValidationError("Solo se permite la edición directa del reporte en alertas con fase 'Atendido'.")
+
+        # RESTRICCIÓN DE 2 DÍAS DE GRACIA
+        time_since_attended = timezone.now() - latest_history.created_at
+        if time_since_attended > timedelta(days=2):
+            raise serializers.ValidationError("Se superó el plazo máximo de 2 días para modificar las acciones o reportes de esta alerta.")
+
+        return attrs
 
 # ==============================================================================
 # SERIALIZADORES DE HISTÓRICO DE ALERTAS

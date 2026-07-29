@@ -1,0 +1,4 @@
+# Representa la tolerencia que tiene el programa para determinar si una alerta debe ser considerada como cerrada:
+    # - Cerrada: Se determina así a una alerta cuando la hora de finalización de la precipitación no puede ser cambiada
+INERTIA_HOURS = 2 
+

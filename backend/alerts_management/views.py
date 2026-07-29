@@ -1,7 +1,13 @@
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, views, status, mixins
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema_view, extend_schema
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import ValidationError as DjangoValidationError
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse
+
+from alerts_management.services.alert_state_machine_service import AlertStateMachineService
+
 from alerts_management.models import (
     AlertStatus,
     AlertPhase,
@@ -19,6 +25,8 @@ from alerts_management.serializers import (
     AlertHistorySerializer,
     AlertNotificationSerializer,
     AlertResultSerializer,
+    AlertTransitionSerializer,
+    AlertResultUpdateSerializer
 )
 
 @extend_schema_view(
@@ -274,3 +282,102 @@ class AlertResultViewSet(viewsets.ModelViewSet):
         return AlertResult.objects.select_related(
             'alert'
         ).all() 
+
+
+class AlertTransitionViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    """
+    ViewSet para actualizar el estado, fase y resultados de una Alerta (PUT / PATCH).
+    """
+    queryset = Alert.objects.all()
+    serializer_class = AlertTransitionSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Actualizar reporte de daños y acciones tomadas",
+        description=(
+            "Permite modificar 'has_damage', 'damage_report' y 'taken_actions' "
+            "exclusivamente para alertas en fase 'Atendido' dentro de las 48 horas posteriores al cierre."
+        ),
+        request=AlertResultUpdateSerializer,
+        responses={
+            200: OpenApiResponse(description="Reporte actualizado correctamente."),
+            400: OpenApiResponse(description="Plazo de 48 horas superado o estado inválido."),
+            404: OpenApiResponse(description="Resultado de alerta no encontrado.")
+        }
+    )
+    def patial_update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        
+        data = serializer.validated_data
+
+        # === Extraer parámetros de actualización ===
+        status_name = data.pop("status_name", None)
+        phase_name = data.pop("phase_name", None)
+
+        try:
+            # Delegar la actualización de estado y campos de resultado al servicio de dominio
+            AlertStateMachineService.transition_to_state_phase(
+                alert=instance,
+                status_name=status_name,
+                phase_name=phase_name,
+                user=request.user,
+                payload=data
+            )
+            
+            # Recargar la instancia con los campos actualizados
+            instance.refresh_from_db()
+            response_serializer = self.get_serializer(instance)
+            
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except DjangoValidationError as e:
+            return Response({"error": e.message}, status=status.HTTP_400_BAD_REQUEST)
+
+class AlertUpdateResultViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    """
+    ViewSet para actualizar únicamente el resultado de una alerta (daños y acciones tomadas)
+    dentro de la ventana de gracia de 2 días en fase 'Atendido'.
+    """
+    queryset = AlertResult.objects.all()
+    serializer_class = AlertResultUpdateSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'alert_id'
+
+    @extend_schema(
+        summary="Transicionar estado/fase de la alerta",
+        description=(
+            "Actualiza el estado ('Confirmado', 'No Confirmado') y fase ('En Espera de Reporte', "
+            "'En Proceso de Atención', 'Atendido') de una alerta, aplicando reglas FSM y efectos secundarios."
+        ),
+        request=AlertTransitionSerializer,
+        responses={
+            200: AlertTransitionSerializer,
+            400: OpenApiResponse(description="Error de validación en FSM o payload inconsistente."),
+            404: OpenApiResponse(description="Alerta no encontrada.")
+        }
+    )
+    def partial_update(self, request, *args, **kwargs):
+        alert_id = kwargs.get('alert_id')
+        alert = get_object_or_404(Alert, pk=alert_id)
+        result_instance = get_object_or_404(AlertResult, alert=alert)
+
+        serializer = self.get_serializer(
+            instance=result_instance,
+            data=request.data,
+            partial=True,
+            context={'alert': alert}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "message": "Reporte de resultado actualizado correctamente dentro de la ventana de gracia.",
+            "alert_code": alert.code,
+            "has_damage": result_instance.has_damage,
+            "damage_report": result_instance.damage_report,
+            "taken_actions": result_instance.taken_actions
+        }, status=status.HTTP_200_OK)
