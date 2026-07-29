@@ -51,13 +51,13 @@ class GFSActiveCell(AuditCreateModel):
         related_name='gfs_cells'
     )
 
-    geometry = models.PolygonField(srid=4326, spatial_index=True, verbose_name="Geometría Celda")
-    
     max_intensity_mm_h = models.FloatField(verbose_name="Intensidad Pico (mm/h)")
     intensity_series = models.JSONField(verbose_name="Serie Temporal Horaria [t1..t12]")
     timestamps = models.JSONField(null=True, blank=True, verbose_name="Marcas de Tiempo Horarias [t1..t12]")
     threshold_names = models.JSONField(null=True, blank=True, verbose_name="Nombres de Umbral [t1..t12]")
-    
+
+    geometry = models.PolygonField(srid=4326, spatial_index=True, verbose_name="Geometría Celda")
+
     class Meta:
         db_table = 'gfs_active_cells'
         verbose_name = 'Celda Activa GFS'
@@ -68,6 +68,48 @@ class GFSActiveCell(AuditCreateModel):
 
     def __str__(self):
         return f"Celda {self.id} - Solicitud: {self.gfs_request.request_code}"
+
+class GFSClusterSnapshot(AuditCreateModel):
+    """ 
+        Entidad de Consolidación Espacio-Temporal (Etapa 2):
+        Almacena los polígonos disueltos (ST_Union) de las manchas de lluvia 
+        agrupadas por DBSCAN para cada hora del horizonte de pronóstico.
+
+        Nota: El campo cluster_index es indispensable para identificar cada clúster. Si bien tendrá un id en la db, al momento de generarse los clústeres por medio de los servicios (y a partir de los cells) se generarán diversas versiones de los clústeres por cada step (paso horario), por lo que se necesita de un identificador adicional para saber que un mismo clúster (aunque variando a lo largo del tiempo), se trata del mismo en distintos steps.
+    """
+    # Django crea internamente el campo 'id' de forma automática
+    gfs_request = models.ForeignKey(
+        'GFSRequest', 
+        on_delete=models.CASCADE, 
+        related_name='clusters'
+    )
+    time_step = models.IntegerField(verbose_name="Paso Horario (1..12)")
+    timestamp_str = models.CharField(max_length=50, verbose_name="Fecha/Hora Legible (PET)")
+    
+    cluster_index = models.IntegerField(verbose_name="Índice de Clúster (DBSCAN ID)")
+    total_cells = models.IntegerField(verbose_name="Cantidad de Celdas Agrupadas")
+    max_intensity_mm_h = models.FloatField(verbose_name="Intensidad Máxima (mm/h)")
+    avg_intensity_mm_h = models.FloatField(verbose_name="Intensidad Promedio (mm/h)")
+    
+    # Clasificación del Umbral de Peligro para este clúster
+    threshold = models.ForeignKey(
+        'Threshold', 
+        on_delete=models.PROTECT,  # Impide borrar el umbral si está referenciado en un histórico
+        null=True, 
+        blank=True, 
+        verbose_name="Umbral Asignado"
+    )
+
+    affected_ubigeos = models.JSONField(default=list, verbose_name="Lista de UBIGEOS Afectados")
+
+    geometry = models.MultiPolygonField(srid=4326, spatial_index=True, verbose_name="Geometría Disuelta Clúster")
+
+    class Meta:
+        db_table = 'gfs_cluster_snapshots'
+        ordering = ['time_step', 'cluster_index']
+        indexes = [
+            models.Index(fields=['gfs_request', 'time_step']),
+        ]
 
 class NaturalPhenomena(AuditCompleteModel):
     '''

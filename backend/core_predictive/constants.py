@@ -1,6 +1,8 @@
 import zoneinfo
 
-##Constantes para el servicio ECMWFOpenDataService
+# ===================================
+## Constantes para el servicio GFS NOOA AWS S3
+# ===================================
 
 # Formato Geodésico: [North, West, South, East] - Perú
 PERU_BBOX = [
@@ -34,3 +36,12 @@ GFS_NATIVE_GRID_RES = 0.25
 
 # Resolución objetivo del raster interpolado en grados
 TARGET_GRID_RES = 0.10
+
+# ===================================
+## Constantes para el servicio ClusterService
+# ===================================
+
+# Tolerancia de proximidad espacial (eps = 0.15 grados ~ 15km)
+DBSCAN_EPS_DEGREES = 0.15
+# Número mínimo de celdas para formar un clúster
+MIN_CELLS_PER_CLUSTER = 2

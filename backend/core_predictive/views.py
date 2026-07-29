@@ -15,6 +15,7 @@ from core_predictive.models import (
     NaturalPhenomena,
     GFSRequest,
     GFSActiveCell,
+    GFSClusterSnapshot,
     VariableType,
     UnitsMeasurement,
     Variable,
@@ -26,6 +27,7 @@ from core_predictive.serializers import (
     GFSRequestSerializer,
     GFSRequestLightSerializer,
     GFSActiveCellGeoJSONSerializer,
+    GFSClusterSnapshotGeoJSONSerializer,
     NaturalPhenomenaSerializer,
     NaturalPhenomenasVariablesSerializer,
     VariableSerializer,
@@ -34,6 +36,8 @@ from core_predictive.serializers import (
     ThresholdNaturalPhenomenaSerializer,
     ThresholdSerializer,
 )
+
+from core_predictive.utils.geojson_builder import GeoJSONResponseService
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / GFS'], summary="Listar Solicitudes GFS"),
@@ -75,8 +79,8 @@ class GFSRequestViewSet(viewsets.ReadOnlyModelViewSet):
         return GFSRequestLightSerializer
 
 @extend_schema_view(
-    list=extend_schema(tags=['Predictive / GFS'], summary="Listar Células Activas de GFS"),
-    retrieve=extend_schema(tags=['Predictive / GFS'], summary="Obtener detalle de una Célula Activa de GFS"),
+    list=extend_schema(tags=['Predictive / GFS Active Cells'], summary="Listar Celdas Activas de GFS"),
+    retrieve=extend_schema(tags=['Predictive / GFS Active Cells'], summary="Obtener detalle de una Celda Activa de GFS"),
 )
 class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -97,124 +101,62 @@ class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
 
 
     @extend_schema(
-        tags=['Predictive / GFS'],
+        tags=['Predictive / GFS Active Cells'],
         summary="Obtener las celdas activas de la ÚLTIMA ejecución GFS completada",
         responses={200: GFSActiveCellGeoJSONSerializer(many=True)}
     )
+
     @action(detail=False, methods=['get'], url_path='latest')
     def get_latest_geojson(self, request):
-        """
-        Endpoint: /api/gfs-active-cells/latest/
-        Retorna el FeatureCollection de celdas vectoriales de la ejecución más reciente (COMPLETED).
-        Resuelve el traslape seleccionando únicamente los datos de la última ejecución procesada.
-        """
-        cache_key = "gfs_latest_geojson_feature_collection"
-        cached_geojson = cache.get(cache_key)
-
-        if cached_geojson:
-            return Response(cached_geojson, status=status.HTTP_200_OK)
-
-        latest_request = GFSRequest.objects.filter(
-            status='COMPLETED'
-        ).order_by('-date_range_start', '-created_at').first()
-
-        if not latest_request:
-            return Response({
-                "type": "FeatureCollection",
-                "features": [],
-                "metadata": {
-                    "message": "No existen solicitudes GFS procesadas en estado COMPLETED."
-                }
-            }, status=status.HTTP_200_OK)
-
-        # Consulta acelerada de celdas asociadas a la última solicitud
-        active_cells_qs = GFSActiveCell.objects.filter(
-            gfs_request=latest_request
+        return GeoJSONResponseService.build_latest_response(
+            model_class=GFSActiveCell,
+            properties_fields=['gfs_request_id', 'max_intensity_mm_h', 'timestamps', 'intensity_series'],
+            cache_key="gfs_latest_cells_geojson"
         )
 
-        serializer = self.get_serializer(active_cells_qs, many=True)
-        
-        geojson_response = {
-            "type": "FeatureCollection",
-            "metadata": {
-                "request_code": latest_request.request_code,
-                "target_variable": latest_request.target_variable,
-                "run_start_utc": latest_request.date_range_start,
-                "run_end_utc": latest_request.date_range_end,
-                "total_features": active_cells_qs.count()
-            },
-            "features": serializer.data
-        }
-
-        cache.set(cache_key, geojson_response, timeout=60 * 60 * 6)
-
-        return Response(geojson_response, status=status.HTTP_200_OK)
+@extend_schema_view(
+    list=extend_schema(tags=['Predictive / GFS Clusters'], summary="Listar Clústeres Espacio-Temporales Disueltos de GFS"),
+    retrieve=extend_schema(tags=['Predictive / GFS Clusters'], summary="Obtener detalle de un Clúster Espacio-Temporal Disuelto de GFS"),
+)
+class GFSClusterSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
+    """ ViewSet para los Clústeres Espacio-Temporales Disueltos (~300 polígonos) """
+    permission_classes = [AllowAny]
+    queryset = GFSClusterSnapshot.objects.all()
+    serializer_class = GFSClusterSnapshotGeoJSONSerializer
 
     @extend_schema(
-        tags=['Predictive / GFS'],
-        summary="Obtener FeatureCollection GeoJSON por fecha (YYYY-MM-DD)",
-        description="Devuelve la malla vectorial (FeatureCollection) correspondiente a la ÚLTIMA ejecución completada para la fecha consultada, lista para ser renderizada en Leaflet.",
-        parameters=[
-            OpenApiParameter(
-                name='date',
-                type=OpenApiTypes.DATE,
-                location=OpenApiParameter.QUERY,
-                description="Fecha de consulta en formato YYYY-MM-DD",
-                required=True
-            )
-        ]
+        tags=['Predictive / GFS Clusters'],
+        summary="Obtener los clústeres activos de la última ejecución GFS completada",
+        responses={200: GFSClusterSnapshotGeoJSONSerializer(many=True)}
     )
-    @action(detail=False, methods=['get'], url_path='by-date')
-    def get_geojson_by_date(self, request):
-        """
-        Endpoint: /api/gfs-active-cells/by-date/?date=YYYY-MM-DD
-
-        Resuelve el traslape temporal seleccionando la ejecución 'COMPLETED' más reciente
-        que cubre la fecha consultada y retorna una estructura GeoJSON FeatureCollection.
-        """
-        date_str = request.query_params.get('date')
-        if not date_str:
-            raise ValidationError({"date": "El parámetro de fecha 'date' es obligatorio (Formato YYYY-MM-DD)."})
-
-        try:
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            raise ValidationError({"date": "Formato de fecha inválido. Utilice YYYY-MM-DD."})
-
-        # === Lógica para obtener la última solicitud ===
-        latest_request_for_date = GFSRequest.objects.filter(
-            date_range_start__date__lte=target_date,
-            date_range_end__date__gte=target_date,
-            status='COMPLETED'
-        ).order_by('-date_range_start', '-created_at').first()
-
-        if not latest_request_for_date:
-            return Response({
-                "type": "FeatureCollection",
-                "features": [],
-                "metadata": {
-                    "message": f"No se encontraron pronósticos completados para la fecha {date_str}."
-                }
-            }, status=status.HTTP_200_OK)
-
-        # === Obtener celdas vectoriales en PostGIS ===
-        active_cells_qs = GFSActiveCell.objects.filter(gfs_request=latest_request_for_date)
-        serializer = GFSActiveCellGeoJSONSerializer(active_cells_qs, many=True)
-
-        # === Construcción de la respuesta en formato GeoJSON FeatureCollection (RFC 7946) ===
-        geojson_response = {
-            "type": "FeatureCollection",
-            "metadata": {
-                "request_code": latest_request_for_date.request_code,
-                "target_variable": latest_request_for_date.target_variable,
-                "run_start_utc": latest_request_for_date.date_range_start,
-                "run_end_utc": latest_request_for_date.date_range_end,
-                "total_features": active_cells_qs.count()
-            },
-            "features": serializer.data
-        }
-
-        return Response(geojson_response, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['get'], url_path='latest')
+    def get_latest_clusters(self, request):
+        return GeoJSONResponseService.build_latest_response(
+            model_class=GFSClusterSnapshot,
+            properties_fields=[
+                'gfs_request_id', 'time_step', 'timestamp_str', 'cluster_index',
+                'total_cells', 'max_intensity_mm_h', 'avg_intensity_mm_h',
+                'threshold_id', 'affected_ubigeos'
+            ],
+            cache_key="gfs_latest_clusters_geojson"
+        )
+    
+    @extend_schema(
+        tags=['Predictive / GFS Clusters'],
+        summary="Obtener los clústeres activos de la ventana extendida de 18 horas de GFS (T-6h a T+12h)",
+        responses={200: GFSClusterSnapshotGeoJSONSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='window-18h')
+    def get_18h_window_clusters(self, request):
+        return GeoJSONResponseService.build_18h_window_response(
+            model_class=GFSClusterSnapshot,
+            properties_fields=[
+                'gfs_request_id', 'time_step', 'timestamp_str', 'cluster_index',
+                'total_cells', 'max_intensity_mm_h', 'avg_intensity_mm_h',
+                'threshold_id', 'affected_ubigeos'
+            ],
+            cache_key="gfs_window_18h_clusters_geojson"
+        )
 
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / Natural Phenomena'], summary="Listar Fenómenos Naturales"),

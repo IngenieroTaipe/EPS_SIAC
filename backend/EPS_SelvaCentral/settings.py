@@ -243,11 +243,11 @@ CELERY_BEAT_SCHEDULE = {
         
         # === Programación de ejecución (08:15 y 20:15 UTC todos los días) ===
         # Los valores se establecen en base a las horas de ejecución del modelo, solo que 1 hora después para evitar problemas y garantizar la descarga.
-        # 00/24 UTC + 1:45 (periodo adicional) => 1:45 UTC (20:45 -> Perú)
-        # 06 UTC + 1:45 (periodo adicional) => 7:45 UTC (02:45 -> Perú)
-        # 12 UTC + 1:45 (periodo adicional) => 13:45 UTC (08:45 -> Perú)
-        # 18 UTC + 1:45 (periodo adicional) => 19:45 UTC (14:45 -> Perú)
-        'schedule': crontab(hour='1,7,13,19', minute=45),
+        # 00/24 UTC + 1:00 (periodo adicional) => 1:00 UTC (20:00 -> Perú)
+        # 06 UTC + 1:00 (periodo adicional) => 7:00 UTC (02:00 -> Perú)
+        # 12 UTC + 1:00 (periodo adicional) => 13:00 UTC (08:00 -> Perú)
+        # 18 UTC + 1:00 (periodo adicional) => 19:00 UTC (14:00 -> Perú)
+        'schedule': crontab(hour='1,7,13,19'),
     },
 }
 

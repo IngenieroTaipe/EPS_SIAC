@@ -1,7 +1,7 @@
 import os
 import time
 import logging
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 from django.db import transaction
 from django.core.exceptions import ValidationError
 
@@ -9,6 +9,7 @@ from core_predictive.models import GFSRequest
 from core_predictive.services.ingest_data_postgis_service import InsertDataToPostGIS
 from core_predictive.services.intersection_service import GridIntersectionService
 from core_predictive.services.download_data_service import GFSDataService
+from core_predictive.services.cluster_service import SpatialClusteringService
 from core_predictive.constants import GFS_TOTAL_HOURS_FORECAST
 
 logger = logging.getLogger(__name__)
@@ -72,8 +73,11 @@ class ForecastRainRequestService:
             # === Ingesta Vectorial Directa a PostGIS === 
             total_active_cells = self._ingest_raster_data(file_path=file_path)
 
+            # === Generación de Clústeres === 
+            self._generate_clusters()
+
             # === Spatial Join ST_Intersects y Clasificación de Umbrales === 
-            self._evaluate_spatial_intersections()
+            # self._evaluate_spatial_intersections()
 
             # === Persistencia Transaccional Final y Transición a COMPLETED === 
             self._finalize_success_transaction(
@@ -108,6 +112,15 @@ class ForecastRainRequestService:
             # Marcado de consistencia en BD ante fallos
             self._update_status("FAILED")
             raise ValidationError(error_msg)
+
+    def _generate_clusters(self) -> List[Dict[str, Any]]:
+        """ Sub-método especializado que consume el SpatialClusteringService. """
+        logger.info(f"[Orquestador BD] Generando clústeres disueltos espacio-temporales (DBSCAN)...")
+        return SpatialClusteringService.generate_and_persist_clusters(
+            gfs_request_id=self.request_obj.id,
+            target_variable_id=self.target_variable_id,
+            natural_phenomena_id=self.natural_phenomena_id
+        )
 
     # =========================================================================
     # MÉTODOS PRIVADOS ATÓMICOS POR SERVICIO / DOMINIO CONSUMIDO

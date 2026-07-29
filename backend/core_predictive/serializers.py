@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from core_predictive.models import (
     GFSRequest,
     GFSActiveCell,
+    GFSClusterSnapshot,
     NaturalPhenomena,
     VariableType,
     UnitsMeasurement,
@@ -147,6 +148,44 @@ class GFSActiveCellGeoJSONSerializer(serializers.ModelSerializer):
             "timestamps": obj.timestamps,
             "intensity_series": obj.intensity_series,
             "threshold_names": obj.threshold_names,
+        }
+
+class GFSClusterSnapshotGeoJSONSerializer(serializers.ModelSerializer):
+    """
+    Serializador GeoJSON para Clústeres Espacio-Temporales (Etapa 2).
+    Prepara la carga útil para el renderizado vectorial en Leaflet.
+    """
+    type = serializers.SerializerMethodField()
+    geometry = serializers.SerializerMethodField()
+    properties = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GFSClusterSnapshot
+        fields = ['type', 'id', 'geometry', 'properties']
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_type(self, obj):
+        return "Feature"
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_geometry(self, obj):
+        if obj.geometry:
+            return json.loads(obj.geometry.geojson)
+        return None
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_properties(self, obj):
+        return {
+            "gfs_request_id": obj.gfs_request_id,
+            "time_step": obj.time_step,
+            "timestamp_str": obj.timestamp_str,
+            "cluster_index": obj.cluster_index,
+            "total_cells": obj.total_cells,
+            "max_intensity_mm_h": obj.max_intensity_mm_h,
+            "avg_intensity_mm_h": obj.avg_intensity_mm_h,
+            "threshold_name": obj.threshold_name,
+            "threshold_id": obj.threshold_id,
+            "affected_ubigeos": obj.affected_ubigeos
         }
 
 # ==============================================================================
