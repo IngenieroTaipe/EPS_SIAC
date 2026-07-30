@@ -119,6 +119,37 @@ class PhysicalStatusLightSerializer(PrepareDataMixin, serializers.ModelSerialize
 # ==============================================================================
 # SERIALIZADORES DE COMPONENTES
 # ==============================================================================
+class ComponentCoordLightSerializer(serializers.ModelSerializer):
+    criticality = serializers.StringRelatedField()
+
+    class Meta:
+        model = ComponentCoord
+        fields = ['criticality', 'coords']
+
+    def to_representation(self, instance):
+        repr = super().to_representation(instance)
+        if instance.coords:
+            repr['coords'] = {
+                "type": "Point",
+                "coordinates": [instance.coords.x, instance.coords.y]
+            }
+        return repr
+
+class ComponentListSerializer(PrepareDataMixin, serializers.ModelSerializer):
+    type = serializers.StringRelatedField()
+    district = serializers.StringRelatedField()
+    coords = ComponentCoordLightSerializer(many=True, read_only=True)
+
+    class Meta: 
+        model = Component
+        fields = [
+            'code', 
+            'name',
+            'type', 
+            'district', 
+            'coords'
+        ]
+
 class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
     prepare_fields = {
         'code': DataFormatter.zfill(4),
@@ -147,6 +178,8 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         allow_null=True
     )
 
+    coords = ComponentCoordLightSerializer(many=True, read_only=True)
+
     class Meta: 
         model = Component
         fields = [
@@ -157,7 +190,8 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'district', 
             'specification', 
             'operational_status', 
-            'physical_status'
+            'physical_status',
+            'coords'
         ]
         read_only_fields = ['id']
     

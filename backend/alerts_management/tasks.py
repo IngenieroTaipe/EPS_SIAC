@@ -11,7 +11,7 @@ from alerts_management.services.telegram_service import TelegramService
 from alerts_management.services.infrastructure_intersection_service import InfrastructureIntersectionService
 from alerts_management.services.alert_management_service import AlertManagementService
 from alerts_management.services.alert_state_machine_service import AlertStateMachineService
-from core_predictive.models import GFSRequest
+from core_predictive.models import GFSRequest, NaturalPhenomena
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,8 @@ def process_forecast_and_adapt_alerts_task(self, gfs_request_id: int):
     logger.info(f"[Celery Task] Iniciando procesamiento de alertas para GFSRequest #{gfs_request_id}...")
 
     try:
+        natural_phenomena = NaturalPhenomena.objects.filter(name="LLUVIAS INTENSAS").first()
+
         # === Validar existencia y estado nominal de la solicitud ===
         gfs_request = GFSRequest.objects.filter(pk=gfs_request_id, status='COMPLETED').first()
         if not gfs_request:
@@ -66,14 +68,14 @@ def process_forecast_and_adapt_alerts_task(self, gfs_request_id: int):
             return 0
 
         # === Intersectar clústeres con los componentes de la EPS ===
-        impacted_records = InfrastructureIntersectionService.get_impacted_components_by_clusteres(gfs_request_id)
+        impacted_clusters = InfrastructureIntersectionService.get_impacted_components_by_clusteres(gfs_request_id)
         
-        if not impacted_records:
+        if not impacted_clusters:
             logger.info(f"[Celery Task] No se detectó impacto en infraestructura para GFSRequest #{gfs_request_id}.")
             return 0
 
         # === Adaptadmos las alertas al nuevo pronóstico ===
-        persisted_count = AlertManagementService.adapt_alerts_to_gfs_forecast(gfs_request_id, impacted_records)
+        persisted_count = AlertManagementService.adapt_alerts_to_gfs_forecast(gfs_request_id, natural_phenomena.id, impacted_clusters)
         
         logger.info(f"[Celery Task] Finalizada exitosamente la adaptación de las alertas al nuevo pronóstico para GFSRequest #{gfs_request_id}. Snapshots procesados: {persisted_count}")
         return persisted_count

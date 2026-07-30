@@ -14,6 +14,13 @@ class AlertStatus(AuditCompleteModel):
     name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
     description = models.TextField(blank=True, null=True)
 
+
+    phases = models.ManyToManyField(
+        'AlertPhase',
+        through='AlertStatusPhase',
+        related_name='statuses'
+    )
+
     class Meta:
         db_table = 'alerts_statuses'
         verbose_name = 'Estado de la Alerta'
@@ -42,23 +49,28 @@ class AlertStatusPhase(AuditCompleteModel):
     '''
         Modelo para representar la relación entre los estados y fases de las alertas.
     '''
-    # Django crea internamente el campo 'id' de forma automática
     alert_status = models.ForeignKey(
         'AlertStatus', 
         on_delete=models.CASCADE,
-        related_name='alert_statuses_phases_status'
+        related_name='alert_status_phases'
     )
     alert_phase = models.ForeignKey(
         'AlertPhase', 
         on_delete=models.CASCADE,
-        related_name='alert_statuses_phases_phase'
+        related_name='alert_phase_statuses'
     )
 
     class Meta:
         db_table = 'alerts_statuses_phases'
         verbose_name = 'Estado y Fase de la Alerta'
         verbose_name_plural = 'Estados y Fases de las Alertas'
-        unique_together = ('alert_status', 'alert_phase')
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=['alert_status', 'alert_phase'],
+                name='unique_alert_status_phase'
+            )
+        ]
 
     def __str__(self):
         return f"{self.alert_status.name} - {self.alert_phase.name}"
@@ -186,18 +198,28 @@ class AlertHistory(AuditCreateModel):
     alert = models.ForeignKey(
         'Alert', 
         on_delete=models.PROTECT,
-        related_name='alerts_historic_alert'
+        related_name='historic_alert'
     )
-    alert_status_phase = models.ForeignKey(
-        'AlertStatusPhase', 
+    status = models.ForeignKey(
+        'AlertStatus', 
         on_delete=models.PROTECT,
-        related_name='alerts_historic_status_phase'
+        null=True,
+        blank=True,
+        related_name='historic_status'
+    )
+
+    phase = models.ForeignKey(
+        'AlertPhase', 
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='historic_phase'
     )
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,  
         on_delete=models.PROTECT,
-        related_name='alerts_historic_created_by',
+        related_name='historic_created_by',
         null=True,                 
         blank=True
     )

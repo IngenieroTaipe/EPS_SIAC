@@ -1,6 +1,6 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
+
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from components.models import (
     Criticality,
@@ -16,6 +16,7 @@ from components.serializers import (
     OperationalStatusSerializer,
     PhysicalStatusSerializer,
     ComponentSerializer,
+    ComponentListSerializer,
     ComponentCoordSerializer
 )
 
@@ -144,6 +145,11 @@ class ComponentViewSet(viewsets.ModelViewSet):
             'operational_status',
             'physical_status'
         ).order_by('id')
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return ComponentSerializer
+        return ComponentListSerializer
 
 @extend_schema_view(
     list=extend_schema(tags=['Components / Coord'], summary="Listar coordenadas"),

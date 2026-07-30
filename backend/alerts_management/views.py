@@ -4,9 +4,13 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError as DjangoValidationError
-from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
+from datetime import timedelta
+from django.utils import timezone
 
 from alerts_management.services.alert_state_machine_service import AlertStateMachineService
+from alerts_management.constants import MINIMUM_HOURS_TO_START_FILTER
 
 from alerts_management.models import (
     AlertStatus,
@@ -21,7 +25,9 @@ from alerts_management.serializers import (
     AlertStatusSerializer,
     AlertPhaseSerializer,
     AlertStatusPhaseSerializer,
-    AlertSerializer,
+    AlertListSerializer,
+    AlertListSerializer,
+    AlertDetailSerializer,
     AlertHistorySerializer,
     AlertNotificationSerializer,
     AlertResultSerializer,
@@ -133,7 +139,18 @@ class AlertStatusPhaseViewSet(viewsets.ModelViewSet):
         ).all()
 
 @extend_schema_view(
-    list=extend_schema(tags=['Alerts / Alert'], summary="Listar Alertas"),
+    list=extend_schema(
+        tags=['Alerts / Alert'], 
+        summary="Listar Alertas",
+        parameters=[
+            OpenApiParameter(
+                name='upcoming_only', 
+                type=OpenApiTypes.BOOL, 
+                location=OpenApiParameter.QUERY, 
+                description="Filtrar alertas que inician en 6 o más horas a partir de ahora."
+            )
+        ]
+    ),
     retrieve=extend_schema(tags=['Alerts / Alert'], summary="Obtener detalle de una Alerta"),
     create=extend_schema(tags=['Alerts / Alert'], summary="Registrar una nueva Alerta"),
     update=extend_schema(tags=['Alerts / Alert'], summary="Actualizar una Alerta"),
@@ -149,8 +166,9 @@ class AlertViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Nombre    
     """
     permission_classes = [IsAuthenticated]
-    serializer_class = AlertSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    
+
     filterset_fields = [
         'natural_phenomena'
     ]
@@ -163,10 +181,23 @@ class AlertViewSet(viewsets.ModelViewSet):
     ordering = ['id']
 
     def get_queryset(self):
-        return Alert.objects.select_related(
+        qs = Alert.objects.select_related(
             'natural_phenomena'
         ).all() 
 
+        upcoming_only = self.request.query_params.get('upcoming_only', 'false').lower() == 'true'
+        if upcoming_only:
+            threshold_time = timezone.now() + timedelta(hours=MINIMUM_HOURS_TO_START_FILTER)
+            qs = qs.filter(start_time_utc__gte=threshold_time)
+            
+        return qs
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return AlertDetailSerializer
+
+        return AlertListSerializer
+        
 @extend_schema_view(
     list=extend_schema(tags=['Alerts / AlertHistory'], summary="Listar Historial de Estados y Fases de las Alertas"),
     retrieve=extend_schema(tags=['Alerts / AlertHistory'], summary="Obtener detalle de un Historial de Estados y Fases de Alerta"),
@@ -186,24 +217,28 @@ class AlertHistoryViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = [
         'alert',
-        'alert_status_phase'
+        'status',
+        'phase'
     ]
     search_fields = [
         'alert',
-        'alert_status_phase'
+        'status',
+        'phase'
 
         'alert__code',
     ]
     ordering_fields = [
         'alert',
-        'alert_status_phase'
+        'status',
+        'phase'
     ]
     ordering = ['id']
 
     def get_queryset(self):
         return AlertHistory.objects.select_related(
             'alert',
-            'alert_status_phase'
+            'status',
+            'phase'
         ).all() 
 
 @extend_schema_view(

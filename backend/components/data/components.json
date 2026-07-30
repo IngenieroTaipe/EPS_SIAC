@@ -106,5 +106,14 @@
         "code": "0012",
         "name": "PTAR SANGANI",
         "specification": ""
+    },
+    {
+        "district_ubigeo": "190301",
+        "type_name": "Línea de Conducción",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "0002",
+        "name": "LC - OXAPAMPA PRINCIPAL",
+        "specification": "Línea de conducción de agua potable para Oxapampa"
     }
 ]

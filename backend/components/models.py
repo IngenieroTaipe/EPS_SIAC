@@ -191,6 +191,10 @@ class ComponentCoord(AuditCompleteModel):
         ordering = ['id']
         verbose_name = 'Coordenada de Componente'
         verbose_name_plural = 'Coordenadas de Componentes'
+        indexes = [
+            models.Index(fields=['coords']),
+            models.Index(fields=['component', 'criticality'])
+        ]
 
     def __str__(self):
         return f"{self.component.code} ({self.component.type.name})"

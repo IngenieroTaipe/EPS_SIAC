@@ -25,6 +25,7 @@ class AlertManagementService:
     def adapt_alerts_to_gfs_forecast(
         cls, 
         gfs_request_id: int, 
+        natural_phenomena_id: int,
         impacted_records: list
     ) -> int:
         """
@@ -58,10 +59,11 @@ class AlertManagementService:
             for record in impacted_records:
                 cluster = record["cluster_snapshot"]
                 components = record["impacted_components"]
+                point_impacted = record["point_impacted"]
 
                 # === Deducimos la hora final del fenómeno [t-1, t] (el timestamp a secas representa la hora final del fenómeno) ===
-                if isinstance(cluster.timestamp_utc, str):
-                    step_end_utc = datetime.fromisoformat(cluster.timestamp_utc.replace("Z", "+00:00"))
+                if isinstance(cluster.timestamp_str, str):
+                    step_end_utc = datetime.fromisoformat(cluster.timestamp_str.replace("Z", "+00:00"))
                 else:
                     step_end_utc = cluster.timestamp_utc
 
@@ -100,7 +102,7 @@ class AlertManagementService:
                     # === Crear nueva Alerta ===
                     new_code = Alert.generate_next_code()
                     alert = Alert.objects.create(
-                        natural_phenomena_id=cluster.natural_phenomena_id,
+                        natural_phenomena_id=natural_phenomena_id,
                         code=new_code,
                         max_intensity_mm_h=cluster.max_intensity_mm_h,
                         max_threshold_id=cluster.threshold_id,
@@ -114,7 +116,7 @@ class AlertManagementService:
                 alert_cluster = AlertClusters.objects.create(
                     alert=alert,
                     cluster=cluster,
-                    representative_point=cluster.representative_point,
+                    representative_point=point_impacted,
                     is_active_forecast=True
                 )
 
@@ -160,7 +162,7 @@ class AlertManagementService:
             # === Solo se solapa con alertas en estado "Predicho" (no canceladas, no confirmadas) ===
         matching_cluster = AlertClusters.objects.filter(
             alert__in=active_alerts,
-            alert__history__alert_status_phase__alert_status__name="Predicho",
+            alert__historic_alert__status__name="Predicho",
             is_active_forecast=True,
             alert__end_time_utc__gte=cutoff_start,
             cluster__geometry__intersects=geometry

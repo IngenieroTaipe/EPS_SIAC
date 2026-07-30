@@ -39,7 +39,9 @@ class InfrastructureIntersectionService:
         # === Intersección vectorial acelerada ===
         for cluster in clusters:
             # === Spatial Join en PostGIS usando ST_Intersects vía ORM ===
-            components = list(Component.objects.filter(geometry__intersects=cluster.geometry))
+            components = list(Component.objects.filter(
+                coords_relation__coords__intersects=cluster.geometry
+            ).prefetch_related('coords_relation').distinct())
 
             # === Solo nos interesan los clústeres que amenazan la infraestructura de la EPS ===
             if components:
@@ -76,7 +78,7 @@ class InfrastructureIntersectionService:
         """
         if impacted_components:
             # === Intersección geométrica entre clúster y componente ===
-            primary_component_geom = impacted_components[0].geometry
+            primary_component_geom = impacted_components[0].coords_relation.first().coords
             intersection = cluster_geometry.intersection(primary_component_geom)
             
             # === Punto de intersección ===

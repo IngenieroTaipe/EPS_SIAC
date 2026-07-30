@@ -13,6 +13,7 @@ from alerts_management.models import (
     AlertHistory,
     AlertNotification,
     AlertResult,
+    AlertClusters
 )
 
 from core_predictive.models import (
@@ -133,25 +134,103 @@ class AlertStatusPhaseLightSerializer(serializers.ModelSerializer):
         fields = ['id', 'alert_status', 'alert_phase']
         read_only_fields = ['id']
 
+class AlertClusterPointSerializer(serializers.ModelSerializer):
+    representative_point = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AlertClusters
+        fields = [
+            'representative_point',
+        ]
+
+    def get_representative_point(self, obj):
+        if not obj.representative_point:
+            return None
+
+        return {
+            "type": "Point",
+            "coordinates": [
+                obj.representative_point.x,
+                obj.representative_point.y,
+            ]
+        }
 
 # ==============================================================================
-# SERIALIZADORES DE ALERTAS
+# SERIALIZADORES DE LISTA DE ALERTAS
 # ==============================================================================
-class AlertSerializer(serializers.ModelSerializer):
-
-    natural_phenomena = serializers.PrimaryKeyRelatedField(
-        queryset=NaturalPhenomena.objects.all(),
-        help_text="ID del fenómeno natural"
-    )
+class AlertListSerializer(serializers.ModelSerializer):
+    alert_clusters = serializers.SerializerMethodField()
+    max_threshold = serializers.StringRelatedField()
 
     class Meta:
         model = Alert
         fields = [
-            'id',
-            'natural_phenomena',
-            'code'
+            'code',
+            'max_intensity_mm_h',
+            'max_threshold',
+            'start_time_utc',
+            'end_time_utc',
+            'alert_clusters'
         ]
-        read_only_fields = ['id']
+
+    def get_alert_clusters(self, obj):
+        return [
+            {
+                "representative_point": {
+                    "type": "Point",
+                    "coordinates": [ac.representative_point.x, ac.representative_point.y]
+                } if ac.representative_point else None
+            }
+            for ac in obj.alerts_clusters_alert.all()
+        ]
+
+
+# ==============================================================================
+# SERIALIZADOR DE DETALLE DE ALERTAS
+# ==============================================================================
+class AlertDetailSerializer(serializers.ModelSerializer):
+    alert_cluster_components = serializers.SerializerMethodField()
+    clusters = serializers.SerializerMethodField()
+    max_threshold = serializers.StringRelatedField()
+
+    class Meta:
+        model = Alert
+        fields = [
+            'code',
+            'max_intensity_mm_h',
+            'max_threshold',
+            'start_time_utc',
+            'end_time_utc',
+            'alert_cluster_components',
+            'clusters'
+        ]
+
+    def get_alert_cluster_components(self, obj):
+        components = []
+        # Prevenimos duplicados si un componente es impactado en varios time_steps
+        seen_components = set()
+        
+        for ac in obj.alerts_clusters_alert.all():
+            for acc in ac.alerts_clusters_components_alert_clusters.all():
+                comp = acc.component
+                if comp.id not in seen_components:
+                    components.append({
+                        "component": f"{comp.code} - {comp.name}"
+                    })
+                    seen_components.add(comp.id)
+        return components
+
+    def get_clusters(self, obj):
+        clusters = []
+        for ac in obj.alerts_clusters_alert.all():
+            cluster = ac.cluster
+            clusters.append({
+                "max_intensity_mm_h": cluster.max_intensity_mm_h,
+                "timestamp_str": cluster.timestamp_str,
+                "threshold": cluster.threshold.name if cluster.threshold else None,
+                "affected_districts": cluster.affected_ubigeos
+            })
+        return clusters
 
 # ==============================================================================
 # SERIALIZADOR DE TRANSICIÓN DE ESTADOS DE LA ALERTA
@@ -217,7 +296,7 @@ class AlertResultUpdateSerializer(serializers.ModelSerializer):
         alert = self.context['alert']
         latest_history = alert.history.order_by('-created_at').first()
 
-        if not latest_history or latest_history.alert_status_phase.alert_phase.name != "Atendido":
+        if not latest_history or latest_history.phase.name != "Atendido":
             raise serializers.ValidationError("Solo se permite la edición directa del reporte en alertas con fase 'Atendido'.")
 
         # RESTRICCIÓN DE 2 DÍAS DE GRACIA
@@ -235,9 +314,13 @@ class AlertHistorySerializer(serializers.ModelSerializer):
         queryset=Alert.objects.all(),
         help_text="ID de la alerta"
     )
-    alert_status_phase = serializers.PrimaryKeyRelatedField(
-        queryset=AlertStatusPhase.objects.all(),
-        help_text="ID del estado y fase de la alerta"
+    status = serializers.PrimaryKeyRelatedField(
+        queryset=AlertStatus.objects.all(),
+        help_text="ID del estado de la alerta"
+    )
+    phase = serializers.PrimaryKeyRelatedField(
+        queryset=AlertPhase.objects.all(),
+        help_text="ID de la fase de la alerta"
     )
 
     class Meta:
@@ -245,7 +328,8 @@ class AlertHistorySerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'alert',
-            'alert_status_phase',
+            'status',
+            'phase',
         ]
         read_only_fields = ['id']
 
@@ -255,9 +339,11 @@ class AlertHistorySerializer(serializers.ModelSerializer):
         """
         representation = super().to_representation(instance)
         if instance.alert:
-            representation['alert'] = AlertSerializer(instance.alert).data
-        if instance.alert_status_phase:
-            representation['alert_status_phase'] = AlertStatusPhaseSerializer(instance.alert_status_phase).data
+            representation['alert'] = AlertListSerializer(instance.alert).data
+        if instance.status:
+            representation['status'] = AlertStatusLightSerializer(instance.status).data
+        if instance.phase:
+            representation['phase'] = AlertPhaseLightSerializer(instance.phase).data
         return representation
 
 class AlertHistoryLightSerializer(serializers.ModelSerializer):
@@ -265,16 +351,22 @@ class AlertHistoryLightSerializer(serializers.ModelSerializer):
         queryset=Alert.objects.all(),
         help_text="ID de la alerta"
     )
-    alert_status_phase = serializers.PrimaryKeyRelatedField(
-        queryset=AlertStatusPhase.objects.all(),
-        help_text="ID del estado y fase de la alerta"
+    status = serializers.PrimaryKeyRelatedField(
+        queryset=AlertStatus.objects.all(),
+        help_text="ID del estado de la alerta"
     )
+    phase = serializers.PrimaryKeyRelatedField(
+        queryset=AlertPhase.objects.all(),
+        help_text="ID de la fase de la alerta"
+    )
+
     class Meta:
         model = AlertHistory
         fields = [
             'id',
             'alert',
-            'alert_status_phase',
+            'status',
+            'phase',
             'natural_phenomena_value',
             'date_predicted_start'
         ]
@@ -286,11 +378,12 @@ class AlertHistoryLightSerializer(serializers.ModelSerializer):
         """
         representation = super().to_representation(instance)
         if instance.alert:
-            representation['alert'] = AlertSerializer(instance.alert).data
-        if instance.alert_status_phase:
-            representation['alert_status_phase'] = AlertStatusPhaseSerializer(instance.alert_status_phase).data
+            representation['alert'] = AlertListSerializer(instance.alert).data
+        if instance.status:
+            representation['status'] = AlertStatusLightSerializer(instance.status).data
+        if instance.phase:
+            representation['phase'] = AlertPhaseLightSerializer(instance.phase).data
         return representation
-
 
 # ==============================================================================
 # SERIALIZADORES DE NOTIFICACIÓN DE ALERTAS
@@ -300,7 +393,7 @@ class AlertNotificationSerializer(serializers.ModelSerializer):
         queryset=AlertHistory.objects.all(),
         help_text="ID del histórico de la alerta"
     )
-    
+
     class Meta:
         model = AlertNotification
         fields = [
@@ -323,7 +416,7 @@ class AlertNotificationLightSerializer(serializers.ModelSerializer):
         queryset=AlertHistory.objects.all(),
         help_text="ID del histórico de la alerta"
     )
-    
+
     class Meta:
         model = AlertNotification
         fields = [
@@ -356,5 +449,5 @@ class AlertResultSerializer(serializers.ModelSerializer):
         """
         representation = super().to_representation(instance)
         if instance.alert_id:
-            representation['alert_id'] = AlertSerializer(instance.alert_id).data
+            representation['alert_id'] = AlertListSerializer(instance.alert_id).data
         return representation

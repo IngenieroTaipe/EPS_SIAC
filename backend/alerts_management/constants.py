@@ -2,3 +2,5 @@
     # - Cerrada: Se determina así a una alerta cuando la hora de finalización de la precipitación no puede ser cambiada
 INERTIA_HOURS = 2 
 
+# Mínimo de horas previas requeridas para que una alerta sea listada cuando se utiliza el filtro correspondiente
+MINIMUM_HOURS_TO_START_FILTER = 6

@@ -84,7 +84,7 @@ class GFSClusterSnapshot(AuditCreateModel):
         related_name='clusters'
     )
     time_step = models.IntegerField(verbose_name="Paso Horario (1..12)")
-    timestamp_str = models.CharField(max_length=50, verbose_name="Fecha/Hora Legible (PET)")
+    timestamp_str = models.CharField(max_length=50, verbose_name="Fecha/Hora Legible (UTC)")
     
     cluster_index = models.IntegerField(verbose_name="Índice de Clúster (DBSCAN ID)")
     total_cells = models.IntegerField(verbose_name="Cantidad de Celdas Agrupadas")
