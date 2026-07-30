@@ -31,6 +31,10 @@ const useMapEventsAny = useMapEvents as any;
 import CaptacionIconUrl from '@/assets/icons/captacion.svg?url';
 import ReservorioIconUrl from '@/assets/icons/reservorio.svg?url';
 import PlantaTratamientoIconUrl from '@/assets/icons/planta-tratamiento.svg?url';
+import LineaConduccionIconUrl from '@/assets/icons/linea-conduccion.svg?url';
+import CircleIconUrl from '@/assets/icons/circle.svg?url';
+import { TIPO_LINEA } from '../types/componente';
+import { useComponentes } from '@/services/useComponentes';
 
 /**
  * ComponentLayer — capa con los componentes de la red de agua de la EPS:
@@ -55,8 +59,16 @@ import PlantaTratamientoIconUrl from '@/assets/icons/planta-tratamiento.svg?url'
 
 const ICON_BY_TIPO: Record<Componente['tipo'], string> = {
   captacion: CaptacionIconUrl,
-  'planta-tratamiento': PlantaTratamientoIconUrl,
+  fuente: CaptacionIconUrl,
   reservorio: ReservorioIconUrl,
+  'planta-tratamiento': PlantaTratamientoIconUrl,
+  'planta-aguas-residuales': PlantaTratamientoIconUrl,
+  'linea-conduccion': LineaConduccionIconUrl,
+  'linea-aduccion': LineaConduccionIconUrl,
+  'estacion-bombeo': CircleIconUrl,
+  desinfeccion: CircleIconUrl,
+  'purgado-redes': CircleIconUrl,
+  otro: CircleIconUrl,
 };
 
 const COLOR_BY_ESTADO: Record<Componente['estado'], string> = {
@@ -124,7 +136,11 @@ function makeDivIconVariant(
 }
 
 interface ComponentLayerProps {
-  /** Datos a renderizar (default: mock). */
+  /**
+   * Datos a renderizar. Si se omite, la capa consume `useComponentes()`
+   * internamente (fetch al backend). Pasar `data` para sobreescribir
+   * (ej. en páginas con selección sincronizada como MapaComponentes).
+   */
   data?: { componentes: Componente[]; tramos: TramoConduccion[] };
   /** ID del componente seleccionado (resaltado + clic handler). */
   selectedComponentId?: string | null;
@@ -137,6 +153,11 @@ export function ComponentLayer({
   selectedComponentId,
   onComponenteClick,
 }: ComponentLayerProps) {
+  // Si el padre no pasa `data`, consumimos el backend aquí.
+  // (Regla de hooks: siempre se llama al hook; el override es por data.)
+  const fetched = useComponentes();
+  const layerData = data ?? fetched.data;
+
   // Zoom actual — controlar visibilidad de componentes por nivel.
   const [zoom, setZoom] = useState(13); // Default del mapa (ver BaseMap).
   useMapEventsAny({
@@ -148,12 +169,12 @@ export function ComponentLayer({
   // Memo: índice por ID para referenciar extremos del tramo en tooltips.
   const componentesPorId = useMemo(() => {
     const map = new Map<string, Componente>();
-    for (const c of (data?.componentes ?? [])) map.set(c.id, c);
+    for (const c of (layerData?.componentes ?? [])) map.set(c.id, c);
     return map;
-  }, [data]);
+  }, [layerData]);
 
-  const comps = data?.componentes ?? [];
-  const tramos = data?.tramos ?? [];
+  const comps = layerData?.componentes ?? [];
+  const tramos = layerData?.tramos ?? [];
 
   if (!showLayer) return null;
 
@@ -190,37 +211,74 @@ export function ComponentLayer({
         );
       })}
 
-      {/* ── Componentes puntuales (encima de los tramos) ──────────────── */}
-      {comps.map((comp) => {
-        const isSelected = selectedComponentId === comp.id;
-        return (
-          <MarkerAny
-            key={comp.id}
-            position={[comp.lat, comp.lng]}
-            icon={
-              isSelected
-                ? makeDivIconSelected(comp.tipo, comp.estado)
-                : makeDivIcon(comp.tipo, comp.estado)
-            }
-            eventHandlers={{
-              click: () => onComponenteClick?.(comp.id),
-            }}
-          >
-            <TooltipAny direction="top" offset={[0, -20]}>
-            <div style={{ fontFamily: 'var(--eps-font-family-sans)' }}>
-              <strong style={{ color: 'var(--eps-primary-main)' }}>
-                {comp.codigo}
-              </strong>
-              <br />
-              <span style={{ fontSize: '12px' }}>{comp.nombre}</span>
-              <br />
-              <span style={{ fontSize: '11px', color: COLOR_BY_ESTADO[comp.estado] }}>
-                ● {comp.estado.toUpperCase()}
-              </span>
-            </div>
-          </TooltipAny>
-          </MarkerAny>
-        );
+      {/* ── Componentes tipo línea (conducción/aducción) como polyline ─ */}
+      {comps
+        .filter((c) => TIPO_LINEA.includes(c.tipo) && c.puntos && c.puntos.length >= 2)
+        .map((comp) => {
+          const isSelected = selectedComponentId === comp.id;
+          return (
+            <PolylineAny
+              key={comp.id}
+              positions={comp.puntos!}
+              pathOptions={{
+                color: COLOR_BY_ESTADO[comp.estado],
+                weight: isSelected ? 5 : TRAMO_WEIGHT,
+                opacity: 0.9,
+              }}
+              eventHandlers={{
+                click: () => onComponenteClick?.(comp.id),
+              }}
+            >
+              <TooltipAny sticky>
+                <div style={{ fontFamily: 'var(--eps-font-family-sans)' }}>
+                  <strong style={{ color: 'var(--eps-primary-main)' }}>
+                    {comp.codigo}
+                  </strong>
+                  <br />
+                  <span style={{ fontSize: '12px' }}>{comp.nombre}</span>
+                  <br />
+                  <span style={{ fontSize: '11px', color: COLOR_BY_ESTADO[comp.estado] }}>
+                    ● {comp.estado.toUpperCase()}
+                  </span>
+                </div>
+              </TooltipAny>
+            </PolylineAny>
+          );
+        })}
+
+      {/* ── Componentes puntuales (encima de las líneas) ─────────────── */}
+      {comps
+        .filter((c) => !(TIPO_LINEA.includes(c.tipo) && c.puntos && c.puntos.length >= 2))
+        .map((comp) => {
+          const isSelected = selectedComponentId === comp.id;
+          return (
+            <MarkerAny
+              key={comp.id}
+              position={[comp.lat, comp.lng]}
+              icon={
+                isSelected
+                  ? makeDivIconSelected(comp.tipo, comp.estado)
+                  : makeDivIcon(comp.tipo, comp.estado)
+              }
+              eventHandlers={{
+                click: () => onComponenteClick?.(comp.id),
+              }}
+            >
+              <TooltipAny direction="top" offset={[0, -20]}>
+              <div style={{ fontFamily: 'var(--eps-font-family-sans)' }}>
+                <strong style={{ color: 'var(--eps-primary-main)' }}>
+                  {comp.codigo}
+                </strong>
+                <br />
+                <span style={{ fontSize: '12px' }}>{comp.nombre}</span>
+                <br />
+                <span style={{ fontSize: '11px', color: COLOR_BY_ESTADO[comp.estado] }}>
+                  ● {comp.estado.toUpperCase()}
+                </span>
+              </div>
+            </TooltipAny>
+            </MarkerAny>
+          );
       })}
     </>
   );

@@ -111,7 +111,7 @@ export function TimelineBar({
   }, [days]);
 
   const labelForSlot = useCallback(
-    (slotIdx: number): string => `${slotHours[slotIdx] ?? 0}:00`,
+    (slotIdx: number): string => `${String(slotHours[slotIdx] ?? 0).padStart(2, '0')}:00`,
     [slotHours],
   );
 
@@ -151,21 +151,11 @@ export function TimelineBar({
     [onSelectSlot, maxSlot, totalSlots],
   );
 
-  // Tooltip visible durante interacción y unos segundos tras soltar.
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [tooltipVisible, setTooltipVisible] = useState(false);
-
-  const scheduleHideTooltip = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setTooltipVisible(false), 2000);
-  }, []);
-
+  // Tooltip visible sólo mientras dura el arrastre del thumb.
   const startDrag = useCallback(
     (clientX: number) => {
       draggingRef.current = true;
       setIsDragging(true);
-      setTooltipVisible(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
       selectFromClientX(clientX);
       // Retoma control manual: detiene playback si estaba animando.
       if (isPlaying) onTogglePlay();
@@ -176,8 +166,7 @@ export function TimelineBar({
   const endDrag = useCallback(() => {
     draggingRef.current = false;
     setIsDragging(false);
-    scheduleHideTooltip();
-  }, [scheduleHideTooltip]);
+  }, []);
 
   // Listeners globales para no perder el drag si el cursor sale del track.
   useEffect(() => {
@@ -204,13 +193,6 @@ export function TimelineBar({
     if (totalSlots === 0) return;
     startDrag(e.clientX);
   };
-
-  // Limpieza del timeout al desmontar.
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
 
   // ── Posicionamiento de thumb / línea roja en % ──────────────────────
   const thumbPct =
@@ -257,8 +239,8 @@ export function TimelineBar({
 
       {/* ── Cuerpo de la barra (dos filas + track) ────────────────────── */}
       <div className="relative flex-1 ml-3 min-w-0 flex flex-col gap-0.5">
-        {/* Tooltip flotante sobre el thumb. */}
-        {(tooltipVisible || isPlaying) && (
+        {/* Tooltip flotante sobre el thumb; sólo mientras se arrastra. */}
+        {isDragging && (
           <div
             role="status"
             className={cn(
@@ -283,18 +265,17 @@ export function TimelineBar({
           </div>
         )}
 
-        {/* Fila superior: etiquetas de día centradas sobre su rango.
-            En mobile (<sm) se ocultan. Compacta: h-4. */}
+        {/* Fila superior: etiquetas de día alineadas a la izquierda de su
+            rango (no centradas) para no chocar con el botón Play. */}
         <div className="relative h-4 hidden sm:block" aria-hidden="true">
           {segments.map((seg) => {
-            const centerPct =
-              ((seg.startSlot + seg.endSlot) / 2 / maxSlot) * 100;
+            const startPct = (seg.startSlot / maxSlot) * 100;
             const widthPct = ((seg.hourCount - 1) / maxSlot) * 100;
             return (
               <span
                 key={seg.label}
-                className="absolute top-0 -translate-x-1/2 truncate text-text-primary text-[11px] font-bold font-sans"
-                style={{ left: `${centerPct}%`, width: `${widthPct + 4}%` }}
+                className="absolute top-0 truncate text-text-primary text-[11px] font-bold font-sans"
+                style={{ left: `${startPct}%`, width: `${widthPct + 4}%` }}
                 title={seg.label}
               >
                 {seg.label}
@@ -303,37 +284,30 @@ export function TimelineBar({
           })}
         </div>
 
-        {/* Fila inferior: track + marcas de hora. Scroll horizontal en mobile. */}
-        <div className="overflow-x-auto overflow-y-hidden no-scrollbar">
+        {/* Fila inferior: track + marcas de hora (sin scroll horizontal). */}
+        <div className="relative">
           <div
             ref={trackRef}
             onPointerDown={handleTrackPointerDown}
-            className="relative h-7 min-w-full cursor-pointer"
+            className="relative h-7 w-full cursor-pointer"
           >
             {/* Línea base del track */}
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] rounded-full bg-input-stroke-main/40" />
 
-            {/* Marcas de hora (una por slot del eje, en pasos de 1h). */}
+            {/* Marcas de hora (una por slot del eje, en pasos de 1h). Etiqueta
+                visible en cada hora (las 18 de la ventana). */}
             {Array.from({ length: totalSlots }).map((_, i) => {
               const pct = (i / maxSlot) * 100;
-              const major = i % 3 === 0; // marca mayor cada 3h
               return (
                 <div
                   key={i}
                   className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
                   style={{ left: `${pct}%` }}
                 >
-                  <div
-                    className={cn(
-                      'w-px bg-input-stroke-main/70',
-                      major ? 'h-2' : 'h-1',
-                    )}
-                  />
-                  {major && (
-                    <span className="mt-0.5 text-[10px] tabular-nums font-bold text-text-secondary font-sans whitespace-nowrap">
-                      {labelForSlot(i)}
-                    </span>
-                  )}
+                  <div className="w-px h-1 bg-input-stroke-main/70" />
+                  <span className="mt-0.5 text-[10px] tabular-nums font-bold text-text-secondary font-sans whitespace-nowrap">
+                    {labelForSlot(i)}
+                  </span>
                 </div>
               );
             })}

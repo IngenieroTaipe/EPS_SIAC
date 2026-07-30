@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
-import { hasAccessToken } from './httpClient';
 import { apiComponentes } from './apiComponentes';
 import { adaptarComponentes } from './adaptadores';
-import { mockComponentes } from '@/features/mapa/data/mockComponentes';
 import type { ComponentesResponse } from '@/features/mapa/types/componente';
 
 export interface UseComponentesResult {
   data: ComponentesResponse;
   loading: boolean;
   error: Error | null;
-  isMock: boolean;
   refetch: () => void;
 }
 
+const EMPTY_RESPONSE: ComponentesResponse = { componentes: [], tramos: [] };
+
 export function useComponentes(): UseComponentesResult {
-  const [data, setData] = useState<ComponentesResponse>(mockComponentes);
-  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<ComponentesResponse>(EMPTY_RESPONSE);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -23,26 +22,17 @@ export function useComponentes(): UseComponentesResult {
     let cancelled = false;
 
     async function load() {
-      if (!hasAccessToken()) {
-        setData(mockComponentes);
-        setError(null);
-        return;
-      }
-
       setLoading(true);
       try {
-        const [comps, coords] = await Promise.all([
-          apiComponentes.listComponentes(),
-          apiComponentes.listCoords(),
-        ]);
+        const comps = await apiComponentes.listComponentes();
         if (!cancelled) {
-          setData(adaptarComponentes(comps, coords));
+          setData(adaptarComponentes(comps));
           setError(null);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err as Error);
-          setData(mockComponentes);
+          setData(EMPTY_RESPONSE);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -59,7 +49,6 @@ export function useComponentes(): UseComponentesResult {
     data,
     loading,
     error,
-    isMock: !hasAccessToken(),
     refetch: () => setReloadTick((t) => t + 1),
   };
 }

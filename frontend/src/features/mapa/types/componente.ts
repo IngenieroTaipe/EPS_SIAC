@@ -18,12 +18,31 @@
  * tramo puede pasar por varios puntos intermedios (desviaciones).
  */
 
-/** Identificadores de tipo de componente (coinciden con los SVG en icons/). */
+/**
+ * Identificadores de tipo de componente del dominio.
+ *
+ * Mapean a los tipos definidos en el backend (`ComponentType.name`):
+ *   - CAPTACIÓN, FUENTE         → 'captacion' (ícono captacion.svg)
+ *   - RESERVORIO                → 'reservorio' (ícono reservorio.svg)
+ *   - PLANTA DE TRATAMIENTO DE AGUA POTABLE
+ *     / AGUAS RESIDUALES        → 'planta-tratamiento' (ícono planta-tratamiento.svg)
+ *   - LÍNEA DE CONDUCCIÓN       → 'linea-conduccion' (ícono linea-conduccion.svg, polyline)
+ *   - LÍNEA DE ADUCCIÓN         → 'linea-aduccion' (ícono linea-conduccion.svg, polyline)
+ *   - ESTACIÓN DE BOMBEO Y REBOMBEO, UNIDADES DE DESINFECCIÓN,
+ *     PUNTO DE PURGADO          → 'otro' (ícono circle.svg fallback)
+ */
 export type TipoComponente =
   | 'captacion'
-  | 'planta-tratamiento'
+  | 'fuente'
   | 'reservorio'
-  | 'linea-conduccion';
+  | 'planta-tratamiento'
+  | 'planta-aguas-residuales'
+  | 'linea-conduccion'
+  | 'linea-aduccion'
+  | 'estacion-bombeo'
+  | 'desinfeccion'
+  | 'purgado-redes'
+  | 'otro';
 
 /** Nivel de criticidad del componente — usarse para badges y filtros. */
 export type CriticidadComponente = 'alta' | 'media' | 'baja';
@@ -31,10 +50,23 @@ export type CriticidadComponente = 'alta' | 'media' | 'baja';
 /** Etiquetas legibles para tipos (para tablas, badges, etc.). */
 export const TIPO_LABEL: Record<TipoComponente, string> = {
   'captacion': 'Captación',
-  'planta-tratamiento': 'Planta de Tratamiento',
+  'fuente': 'Fuente',
   'reservorio': 'Reservorio',
+  'planta-tratamiento': 'Planta de Tratamiento',
+  'planta-aguas-residuales': 'Planta de Tratamiento de Aguas Residuales',
   'linea-conduccion': 'Línea de Conducción',
+  'linea-aduccion': 'Línea de Aducción',
+  'estacion-bombeo': 'Estación de Bombeo y Rebombeo de Agua Potable',
+  'desinfeccion': 'Unidades de Desinfección',
+  'purgado-redes': 'Punto de Purgado de Redes',
+  'otro': 'Otro',
 };
+
+/** Tipos que se renderizan como una polyline (varios puntos por componente). */
+export const TIPO_LINEA: ReadonlyArray<TipoComponente> = [
+  'linea-conduccion',
+  'linea-aduccion',
+];
 
 /** Etiquetas legibles para criticidad (para badges y filtros). */
 export const CRITICIDAD_LABEL: Record<CriticidadComponente, string> = {
@@ -43,15 +75,15 @@ export const CRITICIDAD_LABEL: Record<CriticidadComponente, string> = {
   'baja': 'Baja',
 };
 
-/** Componente puntual del sistema de agua potable. */
+/** Componente del sistema de agua potable. */
 export interface Componente {
   /** ID estable en el backend (ej. "CPT-001"). */
   id: string;
-  /** Tipo de componente — define el icono a renderizar. */
-  tipo: Exclude<TipoComponente, 'linea-conduccion'>;
-  /** Latitud (WGS84). */
+  /** Tipo de componente — define el icono a renderizar (punto) o si es polyline. */
+  tipo: TipoComponente;
+  /** Latitud (WGS84). Para componentes tipo línea, es la del primer punto. */
   lat: number;
-  /** Longitud (WGS84). */
+  /** Longitud (WGS84). Para componentes tipo línea, es la del primer punto. */
   lng: number;
   /** Código legible para el usuario (ej. "CAP-001"). */
   codigo: string;
@@ -70,6 +102,12 @@ export interface Componente {
   especificacion: string;
   /** Fecha de última actualización (ISO 8601). Sirve para filtrado histórico. */
   fechaActualizacion?: string;
+  /**
+   * Solo para tipos línea (conducción/aducción): secuencia de [lat, lng]
+   * que definen el trazado. Para componentes puntuales se omite.
+   * Los puntos extremos coinciden con `lat`/`lng` del primer punto.
+   */
+  puntos?: Array<[number, number]>;
 }
 
 /**

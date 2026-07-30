@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { EditorComponente } from '@/features/componentes/components/EditorComponente';
-import { apiComponentes, type BackendComponent, type BackendComponentCoord } from '@/services/apiComponentes';
+import { apiComponentes, type BackendComponent } from '@/services/apiComponentes';
+import { mapTipo } from '@/services/adaptadores';
 import type { Componente } from '@/features/mapa/types/componente';
 
 /**
@@ -38,40 +39,41 @@ export function EditorComponentePage() {
       .getComponente(Number(id))
       .then((comp: BackendComponent) => {
         if (cancelled) return;
-        apiComponentes.listCoords({ component: Number(id) }).then((coords: BackendComponentCoord[]) => {
-          if (cancelled) return;
-          const coord = coords[0];
-          const lat = coord?.geojson?.coordinates?.[1] ?? 0;
-          const lng = coord?.geojson?.coordinates?.[0] ?? 0;
+        // Tras el último pull del backend, `ComponentSerializer` trae
+        // `coords[]` embebido (BackendComponentListCoord) — no se necesita
+        // un segundo fetch a `/component-coords/`.
+        const coord = comp.coords?.[0];
+        const lat = coord?.coords?.coordinates?.[1] ?? 0;
+        const lng = coord?.coords?.coordinates?.[0] ?? 0;
 
-          setInitial({
-            id: String(comp.id),
-            tipo: 'captacion',
-            lat,
-            lng,
-            codigo: comp.code,
-            nombre: comp.name,
-            estado: 'normal',
-            criticidad: (coord?.criticality?.name?.toLowerCase().includes('alt')
+        setInitial({
+          id: String(comp.id),
+          tipo: mapTipo(comp.type.name),
+          lat,
+          lng,
+          codigo: comp.code,
+          nombre: comp.name,
+          estado: 'normal',
+          criticidad:
+            (coord?.criticality ?? '').toUpperCase().includes('ALT')
               ? 'alta'
-              : coord?.criticality?.name?.toLowerCase().includes('med')
+              : (coord?.criticality ?? '').toUpperCase().includes('MED')
                 ? 'media'
-                : 'baja') as Componente['criticidad'],
-            unidadOperativa: comp.district.name,
-            especificacion: comp.specification ?? '',
-          });
-
-          // Pasar los IDs/codes crudos del backend para precargar selects
-          setInitialBackend({
-            typeId: comp.type?.id,
-            districtUbigeo: comp.district?.ubigeo,
-            operationalStatusCode: comp.operational_status?.code,
-            physicalStatusCode: comp.physical_status?.code,
-            criticalityId: coord?.criticality?.id,
-          });
-
-          setLoading(false);
+                : 'baja',
+          unidadOperativa: comp.district.name,
+          especificacion: comp.specification ?? '',
         });
+
+        // Pasar los IDs/codes crudos del backend para precargar selects
+        setInitialBackend({
+          typeId: comp.type?.id,
+          districtUbigeo: comp.district?.ubigeo,
+          operationalStatusCode: comp.operational_status?.code,
+          physicalStatusCode: comp.physical_status?.code,
+          criticalityId: undefined, // el serializer Light no trae id de criticidad
+        });
+
+        setLoading(false);
       })
       .catch(() => {
         if (cancelled) return;

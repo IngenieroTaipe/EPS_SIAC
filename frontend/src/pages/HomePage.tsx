@@ -7,7 +7,7 @@ import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
 import { ClusterAlertLayer } from '@/features/mapa/components/ClusterAlertLayer';
 import { DistrictLayer } from '@/features/mapa/components/DistrictLayer';
 import { mockAlertas } from '@/features/mapa/data/mockAlertas';
-import { mockComponentes } from '@/features/mapa/data/mockComponentes';
+import { useComponentes } from '@/services/useComponentes';
 
 /**
  * HomePage — pestaña principal pública (antes de iniciar sesión).
@@ -22,6 +22,7 @@ import { mockComponentes } from '@/features/mapa/data/mockComponentes';
 export function HomePage() {
   const [selected, setSelected] = useState<Set<LayerId>>(() => new Set(['alertas']));
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const { data: componentesData } = useComponentes();
 
   function handleToggleSelect(id: string) {
     setSelectedAlertId((prev) => (prev === id ? null : id));
@@ -33,7 +34,7 @@ export function HomePage() {
         <BaseMap>
           <DistrictLayer />
           {selected.has('precipitaciones') && <PrecipitationLayer />}
-          {selected.has('componentes') && <ComponentLayer data={mockComponentes} />}
+          {selected.has('componentes') && <ComponentLayer data={componentesData} />}
           {selected.has('alertas') && (
             <ClusterAlertLayer
               alertas={mockAlertas.alertas}

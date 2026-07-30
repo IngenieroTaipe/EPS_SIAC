@@ -37,6 +37,41 @@ export interface BackendCriticality {
   name: string;
 }
 
+/**
+ * Coordenada ligera embebida en el listado de componentes (viene del
+ * `ComponentCoordLightSerializer` del backend). `coords` aquí es un
+ * geojson Point { type, coordinates:[lng,lat] }. `criticality` es un
+ * string con el nombre de la criticidad (StringRelatedField).
+ */
+export interface BackendComponentListCoord {
+  criticality: string;
+  coords: {
+    type: 'Point';
+    coordinates: [number, number];
+  } | null;
+}
+
+/**
+ * Item del endpoint `GET /components/components/` (listado). Tras el
+ * último pull del backend, el listado usa `ComponentListSerializer`:
+ *   - `type` y `district` son strings (StringRelatedField).
+ *   - `coords[]` viene embebido (no es necesario llamar a /component-coords/).
+ *   - No incluye `id`, `specification`, `operational_status` ni
+ *     `physical_status` (esos solo están en el detalle).
+ */
+export interface BackendComponentListItem {
+  code: string;
+  name: string;
+  type: string;
+  district: string;
+  coords: BackendComponentListCoord[];
+}
+
+/**
+ * Detalle del endpoint `GET /components/components/:id/` (retrieve).
+ * Usa `ComponentSerializer`, que sigue devolviendo las relaciones como
+ * objetos (con id/name/code) e incluye `coords[]` embebido.
+ */
 export interface BackendComponent {
   id: number;
   code: string;
@@ -46,8 +81,15 @@ export interface BackendComponent {
   operational_status: BackendOperationalStatus | null;
   physical_status: BackendPhysicalStatus | null;
   specification: string | null;
+  coords: BackendComponentListCoord[];
 }
 
+/**
+ * Coordenada del endpoint `/component-coords/` (se mantiene por compat).
+ * Usado por el EditorComponentePage para el retrieve del componente en
+ * edición; el nuevo flujo reemplazable por `BackendComponent.coords`
+ * embebido.
+ */
 export interface BackendComponentCoord {
   id: number;
   component: BackendComponent;
@@ -76,8 +118,8 @@ export const apiComponentes = {
   async listComponentes(params?: {
     district?: string;
     search?: string;
-  }): Promise<BackendComponent[]> {
-    return fetchAllPages<BackendComponent>('/components/components/', params);
+  }): Promise<BackendComponentListItem[]> {
+    return fetchAllPages<BackendComponentListItem>('/components/components/', params);
   },
 
   async getComponente(id: number): Promise<BackendComponent> {
