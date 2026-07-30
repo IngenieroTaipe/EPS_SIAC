@@ -57,7 +57,8 @@ class AlertStatusPhase(AuditCompleteModel):
     alert_phase = models.ForeignKey(
         'AlertPhase', 
         on_delete=models.CASCADE,
-        related_name='alert_phase_statuses'
+        related_name='alert_phase_statuses',
+        null=True
     )
 
     class Meta:

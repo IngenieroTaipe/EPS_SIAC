@@ -78,12 +78,12 @@ class Command(BaseCommand):
         )
 
         alert_status_phases = [
-            {'alert_status': 'PREDICHO'},
-            {'alert_status': 'EN ESPERA DE CONFIRMACIÓN'},
+            {'alert_status': 'PREDICHO', 'alert_phase': 'd'},
+            {'alert_status': 'EN ESPERA DE CONFIRMACIÓN', 'alert_phase':'d'},
             {'alert_status': 'CONFIRMADO', 'alert_phase': 'EN ESPERA DE REPORTE'},
             {'alert_status': 'CONFIRMADO', 'alert_phase': 'EN PROCESO DE ATENCIÓN'},
             {'alert_status': 'CONFIRMADO', 'alert_phase': 'ATENDIDO'},
-            {'alert_status': 'NO CONFIRMADO'}
+            {'alert_status': 'NO CONFIRMADO', 'alert_phase':'d'}
         ]
 
         for alert_status_phase in alert_status_phases:

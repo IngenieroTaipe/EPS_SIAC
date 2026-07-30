@@ -124,7 +124,8 @@ class ComponentCoordLightSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ComponentCoord
-        fields = ['criticality', 'coords']
+        fields = ['id', 'criticality', 'coords']
+        read_only_fields = ['id']
 
     def to_representation(self, instance):
         repr = super().to_representation(instance)
@@ -143,6 +144,7 @@ class ComponentListSerializer(PrepareDataMixin, serializers.ModelSerializer):
     class Meta: 
         model = Component
         fields = [
+            'id',
             'code', 
             'name',
             'type', 

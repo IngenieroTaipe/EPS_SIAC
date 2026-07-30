@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 
 from alerts_management.models import (
-    Alert, AlertHistory, AlertStatusPhase, AlertNotification, 
+    Alert, AlertHistory, AlertStatus, AlertPhase, AlertNotification, 
     AlertResult, NotificationChannel, NotificationType
 )
 from core_predictive.models import NaturalPhenomena, ThresholdsNaturalPhenomena, Threshold
@@ -100,26 +100,23 @@ class Command(BaseCommand):
                 end_time_utc=end_time
             )
 
-            # 2. Buscar AlertStatusPhase
-            if data['phase']:
-                status_phase = AlertStatusPhase.objects.filter(
-                    alert_status__name=data['status'],
-                    alert_phase__name=data['phase']
-                ).first()
-            else:
-                status_phase = AlertStatusPhase.objects.filter(
-                    alert_status__name=data['status'],
-                    alert_phase__isnull=True
-                ).first()
+            alert_status = AlertStatus.objects.filter(
+                name=data['status']
+            ).first()
 
-            if not status_phase:
+            alert_phase = AlertPhase.objects.filter(
+                name=data['phase']
+            ).first()
+
+            if not alert_status:
                 self.stdout.write(self.style.ERROR(f"No se encontró AlertStatusPhase para Estado: {data['status']}, Fase: {data['phase']}"))
                 continue
 
             # 3. Crear Histórico
             history = AlertHistory.objects.create(
                 alert=alert,
-                alert_status_phase=status_phase,
+                status=alert_status,
+                phase=alert_phase,
                 created_by=system_user
             )
 
@@ -128,7 +125,7 @@ class Command(BaseCommand):
                 alert_history=history,
                 channel=NotificationChannel.TELEGRAM,
                 notification_type=NotificationType.INITIAL,
-                is_sent=True,
+                is_sent=False,
                 sent_at=now - timedelta(minutes=5)
             )
 

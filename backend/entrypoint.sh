@@ -22,6 +22,7 @@ if [ "$CONTAINER_ROLE" = "api" ]; then
     python manage.py seed_component_coords
     python manage.py seed_core_predictive
     python manage.py seed_alerts_management
+    python manage.py seed_alerts
     python manage.py shell -c "from core_predictive.tasks import run_scheduled_gfs_download; result = run_scheduled_gfs_download(); print(result)"
 
     echo "=== [ROLE: API] Inicialización de Base de Datos Completada ==="
