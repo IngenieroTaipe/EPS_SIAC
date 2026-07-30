@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BaseMap } from '@/features/mapa/components/BaseMap';
 import { LayerControl, type LayerId } from '@/features/mapa/components/LayerControl';
 import { MapLegend } from '@/features/mapa/components/MapLegend';
@@ -7,8 +7,36 @@ import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
 import { ClusterAlertLayer } from '@/features/mapa/components/ClusterAlertLayer';
 import { DistrictLayer } from '@/features/mapa/components/DistrictLayer';
 import { MapAlertsPanel } from '@/features/alertas/components/MapAlertsPanel';
-import { mockAlertas } from '@/features/mapa/data/mockAlertas';
-import { mockAlertasHistoricas } from '@/features/alertas/data/mockAlertasHistoricas';
+import { apiAlerts, type BackendAlertListItem } from '@/services/apiAlerts';
+import { mapAlertListToFrontend } from '@/features/alertas/alertAdapters';
+import type { Alerta, EstadoAlerta } from '@/features/mapa/types/alerta';
+import type { AlertaHistorica } from '@/features/alertas/types';
+
+/**
+ * Deriva un array de `Alerta` (para el ClusterAlertLayer del mapa) a
+ * partir de los items del listado del backend. Cada cluster dentro de
+ * una alerta genera un marcador en el mapa (con su representative_point).
+ */
+function deriveMapAlertas(items: BackendAlertListItem[]): Alerta[] {
+  const alertas: Alerta[] = [];
+  for (const item of items) {
+    for (const cluster of item.alert_clusters) {
+      if (!cluster.representative_point) continue;
+      const [lng, lat] = cluster.representative_point.coordinates;
+      alertas.push({
+        id: item.code,
+        componenteId: '',
+        estado: 'predicho' as EstadoAlerta,
+        lat,
+        lng,
+        mensaje: `Intensidad: ${item.max_intensity_mm_h} mm/h`,
+        nivel: item.max_threshold ?? 'Precipitación',
+        fecha: item.start_time_local ?? new Date().toISOString(),
+      });
+    }
+  }
+  return alertas;
+}
 
 /**
  * MapaAlertasPage — vista "Mapa de Alertas Climáticas".
@@ -27,10 +55,21 @@ export function MapaAlertasPage() {
   // ID de alerta seleccionada (single-selection). Null si ninguna.
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
-  // Para el panel del mapa mostramos las primeras 10 alertas del histórico.
-  // El panel limita internamente a `maxItems` (= 10 por defecto), así que
-  // aquí pasamos la lista completa y dejamos que `MapAlertsPanel` la slice.
-  const panelAlertas = mockAlertasHistoricas;
+  // Datos del backend
+  const [backendItems, setBackendItems] = useState<BackendAlertListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsLoading(true);
+    apiAlerts.listAlerts()
+      .then(setBackendItems)
+      .catch((err) => console.error('Error cargando alertas:', err))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  // Derivar las alertas para el panel (AlertaHistorica[]) y para el mapa (Alerta[])
+  const panelAlertas: AlertaHistorica[] = backendItems.map(mapAlertListToFrontend);
+  const mapAlertas: Alerta[] = deriveMapAlertas(backendItems);
 
   function handleToggleSelect(id: string) {
     setSelectedAlertId((prev) => (prev === id ? null : id));
@@ -45,7 +84,7 @@ export function MapaAlertasPage() {
         {selected.has('componentes')     && <ComponentLayer />}
         {selected.has('alertas') && (
           <ClusterAlertLayer
-            alertas={mockAlertas.alertas}
+            alertas={mapAlertas}
             selectedAlertId={selectedAlertId}
             onAlertaClick={handleToggleSelect}
           />

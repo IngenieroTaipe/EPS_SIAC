@@ -188,8 +188,8 @@ def process_state_machine_timeouts_task():
     ).distinct()
 
     for alert in predicted_alerts:
-        latest_history = alert.history.order_by('-created_at').first()
-        if latest_history and latest_history.alert_status_phase.alert_status.name == "PREDICHO":
+        latest_history = alert.historic_alert.order_by('-created_at').first()
+        if latest_history and latest_history.status.name == "PREDICHO":
             AlertStateMachineService.transition_to_state_phase(
                 alert=alert,
                 status_name="EN ESPERA DE CONFIRMACIÓN",
@@ -207,7 +207,7 @@ def process_state_machine_timeouts_task():
 
     for history in waiting_histories:
         alert = history.alert
-        latest_history = alert.history.order_by('-created_at').first()
+        latest_history = alert.historic_alert.order_by('-created_at').first()
         
         # Verificar si la alerta sigue en 'En Espera de Confirmación' (Sin acción de usuario)
         if latest_history.id == history.id:

@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { apiAlerts } from '@/services/apiAlerts';
+import { mapAlertDetailToFrontend } from '../alertAdapters';
 import {
   ESTADO_LABEL,
   NEXT_ESTADO,
@@ -37,49 +39,106 @@ import { cn } from '@/shared/lib/cn';
  *   - "Cancelar" vuelve al histórico de alertas (sin guardar).
  *   - "Guardar y Cambiar Estado" abre un modal tintado con el color del
  *     siguiente estado del flujo; el texto indica a qué fase transiciona.
- *   - Confirmación ejecuta PATCH (mockeado: actualiza estado localmente).
+ *   - Confirmación ejecuta PATCH al endpoint de transiciones.
  */
-interface GestionAlertasProps {
-  /** Alerta a editar (default: primer mock del histórico). */
-  initialAlerta?: AlertaHistorica;
+
+/**
+ * Mapea un `EstadoAlertaHistorica` del frontend al payload que espera
+ * el endpoint de transiciones del backend.
+ */
+function buildTransitionPayload(
+  siguiente: EstadoAlertaHistorica,
+  reporteDanos: string,
+  reporteAcciones: string,
+) {
+  const payload: Record<string, unknown> = {};
+
+  // Estado (status_name)
+  if (siguiente === 'confirmado' || siguiente === 'en-espera-reporte' ||
+      siguiente === 'en-proceso-atencion' || siguiente === 'atendido') {
+    payload.status_name = 'Confirmado';
+  } else if (siguiente === 'no-confirmado') {
+    payload.status_name = 'No Confirmado';
+  }
+
+  // Fase (phase_name)
+  if (siguiente === 'en-espera-reporte') {
+    payload.phase_name = 'En Espera de Reporte';
+  } else if (siguiente === 'en-proceso-atencion') {
+    payload.phase_name = 'En Proceso de Atención';
+  } else if (siguiente === 'atendido') {
+    payload.phase_name = 'Atendido';
+  }
+
+  // Reporte de daños (solo cuando estamos en EN_ESPERA_REPORTE → siguiente paso)
+  if (reporteDanos) {
+    payload.has_damage = true;
+    payload.damage_report = reporteDanos;
+  }
+
+  // Acciones tomadas (solo cuando estamos pasando a ATENDIDO)
+  if (reporteAcciones) {
+    payload.taken_actions = reporteAcciones;
+  }
+
+  return payload;
 }
 
-export function GestionAlertas({ initialAlerta }: GestionAlertasProps) {
+export function GestionAlertas() {
+  const { id: alertCode } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [alerta, setAlerta] = useState<AlertaHistorica>(
-    initialAlerta ?? {
-      id: 'PK-0001',
-      unidadOperativa: 'Pichanaqui',
-      distrito: 'Pichanaqui',
-      estado: 'en-proceso-atencion',
-      fenomeno: 'Lluvia',
-      umbral: 'moderadamente-lluvioso',
-      fechaCreacion: '2026-06-22T15:40:00-05:00',
-      fechaNotificacion: '2026-06-22T15:45:00-05:00',
-      fechaPrediccionInicio: '2026-06-22T16:45:00-05:00',
-      fechaRealInicio: '2026-06-22T16:50:00-05:00',
-      historico: [
-        { estado: 'predicho', fecha: '2026-06-22T15:45:00-05:00' },
-        { estado: 'en-espera-confirmacion', fecha: '2026-06-22T16:45:00-05:00' },
-        { estado: 'confirmado', fecha: '2026-06-22T17:10:00-05:00' },
-        { estado: 'en-espera-reporte', fecha: '2026-06-22T17:30:00-05:00' },
-        { estado: 'en-proceso-atencion', fecha: '2026-06-22T18:00:00-05:00' },
-      ],
-      reporteDanos: {
-        descripcion:
-          'Inundación menor en captación Río Pichanaqui. Sedimentos en el reservorio central.',
-        huboDanos: true,
-        fechaRegistro: '2026-06-22T17:30:00-05:00',
-      },
-    },
-  );
-  const [reporteDanos, setReporteDanos] = useState<string>(
-    alerta.reporteDanos?.descripcion ?? '',
-  );
-  const [reporteAcciones, setReporteAcciones] = useState<string>(
-    alerta.reporteAcciones?.descripcion ?? '',
-  );
+  const [alerta, setAlerta] = useState<AlertaHistorica | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [reporteDanos, setReporteDanos] = useState<string>('');
+  const [reporteAcciones, setReporteAcciones] = useState<string>('');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Carga inicial del detalle de la alerta.
+  useEffect(() => {
+    if (!alertCode) return;
+    setIsLoading(true);
+    setError(null);
+    apiAlerts.getAlertDetail(alertCode)
+      .then((data) => {
+        const mapped = mapAlertDetailToFrontend(data);
+        setAlerta(mapped);
+        setReporteDanos(mapped.reporteDanos?.descripcion ?? '');
+        setReporteAcciones(mapped.reporteAcciones?.descripcion ?? '');
+      })
+      .catch((err) => {
+        console.error('Error cargando alerta:', err);
+        setError('No se pudo cargar la alerta. Verifica que el código sea válido.');
+      })
+      .finally(() => setIsLoading(false));
+  }, [alertCode]);
+
+  // — Estados de carga / error —
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-text-secondary text-sm font-sans">Cargando alerta...</p>
+      </div>
+    );
+  }
+
+  if (error || !alerta) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-4">
+        <p className="text-text-secondary text-sm font-sans">{error ?? 'Alerta no encontrada.'}</p>
+        <button
+          type="button"
+          onClick={() => navigate('/alertas/gestion')}
+          className="px-6 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke text-text-primary text-sm font-medium font-sans
+                     hover:bg-primary-states-hover-main transition-colors"
+        >
+          Volver al histórico
+        </button>
+      </div>
+    );
+  }
 
   const siguiente = NEXT_ESTADO[alerta.estado] ?? alerta.estado;
   const isEstadoFinal = siguiente === alerta.estado;
@@ -97,29 +156,29 @@ export function GestionAlertas({ initialAlerta }: GestionAlertasProps) {
     setShowConfirm(true);
   }
 
-  function handleConfirmarTransicion() {
-    // Mock: actualizar estado localmente. El backend hará el PATCH real.
-    const now = new Date().toISOString();
-    const updatedHistorico = [...alerta.historico, { estado: siguiente, fecha: now }];
-    setAlerta({
-      ...alerta,
-      estado: siguiente as EstadoAlertaHistorica,
-      historico: updatedHistorico,
-      reporteDanos: reporteDanos
-        ? {
-            descripcion: reporteDanos,
-            huboDanos: true, // Mock; lo decide el usuario en EN_ESPERA_REPORTE.
-            fechaRegistro: alerta.reporteDanos?.fechaRegistro ?? now,
-          }
-        : alerta.reporteDanos,
-      reporteAcciones: reporteAcciones
-        ? {
-            descripcion: reporteAcciones,
-            fechaFinalizacion: now,
-          }
-        : alerta.reporteAcciones,
-    });
-    setShowConfirm(false);
+  async function handleConfirmarTransicion() {
+    if (!alertCode) return;
+    setIsSaving(true);
+    try {
+      const payload = buildTransitionPayload(siguiente, reporteDanos, reporteAcciones);
+
+      // Un solo PATCH al endpoint de transiciones (el backend FSM maneja
+      // la lógica completa: cambia status, phase, y crea el AlertResult).
+      await apiAlerts.transitionState(alertCode, payload as any);
+
+      // Recargar datos desde el backend para reflejar el nuevo estado.
+      const data = await apiAlerts.getAlertDetail(alertCode);
+      const mapped = mapAlertDetailToFrontend(data);
+      setAlerta(mapped);
+      setReporteDanos(mapped.reporteDanos?.descripcion ?? '');
+      setReporteAcciones(mapped.reporteAcciones?.descripcion ?? '');
+      setShowConfirm(false);
+    } catch (err) {
+      console.error('Error transicionando la alerta:', err);
+      window.alert('Ocurrió un error al guardar los cambios.');
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -182,13 +241,13 @@ export function GestionAlertas({ initialAlerta }: GestionAlertasProps) {
         <button
           type="button"
           onClick={handleGuardarYCambiarEstado}
-          disabled={isEstadoFinal}
+          disabled={isEstadoFinal || isSaving}
           className={cn(
             'px-6 py-2.5 rounded-xl inline-flex justify-start items-center gap-2',
             'bg-primary-main text-text-invert-primary text-sm font-medium font-sans',
             'hover:bg-primary-light transition-colors',
             'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',
-            isEstadoFinal && 'opacity-50 cursor-not-allowed',
+            (isEstadoFinal || isSaving) && 'opacity-50 cursor-not-allowed',
           )}
         >
           <svg viewBox="0 0 16 16" className="size-4 text-text-invert-primary" aria-hidden="true">
@@ -201,7 +260,7 @@ export function GestionAlertas({ initialAlerta }: GestionAlertasProps) {
               strokeLinejoin="round"
             />
           </svg>
-          {isEstadoFinal ? 'Estado final alcanzado' : 'Guardar y Cambiar Estado'}
+          {isSaving ? 'Guardando...' : isEstadoFinal ? 'Estado final alcanzado' : 'Guardar y Cambiar Estado'}
         </button>
       </div>
 

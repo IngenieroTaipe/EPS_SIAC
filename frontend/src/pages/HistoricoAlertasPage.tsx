@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertsTable } from '@/features/alertas/components/AlertsTable';
-import { ESTADO_LABEL, type EstadoAlertaHistorica } from '@/features/alertas/types';
-import { mockAlertasHistoricas } from '@/features/alertas/data/mockAlertasHistoricas';
+import { ESTADO_LABEL, type AlertaHistorica, type EstadoAlertaHistorica } from '@/features/alertas/types';
+import { apiAlerts } from '@/services/apiAlerts';
+import { mapAlertListToFrontend } from '@/features/alertas/alertAdapters';
 import { cn } from '@/shared/lib/cn';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
 import {
@@ -65,6 +66,9 @@ export function HistoricoAlertasPage() {
 
   const { selectedNombre, setSelectedNombre } = useUnidadOperativa();
 
+  const [alertas, setAlertas] = useState<AlertaHistorica[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [estadosSeleccionados, setEstadosSeleccionados] = useState<Set<EstadoAlertaHistorica>>(
     () => new Set(ESTADOS_FILTRABLES),
   );
@@ -75,15 +79,27 @@ export function HistoricoAlertasPage() {
   // llega ?id= desde el mapa (botón view del AlertaRow), pre-selecciona.
   const [selectedId, setSelectedId] = useState<string | null>(preselectId);
 
+  // Cargar alertas del backend al montar.
+  useEffect(() => {
+    setIsLoading(true);
+    apiAlerts.listAlerts()
+      .then((items) => {
+        const mapped = items.map(mapAlertListToFrontend);
+        setAlertas(mapped);
+      })
+      .catch((err) => console.error('Error cargando alertas:', err))
+      .finally(() => setIsLoading(false));
+  }, []);
+
   // Toggle real: clic en fila seleccionada la deselecciona (igual que las
   // demás vistas que usan AlertsTable/ComponentsTable).
   function handleToggleSelect(id: string) {
     setSelectedId((prev) => (prev === id ? null : id));
   }
 
-  // Aplicar filtros al mock.
+  // Aplicar filtros sobre los datos ya cargados.
   const alertasFiltradas = useMemo(() => {
-    return mockAlertasHistoricas.filter((a) => {
+    return alertas.filter((a) => {
       if (!mismaUnidad(a.unidadOperativa, selectedNombre)) return false;
       if (!estadosSeleccionados.has(a.estado)) return false;
       const fechaCreacion = new Date(a.fechaCreacion).getTime();
@@ -97,7 +113,7 @@ export function HistoricoAlertasPage() {
       }
       return true;
     });
-  }, [selectedNombre, estadosSeleccionados, desde, hasta]);
+  }, [alertas, selectedNombre, estadosSeleccionados, desde, hasta]);
 
   // Opciones del filtro: "Todas" + unidades operativas del contexto.
   const unidadOptions = useMemo(
@@ -201,21 +217,27 @@ export function HistoricoAlertasPage() {
         </button>
 
         <span className="px-2 py-2 text-text-secondary text-xs font-sans">
-          {alertasFiltradas.length} resultado{alertasFiltradas.length === 1 ? '' : 's'}
+          {isLoading ? 'Cargando...' : `${alertasFiltradas.length} resultado${alertasFiltradas.length === 1 ? '' : 's'}`}
         </span>
       </div>
 
       {/* ── Tabla histórica ───────────────────────────────────────────── */}
-      <AlertsTable
-        alertas={alertasFiltradas}
-        selectedId={selectedId}
-        onToggleSelect={handleToggleSelect}
-        highlightSelected={false}
-        sortSelectedFirst={false}
-      />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <p className="text-text-secondary text-sm font-sans">Cargando alertas...</p>
+        </div>
+      ) : (
+        <AlertsTable
+          alertas={alertasFiltradas}
+          selectedId={selectedId}
+          onToggleSelect={handleToggleSelect}
+          highlightSelected={false}
+          sortSelectedFirst={false}
+        />
+      )}
 
       {/* Empty state si no hay resultados */}
-      {alertasFiltradas.length === 0 && (
+      {!isLoading && alertasFiltradas.length === 0 && (
         <div className="mt-6 text-center text-text-secondary text-sm font-sans">
           No hay alertas que coincidan con los filtros seleccionados.
         </div>

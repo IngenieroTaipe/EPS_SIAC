@@ -101,7 +101,6 @@ class AlertPhaseViewSet(viewsets.ModelViewSet):
     ]
     ordering = ['id']
 
-
 @extend_schema_view(
     list=extend_schema(tags=['Alerts / AlertStatusPhase'], summary="Listar Fases y Estados de las Alertas"),
     retrieve=extend_schema(tags=['Alerts / AlertStatusPhase'], summary="Obtener detalle de un Fase y Estado de Alerta"),
@@ -164,6 +163,7 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
         - Permite la búsqueda en base a campos como: Nombre.
         - Permite el ordenamiento en base a campos como: Nombre    
     """
+    lookup_field = 'code'
     permission_classes = [IsAdminUserOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     
@@ -202,151 +202,33 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
             return AlertDetailSerializer
 
         return AlertListSerializer
-        
-@extend_schema_view(
-    list=extend_schema(tags=['Alerts / AlertHistory'], summary="Listar Historial de Estados y Fases de las Alertas"),
-    retrieve=extend_schema(tags=['Alerts / AlertHistory'], summary="Obtener detalle de un Historial de Estados y Fases de Alerta"),
-    create=extend_schema(tags=['Alerts / AlertHistory'], summary="Registrar un nuevo Historial de Estados y Fases de Alerta"),
-)
-class AlertHistoryViewSet(viewsets.ModelViewSet):
-    """
-        Controlador de Lectura para el Historial de Estados y Fases de las Alertas.
-        - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET, CREATE, UPDATE, PATCH, DELETE). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
-        - Los registros solo podrán ser eliminados si no tienen registros relacionados en otros modelos.
-        - Permite la búsqueda en base a campos como: Nombre.
-        - Permite el ordenamiento en base a campos como: Nombre    
-    """
-    permission_classes = [IsAuthenticated]
-    http_method_name = ['get', 'post']
-    serializer_class = AlertHistorySerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = [
-        'alert',
-        'status',
-        'phase'
-    ]
-    search_fields = [
-        'alert',
-        'status',
-        'phase'
-
-        'alert__code',
-    ]
-    ordering_fields = [
-        'alert',
-        'status',
-        'phase'
-    ]
-    ordering = ['id']
-
-    def get_queryset(self):
-        return AlertHistory.objects.select_related(
-            'alert',
-            'status',
-            'phase'
-        ).all() 
 
 @extend_schema_view(
-    list=extend_schema(tags=['Alerts / AlertNotification'], summary="Listar Notificaciones de las Alertas"),
-    retrieve=extend_schema(tags=['Alerts / AlertNotification'], summary="Obtener detalle de una Notificación de Alerta"),
-    create=extend_schema(tags=['Alerts / AlertNotification'], summary="Registrar una nueva Notificación de Alerta"),
-    update=extend_schema(tags=['Alerts / AlertNotification'], summary="Actualizar una Notificación de Alerta"),
-    partial_update=extend_schema(tags=['Alerts / AlertNotification'], summary="Actualizar parcialmente una Notificación de Alerta"),
-    destroy=extend_schema(tags=['Alerts / AlertNotification'], summary="Eliminar una Notificación de Alerta")
+    partial_update=extend_schema(tags=['Alerts / AlertTransition'], summary="Actualizar estado y fase de una alerta")
 )
-class AlertNotificationViewSet(viewsets.ModelViewSet):
-    """
-        Controlador de Lectura para las Notificaciones de las Alertas.
-        - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET, CREATE, UPDATE, PATCH, DELETE). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
-        - Los registros solo podrán ser eliminados si no tienen registros relacionados en otros modelos.
-        - Permite la búsqueda en base a campos como: Nombre.
-        - Permite el ordenamiento en base a campos como: Nombre    
-    """
-    permission_classes = [IsAuthenticated]
-    http_method_name = ['get']
-    serializer_class = AlertNotificationSerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = [
-        'alert_history',
-    ]
-    search_fields = [
-        'alert_history',
-        'alert_history__alert__code'
-    ]
-    ordering_fields = [
-        'alert_history',
-        'alert_history__alert__code'
-    ]
-    ordering = ['id']
-
-    def get_queryset(self):
-        return AlertNotification.objects.select_related(
-            'alert_history',
-            'alert_history__alert'
-        ).all() 
-
-@extend_schema_view(
-    list=extend_schema(tags=['Alerts / AlertResult'], summary="Listar Resultados de las Alertas"),
-    retrieve=extend_schema(tags=['Alerts / AlertResult'], summary="Obtener detalle de un Resultado de Alerta"),
-    create=extend_schema(tags=['Alerts / AlertResult'], summary="Registrar un nuevo Resultado de Alerta"),
-    update=extend_schema(tags=['Alerts / AlertResult'], summary="Actualizar un Resultado de Alerta"),
-    partial_update=extend_schema(tags=['Alerts / AlertResult'], summary="Actualizar parcialmente un Resultado de Alerta"),
-    destroy=extend_schema(tags=['Alerts / AlertResult'], summary="Eliminar un Resultado de Alerta")
-)
-class AlertResultViewSet(viewsets.ModelViewSet):
-    """
-        Controlador de Lectura para los Resultados de las Alertas.
-        - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET, CREATE, UPDATE, PATCH, DELETE). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
-        - Los registros solo podrán ser eliminados si no tienen registros relacionados en otros modelos.
-        - Permite la búsqueda en base a campos como: Nombre.
-        - Permite el ordenamiento en base a campos como: Nombre    
-    """
-    lookup_field = 'id'
-    permission_classes = [IsAuthenticated]
-    serializer_class = AlertResultSerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    
-    filterset_fields = [
-        'alert',
-    ]
-    search_fields = [
-        'alert',
-        'alert__code'
-    ]
-    ordering_fields = [
-        'alert',
-        'alert__code'
-    ]
-    ordering = ['alert']
-
-    def get_queryset(self):
-        return AlertResult.objects.select_related(
-            'alert'
-        ).all() 
-
-
 class AlertTransitionViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     """
-    ViewSet para actualizar el estado, fase y resultados de una Alerta (PUT / PATCH).
+    ViewSet para actualizar el estado, fase de una Alerta (PATCH).
     """
+    lookup_field = 'code'
     queryset = Alert.objects.all()
     serializer_class = AlertTransitionSerializer
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="Actualizar reporte de daños y acciones tomadas",
+        summary="Transicionar estado/fase de la alerta",
         description=(
-            "Permite modificar 'has_damage', 'damage_report' y 'taken_actions' "
-            "exclusivamente para alertas en fase 'Atendido' dentro de las 48 horas posteriores al cierre."
+            "Actualiza el estado ('Confirmado', 'No Confirmado') y fase ('En Espera de Reporte', "
+            "'En Proceso de Atención', 'Atendido') de una alerta, aplicando reglas FSM y efectos secundarios."
         ),
-        request=AlertResultUpdateSerializer,
+        request=AlertTransitionSerializer,
         responses={
-            200: OpenApiResponse(description="Reporte actualizado correctamente."),
-            400: OpenApiResponse(description="Plazo de 48 horas superado o estado inválido."),
-            404: OpenApiResponse(description="Resultado de alerta no encontrado.")
+            200: AlertTransitionSerializer,
+            400: OpenApiResponse(description="Error de validación en FSM o payload inconsistente."),
+            404: OpenApiResponse(description="Alerta no encontrada.")
         }
     )
-    def patial_update(self, request, *args, **kwargs):
+    def partial_update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         
@@ -378,6 +260,9 @@ class AlertTransitionViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
         except DjangoValidationError as e:
             return Response({"error": e.message}, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema_view(
+    partial_update=extend_schema(tags=['Alerts / AlertResult'], summary="Actualizar resultados de las alertas"),
+)
 class AlertUpdateResultViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     """
     ViewSet para actualizar únicamente el resultado de una alerta (daños y acciones tomadas)
@@ -388,17 +273,18 @@ class AlertUpdateResultViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet)
     permission_classes = [IsAuthenticated]
     lookup_field = 'alert_id'
 
+
     @extend_schema(
-        summary="Transicionar estado/fase de la alerta",
+        summary="Actualizar reporte de daños y acciones tomadas",
         description=(
-            "Actualiza el estado ('Confirmado', 'No Confirmado') y fase ('En Espera de Reporte', "
-            "'En Proceso de Atención', 'Atendido') de una alerta, aplicando reglas FSM y efectos secundarios."
+            "Permite modificar 'has_damage', 'damage_report' y 'taken_actions' "
+            "exclusivamente para alertas en fase 'Atendido' dentro de las 48 horas posteriores al cierre."
         ),
-        request=AlertTransitionSerializer,
+        request=AlertResultUpdateSerializer,
         responses={
-            200: AlertTransitionSerializer,
-            400: OpenApiResponse(description="Error de validación en FSM o payload inconsistente."),
-            404: OpenApiResponse(description="Alerta no encontrada.")
+            200: OpenApiResponse(description="Reporte actualizado correctamente."),
+            400: OpenApiResponse(description="Plazo de 48 horas superado o estado inválido."),
+            404: OpenApiResponse(description="Resultado de alerta no encontrado.")
         }
     )
     def partial_update(self, request, *args, **kwargs):

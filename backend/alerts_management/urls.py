@@ -3,23 +3,17 @@ from rest_framework.routers import DefaultRouter
 from alerts_management.views import (
     AlertStatusViewSet,
     AlertPhaseViewSet,
-    AlertStatusPhaseViewSet,
     AlertViewSet, 
-    AlertHistoryViewSet, 
-    AlertNotificationViewSet,
     AlertTransitionViewSet,
-    AlertResultViewSet
+    AlertUpdateResultViewSet
 )
 
 router = DefaultRouter()
-router.register(r'alert-status', AlertStatusViewSet, basename='alert-status')
-router.register(r'alert-phase', AlertPhaseViewSet, basename='alert-phase')
-router.register(r'alert-status-phase', AlertStatusPhaseViewSet, basename='alert-status-phase')
-router.register(r'alert', AlertViewSet, basename='alert')
-router.register(r'alert-history', AlertHistoryViewSet, basename='alert-history')
-router.register(r'alert-notification', AlertNotificationViewSet, basename='alert-notification')
-router.register(r'alert-result', AlertResultViewSet, basename='alert-result')
-router.register(r'alerts-transition', AlertTransitionViewSet, basename='alert-transition')
+router.register(r'statuses', AlertStatusViewSet, basename='alert-status')
+router.register(r'phases', AlertPhaseViewSet, basename='alert-phase')
+router.register(r'alerts', AlertViewSet, basename='alert')
+router.register(r'transitions', AlertTransitionViewSet, basename='alert-transition')
+router.register(r'update-results', AlertUpdateResultViewSet, basename='alert-update-result')
 
 urlpatterns = [
     path('', include(router.urls)),

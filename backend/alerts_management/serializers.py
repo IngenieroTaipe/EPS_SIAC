@@ -17,14 +17,8 @@ from alerts_management.models import (
     AlertClusters
 )
 
-from core_predictive.models import (
-    NaturalPhenomena, 
-    GFSRequest
-)
-
 from core_predictive.serializers import (
-    NaturalPhenomenaLightSerializer, 
-    GFSRequestSerializer
+    NaturalPhenomenaLightSerializer
 )
 
 from core_shared.constants import LIMA_TZ
@@ -102,7 +96,7 @@ class AlertStatusPhaseSerializer(serializers.ModelSerializer):
         queryset=AlertPhase.objects.all(),
         help_text="ID de la fase de la alerta"
     )
-    
+
     class Meta:
         model = AlertStatusPhase
         fields = ['id', 'alert_status', 'alert_phase']
@@ -159,18 +153,40 @@ class AlertClusterPointSerializer(serializers.ModelSerializer):
         }
 
 # ==============================================================================
+# SERIALIZADORES SECUNDARIOS
+# ==============================================================================
+class AlertHistorySecondarySerializer(serializers.ModelSerializer):
+    """ Serializador secundario: Muestra el detalle de la bitácora. """
+    status_name = serializers.CharField(source='status.name', read_only=True)
+    phase_name = serializers.CharField(source='phase.name', read_only=True)
+
+    class Meta:
+        model = AlertHistory
+        fields = ['status_name', 'phase_name']
+
+
+class AlertResultSecondarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AlertResult
+        fields = [
+            'has_damage',
+            'damage_report',
+            'taken_actions',
+        ]
+# ==============================================================================
 # SERIALIZADORES DE LISTA DE ALERTAS
 # ==============================================================================
 class AlertListSerializer(serializers.ModelSerializer):
     alert_clusters = serializers.SerializerMethodField()
     max_threshold = serializers.StringRelatedField()
- 
+
     start_time_local = serializers.SerializerMethodField()
     end_time_local = serializers.SerializerMethodField()
     
     class Meta:
         model = Alert
         fields = [
+            'id',
             'code',
             'max_intensity_mm_h',
             'max_threshold',
@@ -215,9 +231,14 @@ class AlertDetailSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     phase = serializers.SerializerMethodField()
     
+    historic_alert = AlertHistorySecondarySerializer(many=True, read_only=True)
+    result = AlertResultSecondarySerializer(read_only=True, source='alerts_results_alert')
+    natural_phenomena = NaturalPhenomenaLightSerializer(read_only=True)
+    
     class Meta:
         model = Alert
         fields = [
+            'id',
             'code',
             'status',
             'phase',
@@ -226,7 +247,10 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             'start_time_local',
             'end_time_local',
             'alert_cluster_components',
-            'clusters'
+            'clusters',
+            'historic_alert',
+            'result',
+            'natural_phenomena',
         ]
 
     def get_start_time_local(self, obj) -> str | None:
@@ -303,20 +327,7 @@ class AlertTransitionSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True
     )
-    
-    # === CAMPOS DE DOMINIO PARA ALERTRESULT / ALERT ===
-    start_time_local = serializers.DateTimeField(
-        required=False, 
-        allow_null=True, 
-        write_only=True,
-        default_timezone=LIMA_TZ
-    )
-    end_time_local = serializers.DateTimeField(
-        required=False, 
-        allow_null=True, 
-        write_only=True,
-        default_timezone=LIMA_TZ
-    )
+
     has_damage = serializers.BooleanField(required=False, write_only=True)
     damage_report = serializers.CharField(required=False, allow_blank=True, write_only=True)
     taken_actions = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -324,27 +335,18 @@ class AlertTransitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Alert
         fields = [
-            'id', 'code', 'start_time_local', 'end_time_local',
+            'id', 'code', 
             'status_name', 'phase_name', 
             'has_damage', 'damage_report', 'taken_actions'
         ]
-        read_only_fields = ['id', 'code', 'start_time_local', 'end_time_local']
+        read_only_fields = ['id', 'code']
 
-    def get_start_time_local(self, obj) -> str | None:
-        if obj.start_time_utc:
-            return obj.start_time_utc.astimezone(LIMA_TZ).isoformat()
-        return None
-
-    def get_end_time_local(self, obj) -> str | None:
-        if obj.end_time_utc:
-            return obj.end_time_utc.astimezone(LIMA_TZ).isoformat()
-        return None
     def validate(self, attrs):
         if attrs.get("has_damage") is True and not attrs.get("damage_report"):
             raise serializers.ValidationError({"damage_report": "Debe especificar el reporte si declara que existieron daños."})
         
-        if attrs.get("phase_name") == "Atendido" and not attrs.get("taken_actions"):
-            raise serializers.ValidationError({"taken_actions": "Debe registrar las acciones tomadas para marcar la alerta como Atendida."})
+        if attrs.get("phase_name") == "ATENDIDO" and not attrs.get("taken_actions"):
+            raise serializers.ValidationError({"taken_actions": "Debe registrar las acciones tomadas para marcar la alerta como ATENDIDA."})
             
         return attrs
 
@@ -364,14 +366,14 @@ class AlertResultUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AlertResult
-        fields = ['has_damage', 'damage_report', 'taken_actions']
+        fields = ['alert', 'has_damage', 'damage_report', 'taken_actions']
 
     def validate(self, attrs):
         alert = self.context['alert']
         latest_history = alert.history.order_by('-created_at').first()
 
-        if not latest_history or latest_history.phase.name != "Atendido":
-            raise serializers.ValidationError("Solo se permite la edición directa del reporte en alertas con fase 'Atendido'.")
+        if not latest_history or latest_history.status.name != "CONFIRMADO":
+            raise serializers.ValidationError("Solo se permite la edición directa del reporte en alertas con estado 'CONFIRMADO'.")
 
         # RESTRICCIÓN DE 2 DÍAS DE GRACIA
         time_since_attended = timezone.now() - latest_history.created_at
