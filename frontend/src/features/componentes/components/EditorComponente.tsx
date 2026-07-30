@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { cn } from '@/shared/lib/cn';
 import {
   type Componente,
   type TipoComponente,
   TIPO_LABEL,
+  TIPO_LINEA,
 } from '@/features/mapa/types/componente';
 import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
 import {
@@ -20,6 +21,7 @@ import { apiComponentes } from '@/services/apiComponentes';
 import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
 import { mapTipo } from '@/services/adaptadores';
 import { FilterableSelect } from '@/shared/components/FilterableSelect';
+import type { BackendComponentListCoord } from '@/services/apiComponentes';
 
 // Iconos del componente (SVG importados como URL para el icono delSidebar).
 import CaptacionIconUrl from '@/assets/icons/captacion.svg?url';
@@ -90,14 +92,28 @@ interface EditorComponenteProps {
     operationalStatusCode?: string;
     physicalStatusCode?: string;
     criticalityId?: number;
-    /** Id del ComponentCoord existente (si lo hay). Permite PATCH en lugar de POST. */
-    coordId?: number;
-    /** Id de criticidad tomado de la coordenada existente (heuristica por nombre en EditorComponentePage). */
-    criticalityIdFromCoord?: number;
+    /** Coords existentes traidas del retrieve (con id, criticality nombre, geojson). */
+    coords?: BackendComponentListCoord[];
     /** Nombre de la criticidad (viene como StringRelatedField en la coord embebida). */
     criticalityName?: string;
   };
 }
+
+/**
+ * Punto de la línea/punto en edición. `id` solo si ya existe en backend
+ * (PATCH); undefined si es nuevo (POST).
+ */
+type Punto = {
+  id?: number;
+  east: string;
+  north: string;
+  criticalityId: string;
+  /** nombre de criticidad precargado (para mapear al id al cargar catalogo). */
+  criticalityName?: string;
+};
+
+/** Punto con su lat/lon derivado (memo) para el mapa y la vista previa. */
+type PuntoConLatLon = Punto & { lat: number; lon: number; valido: boolean };
 
 export function EditorComponente({ initial, initialBackend }: EditorComponenteProps) {
   const navigate = useNavigate();
@@ -124,17 +140,20 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
         setEstadosFisOptions(fis.map((f) => ({ value: f.code, label: f.name })));
         setCriticidadesOptions(crits.map((c) => ({ value: String(c.id), label: c.name })));
 
-        // Criticidad: el backend trae solo el *nombre* de la criticidad
-        // (StringRelatedField en la coord embebida), no el id. Mapeamos el
-        // nombre al id del catalogo recien cargado, ignorando mayusculas.
-        if (!criticidadId) {
-          const nombre = (initialBackend?.criticalityName ?? '').toUpperCase().trim();
-          if (nombre) {
-            const match = crits.find((c) =>
-              c.name.toUpperCase().includes(nombre.slice(0, 3)),
-            );
-            if (match) setCriticidadId(String(match.id));
-          }
+        // Criticidad de cada punto: el backend trae solo el *nombre* de la
+        // criticidad (StringRelatedField en la coord embebida), no el id.
+        // Mapeamos nombre→id por coincidencia de los 3 primeros caracteres.
+        if (puntos.some((p) => !p.criticalityId && p.criticalityName)) {
+          setPuntos((prev) =>
+            prev.map((p) => {
+              if (p.criticalityId || !p.criticalityName) return p;
+              const nombre = p.criticalityName.toUpperCase().trim();
+              const match = crits.find((c) =>
+                c.name.toUpperCase().includes(nombre.slice(0, 3)),
+              );
+              return match ? { ...p, criticalityId: String(match.id) } : p;
+            }),
+          );
         }
       })
       .catch(() => {});
@@ -152,35 +171,80 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
   const [distritoUbigeo, setDistritoUbigeo] = useState<string>(initialBackend?.districtUbigeo ?? '');
   const [estadoOperacionalCode, setEstadoOperacionalCode] = useState<string>(initialBackend?.operationalStatusCode ?? '');
   const [estadoFisicoCode, setEstadoFisicoCode] = useState<string>(initialBackend?.physicalStatusCode ?? '');
-  const [criticidadId, setCriticidadId] = useState<string>(initialBackend?.criticalityId ? String(initialBackend.criticalityId) : '');
   const [especificacion, setEspecificacion] = useState(initial?.especificacion ?? '');
 
-  // ── Coordenadas: UTM ↔ LatLon ──────────────────────────────────────
-  const initUtm = initial
-    ? latLonToUtm(initial.lat, initial.lng, ZONA_UTM_DEFAULT)
-    : { easting: 0, northing: 0 };
+  // ── Lista de puntos (coordenadas) del componente ───────────────────
+  // Para tipos "LÍNEA DE CONDUCCIÓN" y "LÍNEA DE ADUCCIÓN" puede haber
+  // N puntos; para el resto de tipos se mantiene 1 solo.
+  const inicialPuntos: Punto[] = useMemo(() => {
+    const coords = initialBackend?.coords ?? [];
+    if (coords.length > 0) {
+      return coords.map((c) => {
+        const lat = c.coords?.coordinates?.[1] ?? 0;
+        const lon = c.coords?.coordinates?.[0] ?? 0;
+        const utm = lat !== 0 || lon !== 0
+          ? latLonToUtm(lat, lon, ZONA_UTM_DEFAULT)
+          : { easting: 0, northing: 0 };
+        return {
+          id: c.id,
+          east: String(utm.easting),
+          north: String(utm.northing),
+          criticalityId: '',
+          criticalityName: c.criticality,
+        };
+      });
+    }
+    // Componente nuevo o sin coords previas: partir de 1 punto vacío.
+    return [{ east: '', north: '', criticalityId: '' }];
+  }, [initialBackend]);
 
-  const [utmE, setUtmE] = useState<string>(String(initUtm.easting));
-  const [utmN, setUtmN] = useState<string>(String(initUtm.northing));
-  const [lat, setLat] = useState<number>(initial?.lat ?? 0);
-  const [lon, setLon] = useState<number>(initial?.lng ?? 0);
+  const [puntos, setPuntos] = useState<Punto[]>(inicialPuntos);
+  // Cuando cambian los coords iniciales (ej. abre otra edición) sincronizamos.
+  // (No se incluye en el efecto de catalogo para no pisar edits del usuario.)
+  useEffect(() => { setPuntos(inicialPuntos); }, [inicialPuntos]);
+
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
 
-  function handleUtmChange(field: 'e' | 'n', value: string) {
-    if (field === 'e') setUtmE(value);
-    else setUtmN(value);
+  // Modo "línea": el tipo elegido es conducción/aducción → N puntos.
+  const esLinea = TIPO_LINEA.includes(mapTipo(tipoLabel));
+  const minPuntos = esLinea ? 2 : 1;
 
-    const e = parseFloat(field === 'e' ? value : utmE);
-    const n = parseFloat(field === 'n' ? value : utmN);
-    if (isNaN(e) || isNaN(n)) return;
-    try {
-      const { latitude, longitude } = utmToLatLon(e, n, ZONA_UTM_DEFAULT, ZONA_LETRA_DEFAULT);
-      setLat(Math.round(latitude * 1e6) / 1e6);
-      setLon(Math.round(longitude * 1e6) / 1e6);
-    } catch {
-      // Si los valores no son válidos para conversión, no actualiza.
-    }
+  // Derivados: cada punto con lat/lon y validez UTM (memo para el mapa).
+  const puntosGeo: PuntoConLatLon[] = useMemo(() => {
+    return puntos.map((p) => {
+      const e = parseFloat(p.east);
+      const n = parseFloat(p.north);
+      const valido =
+        !isNaN(e) && !isNaN(n) && e >= 100000 && e <= 900000 && n > 0 && n <= 10000000;
+      let lat = 0;
+      let lon = 0;
+      if (valido) {
+        try {
+          const r = utmToLatLon(e, n, ZONA_UTM_DEFAULT, ZONA_LETRA_DEFAULT);
+          lat = Math.round(r.latitude * 1e6) / 1e6;
+          lon = Math.round(r.longitude * 1e6) / 1e6;
+        } catch {
+          // fuera de rango, deja 0,0
+        }
+      }
+      return { ...p, lat, lon, valido };
+    });
+  }, [puntos]);
+
+  // Compatibilidad hacia atrás (MapaReferencial/VistaPrevia usan el 1er punto).
+  const primerPunto = puntosGeo[0];
+
+  function actualizarPunto(idx: number, cambios: Partial<Punto>) {
+    setPuntos((prev) => prev.map((p, i) => (i === idx ? { ...p, ...cambios } : p)));
+  }
+
+  function agregarPunto() {
+    setPuntos((prev) => [...prev, { east: '', north: '', criticalityId: '' }]);
+  }
+
+  function quitarPunto(idx: number) {
+    setPuntos((prev) => prev.filter((_, i) => i !== idx));
   }
 
   const MAX = 300;
@@ -193,17 +257,19 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
       return;
     }
 
-    // Validar coordenadas UTM (el backend rechaza easting=0/northing=0 con
-    // ValidationError 400 porque caen fuera del rango métrico válido del
-    // Perú). Si vienen en cero, exigimos al usuario que las ingrese.
-    const e = parseFloat(utmE);
-    const n = parseFloat(utmN);
-    const utmValido =
-      !isNaN(e) && !isNaN(n) && e >= 100000 && e <= 900000 && n > 0 && n <= 10000000;
-
-    if (!utmValido) {
+    // Validar todas las coordenadas UTM ingresadas.
+    if (puntos.length < minPuntos) {
       setErrorGuardar(
-        'Ingrese coordenadas UTM válidas para el Perú (Este entre 100000 y 900000; Norte mayor a 0).',
+        esLinea
+          ? `Las líneas de conducción/aducción deben tener al menos ${minPuntos} puntos.`
+          : 'Debe ingresar las coordenadas UTM del componente.',
+      );
+      return;
+    }
+    const invalidos = puntosGeo.filter((p) => !p.valido);
+    if (invalidos.length > 0) {
+      setErrorGuardar(
+        `${invalidos.length} punto(s) con coordenadas UTM inválidas. Ingrese Este entre 100000 y 900000 y Norte mayor a 0.`,
       );
       return;
     }
@@ -220,34 +286,41 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
         physical_status: estadoFisicoCode || null,
       };
 
+      let compId: number;
       if (initial?.id) {
         await apiComponentes.updateComponente(Number(initial.id), bodyComp);
+        compId = Number(initial.id);
+      } else {
+        const comp = await apiComponentes.createComponente(bodyComp);
+        compId = comp.id;
       }
 
-      // Coordenada: PATCH si ya existe (InitialBackend.coordId); POST si es nuevo.
-      const criticality = Number(criticidadId) || 1;
-      const coordBody = {
-        criticality,
-        easting: e,
-        northing: n,
-        srid_origin: 18,
-      };
+      // Diff coords: PATCH las existentes, POST las nuevas, DELETE las que
+      // ya no están en la lista final (sus ids faltan).
+      const idsFinales = new Set(
+        puntos.map((p) => p.id).filter((id): id is number => typeof id === 'number'),
+      );
+      const coordsPrevias = initialBackend?.coords ?? [];
+      const idsEliminar = coordsPrevias
+        .map((c) => c.id)
+        .filter((id) => !idsFinales.has(id));
 
-      if (initial?.id && initialBackend?.coordId) {
-        await apiComponentes.updateCoord(initialBackend.coordId, {
-          ...coordBody,
-          component: Number(initial.id),
-        });
-      } else if (initial?.id) {
-        // Componente existente que por alguna razón no trajo coord; crearlo.
-        await apiComponentes.createCoord({
-          ...coordBody,
-          component: Number(initial.id),
-        });
-      } else {
-        // Primero creamos el componente (POST) y luego su coordenada (POST).
-        const comp = await apiComponentes.createComponente(bodyComp);
-        await apiComponentes.createCoord({ ...coordBody, component: comp.id });
+      for (const p of puntos) {
+        const body = {
+          component: compId,
+          criticality: Number(p.criticalityId) || 1,
+          easting: parseFloat(p.east),
+          northing: parseFloat(p.north),
+          srid_origin: 18,
+        };
+        if (p.id) {
+          await apiComponentes.updateCoord(p.id, body);
+        } else {
+          await apiComponentes.createCoord(body);
+        }
+      }
+      for (const id of idsEliminar) {
+        try { await apiComponentes.deleteCoord(id); } catch { /* tolerar */ }
       }
 
       navigate('/componentes/gestion');

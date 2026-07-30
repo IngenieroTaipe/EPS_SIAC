@@ -189,7 +189,7 @@ export function GestionUmbrales() {
       <div className="mb-5 flex flex-wrap items-end gap-6">
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">
-            Unidad Operativa
+            Distrito
           </label>
           <FilterableSelect
             value={selectedUbigeo ?? ''}

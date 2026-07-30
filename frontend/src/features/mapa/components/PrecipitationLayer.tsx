@@ -48,11 +48,24 @@ export function PrecipitationLayer() {
   // === TEMPORAL: toggle de comparación visual Clusters vs Celdas (~12k) ===
   const [viewMode, setViewMode] = useState<'clusters' | 'cells'>('clusters');
 
+  const lastMouseEvent = useRef<{ clientX: number; clientY: number } | null>(null);
+
   // Forzar Canvas renderer para máxima performance con cientos de polígonos.
   useEffect(() => {
     if (!map) return;
     map.options.preferCanvas = true;
   }, [map]);
+
+
+  useEffect(() => {
+  if (!map) return;
+  const container = map.getContainer();
+  const handleMove = (e: MouseEvent) => {
+    lastMouseEvent.current = { clientX: e.clientX, clientY: e.clientY };
+  };
+  container.addEventListener('mousemove', handleMove);
+  return () => container.removeEventListener('mousemove', handleMove);
+}, [map]);
 
   /**
    * Re-estiliza TODAS las features al mover el slider/timeline.
@@ -60,10 +73,34 @@ export function PrecipitationLayer() {
    */
   useEffect(() => {
     const layer = geoJsonRef.current;
-    if (!layer) return;
-    layer.setStyle((feature: GfsClusterFeature) =>
-      styleForFrame(feature, activeFrame),
-    );
+    if (!layer || !activeFrame) return;
+    layer.setStyle((feature: GfsClusterFeature) => styleForFrame(feature, activeFrame)); 
+    // Alternar interactividad: solo la feature del frame activo captura el
+    // hover; las otras 17 apiladas se duermen. setStyle NO re-bindea eventos,
+    // hace falta setInteractive/setNonInteractive.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    layer.eachLayer((l: any) => {
+      const p = (l.feature as GfsClusterFeature | undefined)?.properties;
+      if (!p) {
+        l.options.interactive = false;
+        return;
+      }
+      const sameFrame =
+        p.time_step === activeFrame.time_step &&
+        (p.temporal_status ?? 'FORECAST') === activeFrame.temporal_status;
+      const cat = classifyCluster(p);
+      const interactive = sameFrame && cat !== '-';
+      l.options.interactive = interactive;
+    });
+    if (lastMouseEvent.current && map) {
+    const container = map.getContainer();
+    const evt = new MouseEvent('mousemove', {
+      clientX: lastMouseEvent.current.clientX,
+      clientY: lastMouseEvent.current.clientY,
+      bubbles: true,
+    });
+    container.dispatchEvent(evt);
+    } 
   }, [frameIndex, frames, activeFrame, renderData]);
 
   /** Calcula PathOptions según si la feature pertenece al frame activo. */
@@ -87,24 +124,35 @@ export function PrecipitationLayer() {
   }
 
   /**
-   * Tooltip estático: categoría legible + intensidad máxima del clúster.
+   * Re-bindea los tooltips según el frame activo. Sólo la feature del frame
+   * seleccionado recibe un tooltip (con su intensidad/umbral de ESA hora);
+   * las demás (mismos polígono apilado para otras 17 horas) lo liberan. Así
+   * el popup refleja la hora del timeline, no el "peor step" apilado arriba.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function onEachFeature(feature: GfsClusterFeature, layer: any) {
-    const p = feature.properties;
-    if (!p) return;
-    const cat = classifyCluster(p);
-    if (cat === '-') return;
-    const label = GFS_LABEL[cat];
-    const mmh = p.max_intensity_mm_h ?? 0;
-    layer.bindTooltip(
-      `<div style="font-family: var(--eps-font-family-sans); color: var(--eps-text-primary);">
-         <strong style="color: var(--eps-primary-main);">${label}</strong><br/>
-         <span style="font-size: 12px;">máx ${mmh.toFixed(2)} mm/h</span>
-       </div>`,
-      { sticky: true, direction: 'top', offset: [0, -5] },
-    );
-  }
+  useEffect(() => {
+    const layer = geoJsonRef.current;
+    if (!layer || !activeFrame) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    layer.eachLayer((l: any) => {
+      const p = (l.feature as GfsClusterFeature | undefined)?.properties;
+      l.unbindTooltip?.();
+      if (!p) return;
+      const sameFrame =
+        p.time_step === activeFrame.time_step &&
+        (p.temporal_status ?? 'FORECAST') === activeFrame.temporal_status;
+      if (!sameFrame) return;
+      const cat = classifyCluster(p);
+      if (cat === '-') return;
+      const mmh = p.max_intensity_mm_h ?? 0;
+      l.bindTooltip(
+        `<div style="font-family: var(--eps-font-family-sans); color: var(--eps-text-primary);">
+           <strong style="color: var(--eps-primary-main);">${GFS_LABEL[cat]}</strong><br/>
+           <span style="font-size: 12px;">${activeFrame.label} · ${mmh.toFixed(2)} mm/h</span>
+         </div>`,
+        { sticky: true, direction: 'top', offset: [0, -5] },
+      );
+    });
+  }, [frameIndex, frames, activeFrame, renderData]);
 
   // === TEMPORAL: en modo 'cells' delegamos todo a la v2 y sólo inyectamos
   // el toggle de comparación. ===
@@ -132,6 +180,7 @@ export function PrecipitationLayer() {
     feat0_geometry_type: renderData?.features[0]?.geometry?.type,
   });
 
+  
   if (loading || !renderData) return null;
 
   return (
@@ -148,7 +197,6 @@ export function PrecipitationLayer() {
         style={(feature: GfsClusterFeature) =>
           styleForFrame(feature, activeFrame)
         }
-        onEachFeature={onEachFeature}
       />
 
       {/* === TEMPORAL: toggle comparación Clusters | Celdas (abajo-izq) === */}
