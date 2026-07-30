@@ -7,6 +7,7 @@ from core_predictive.views import (
     UnitsMeasurementViewSet,
     VariableViewSet,
     NaturalPhenomenasVariablesViewSet,
+    ThresholdViewSet,
     ThresholdsNaturalPhenomenaViewSet,
     GFSActiveCellViewSet,
     GFSClusterSnapshotViewSet
@@ -22,6 +23,7 @@ router.register(r'variable-types', VariableTypeViewSet, basename='variable-type'
 router.register(r'units-measurements', UnitsMeasurementViewSet, basename='units-measurement')
 router.register(r'variables', VariableViewSet, basename='variable')
 router.register(r'natural-phenomenas-variables', NaturalPhenomenasVariablesViewSet, basename='natural-phenomenas-variables')
+router.register(r'thresholds', ThresholdViewSet, basename='threshold')
 router.register(r'thresholds-natural-phenomenas', ThresholdsNaturalPhenomenaViewSet, basename='thresholds-natural-phenomenas')
 
 urlpatterns = [

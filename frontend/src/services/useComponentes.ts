@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { hasAccessToken } from './httpClient';
 import { apiComponentes } from './apiComponentes';
 import { adaptarComponentes } from './adaptadores';
 import type { ComponentesResponse } from '@/features/mapa/types/componente';
@@ -22,6 +23,13 @@ export function useComponentes(): UseComponentesResult {
     let cancelled = false;
 
     async function load() {
+      if (!hasAccessToken()) {
+        setData(EMPTY_RESPONSE);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
         const comps = await apiComponentes.listComponentes();

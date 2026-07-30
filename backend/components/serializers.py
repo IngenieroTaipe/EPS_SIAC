@@ -168,15 +168,17 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         queryset=ComponentType.objects.all(),
         help_text="ID del tipo de componente preexistente (ej: '1')"
     )
-    operational_status = serializers.PrimaryKeyRelatedField(
+    operational_status = serializers.SlugRelatedField(
         queryset=OperationalStatus.objects.all(),
-        help_text="ID del estado operativo preexistente (ej: '1')",
+        slug_field='code',
+        help_text="Codigo del estado operativo preexistente (ej: '001')",
         required=False,
         allow_null=True
     )
-    physical_status = serializers.PrimaryKeyRelatedField(
+    physical_status = serializers.SlugRelatedField(
         queryset=PhysicalStatus.objects.all(),
-        help_text="ID del estado físico preexistente (ej: '1')",
+        slug_field='code',
+        help_text="Codigo del estado fisico preexistente (ej: 'A')",
         required=False,
         allow_null=True
     )

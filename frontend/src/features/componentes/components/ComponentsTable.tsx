@@ -24,6 +24,12 @@ interface ComponentsTableProps {
   fixedWidths?: boolean;
   /** Si true, muestra la columna "Nombre" (solo en gestión, no en mapa). */
   showNombre?: boolean;
+  /**
+   * Si true (default), la fila seleccionada se pinta de amarillo. Útil en
+   * el panel del mapa; en el histórico se deja en false porque no hay
+   * sincronización con el mapa. Paridad con `AlertsTable.highlightSelected`.
+   */
+  highlightSelected?: boolean;
 }
 
 const HEADER_COLS = [
@@ -45,6 +51,7 @@ export function ComponentsTable({
   sortSelectedFirst = true,
   fixedWidths = false,
   showNombre = false,
+  highlightSelected = true,
 }: ComponentsTableProps) {
   // Ordenar: si hay seleccionado y sortSelectedFirst, ese va primero.
   const ordered = sortSelectedFirst && selectedId
@@ -92,7 +99,7 @@ export function ComponentsTable({
         <ComponentRow
           key={c.id}
           componente={c}
-          selected={selectedId === c.id}
+          selected={highlightSelected && selectedId === c.id}
           onToggleSelect={onToggleSelect}
           fixedWidths={fixedWidths}
           showNombre={showNombre}

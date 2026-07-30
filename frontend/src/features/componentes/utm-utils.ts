@@ -130,7 +130,7 @@ export function latLonToUtm(latitude: number, longitude: number, zoneNum?: numbe
       ((5 - 18 * t + t ** 2 + 72 * c - 58 * ePrim2) * ALocal ** 5) / 120) +
     500000;
 
-  const northing =
+  let northing =
     K0 *
     (M +
       n *
@@ -139,8 +139,14 @@ export function latLonToUtm(latitude: number, longitude: number, zoneNum?: numbe
           ((5 - t + 9 * c + 4 * c ** 2) * ALocal ** 4) / 24 +
           ((61 - 58 * t + t ** 2 + 600 * c - 330 * ePrim2) * ALocal ** 6) / 720));
 
+  // Hemisferio sur: UTM sumar 10 000 000 al northing para evitar valores
+  // negativos (offset del hemisferio sur). `utmToLatLon` lo resta de vuelta
+  // al leer, por lo que ambos lados deben mantener simetria.
   // Letra de la zona para hemisferio (C-X para sur, N-X para norte).
   const zoneLetter = latitude >= 0 ? 'N' : 'S';
+  if (latitude < 0) {
+    northing += 10_000_000;
+  }
 
   return {
     easting: Math.round(easting * 100) / 100,

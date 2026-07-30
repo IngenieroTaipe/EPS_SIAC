@@ -38,12 +38,15 @@ export interface BackendCriticality {
 }
 
 /**
- * Coordenada ligera embebida en el listado de componentes (viene del
- * `ComponentCoordLightSerializer` del backend). `coords` aquí es un
- * geojson Point { type, coordinates:[lng,lat] }. `criticality` es un
- * string con el nombre de la criticidad (StringRelatedField).
+ * Coordenada ligera embebida en el listado/retrieve de componentes (viene del
+ * `ComponentCoordLightSerializer` del backend). `coords` aquí es un geojson
+ * Point { type, coordinates:[lng,lat] }. `criticality` es un string con el
+ * nombre de la criticidad (StringRelatedField). Incluye `id` (id del
+ * ComponentCoord) para que el editor distinga creación (POST) de edición
+ * (PATCH) y no duplique coordenadas al guardar.
  */
 export interface BackendComponentListCoord {
+  id: number;
   criticality: string;
   coords: {
     type: 'Point';
@@ -60,6 +63,7 @@ export interface BackendComponentListCoord {
  *     `physical_status` (esos solo están en el detalle).
  */
 export interface BackendComponentListItem {
+  id: number;
   code: string;
   name: string;
   type: string;
@@ -177,6 +181,26 @@ export const apiComponentes = {
   }): Promise<BackendComponentCoord> {
     const res = await httpClient.post('/components/component-coords/', body);
     return res.data;
+  },
+
+  async updateCoord(
+    id: number,
+    body: Partial<{
+      component: number;
+      criticality: number;
+      easting?: number;
+      northing?: number;
+      srid_origin?: number;
+      latitude?: number;
+      longitude?: number;
+    }>,
+  ): Promise<BackendComponentCoord> {
+    const res = await httpClient.patch(`/components/component-coords/${id}/`, body);
+    return res.data;
+  },
+
+  async deleteCoord(id: number): Promise<void> {
+    await httpClient.delete(`/components/component-coords/${id}/`);
   },
 
   async listTipos(): Promise<BackendComponentType[]> {

@@ -67,7 +67,7 @@ export function adaptarComponentes(
       });
       const [lat0, lng0] = puntos[0];
       componentes.push({
-        id: comp.code,
+        id: String(comp.id),
         tipo,
         lat: lat0,
         lng: lng0,
@@ -82,7 +82,7 @@ export function adaptarComponentes(
     } else {
       const [lng, lat] = coordList[0].coords!.coordinates;
       componentes.push({
-        id: comp.code,
+        id: String(comp.id),
         tipo,
         lat,
         lng,

@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { BaseMap } from '@/features/mapa/components/BaseMap';
-import { LayerControl, type LayerId } from '@/features/mapa/components/LayerControl';
+import {
+  LayerControl,
+  type LayerControlOption,
+  type LayerId,
+} from '@/features/mapa/components/LayerControl';
 import { MapLegend } from '@/features/mapa/components/MapLegend';
 import { PrecipitationLayer } from '@/features/mapa/components/PrecipitationLayer';
-import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
 import { ClusterAlertLayer } from '@/features/mapa/components/ClusterAlertLayer';
 import { DistrictLayer } from '@/features/mapa/components/DistrictLayer';
 import { mockAlertas } from '@/features/mapa/data/mockAlertas';
-import { useComponentes } from '@/services/useComponentes';
 
 /**
  * HomePage — pestaña principal pública (antes de iniciar sesión).
@@ -17,12 +19,24 @@ import { useComponentes } from '@/services/useComponentes';
  * inferior. Solo la vista de capas y la leyenda, tal como se ve cuando
  * uno entra sin autenticarse.
  *
+ * La capa "Componentes" NO está disponible para el usuario no autenticado
+ * (información sensible que solo corresponde ver tras iniciar sesión).
+ * Tampoco se renderiza en el mapa aunque el estado lo intente activar.
+ *
  * El layout lo provee `GuestLayout` (TopBar con botón "Iniciar Sesión").
  */
+const HOME_LAYER_OPTIONS: LayerControlOption[] = [
+  { id: 'distritos', label: 'Límites de Distritos' },
+  { id: 'precipitaciones', label: 'Mapa de Precipitaciones' },
+  { id: 'alertas', label: 'Mapa de Alertas' },
+  // 'componentes' omitido intencionalmente — requiere autenticación.
+];
+
 export function HomePage() {
-  const [selected, setSelected] = useState<Set<LayerId>>(() => new Set(['alertas']));
+  const [selected, setSelected] = useState<Set<LayerId>>(
+    () => new Set(['alertas']),
+  );
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
-  const { data: componentesData } = useComponentes();
 
   function handleToggleSelect(id: string) {
     setSelectedAlertId((prev) => (prev === id ? null : id));
@@ -34,7 +48,6 @@ export function HomePage() {
         <BaseMap>
           <DistrictLayer />
           {selected.has('precipitaciones') && <PrecipitationLayer />}
-          {selected.has('componentes') && <ComponentLayer data={componentesData} />}
           {selected.has('alertas') && (
             <ClusterAlertLayer
               alertas={mockAlertas.alertas}
@@ -45,6 +58,7 @@ export function HomePage() {
         </BaseMap>
 
         <LayerControl
+          options={HOME_LAYER_OPTIONS}
           selected={selected}
           onToggle={(id) =>
             setSelected((prev) => {

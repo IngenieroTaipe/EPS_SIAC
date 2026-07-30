@@ -28,7 +28,9 @@ export function MapaAlertasPage() {
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
   // Para el panel del mapa mostramos las primeras 10 alertas del histórico.
-  const panelAlertas = mockAlertasHistoricas.slice(0, 10);
+  // El panel limita internamente a `maxItems` (= 10 por defecto), así que
+  // aquí pasamos la lista completa y dejamos que `MapAlertsPanel` la slice.
+  const panelAlertas = mockAlertasHistoricas;
 
   function handleToggleSelect(id: string) {
     setSelectedAlertId((prev) => (prev === id ? null : id));

@@ -146,12 +146,15 @@ interface ComponentLayerProps {
   selectedComponentId?: string | null;
   /** Callback al hacer clic en un componente del mapa (toggle selección). */
   onComponenteClick?: (id: string) => void;
+  /** ID de componente a excluir del render (ej. el que se está editando). */
+  excludeId?: string;
 }
 
 export function ComponentLayer({
   data,
   selectedComponentId,
   onComponenteClick,
+  excludeId,
 }: ComponentLayerProps) {
   // Si el padre no pasa `data`, consumimos el backend aquí.
   // (Regla de hooks: siempre se llama al hook; el override es por data.)
@@ -173,7 +176,7 @@ export function ComponentLayer({
     return map;
   }, [layerData]);
 
-  const comps = layerData?.componentes ?? [];
+  const comps = (layerData?.componentes ?? []).filter((c) => c.id !== excludeId);
   const tramos = layerData?.tramos ?? [];
 
   if (!showLayer) return null;

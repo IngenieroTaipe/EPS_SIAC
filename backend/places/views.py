@@ -1,12 +1,15 @@
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from places.models import Department, Province, District, Sector
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from places.serializers import (
-    DepartmentSerializer, 
+    DepartmentSerializer,
     ProvinceSerializer,
     DistrictSerializer,
+    DistrictLightSerializer,
     SectorSerializer
 )
 
@@ -132,6 +135,42 @@ class DistrictViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return District.objects.select_related('province__department').all()
+
+    @extend_schema(
+        tags=['Places / District'],
+        summary="Listar distritos (version ligera)",
+        description=(
+            "Devuelve un listado ligero ({ ubigeo, name }) de todos los "
+            "distritos disponibles. Sin geometrías GeoJSON y sin paginación, "
+            "pensado para poblar selectores grandes en el frontend. "
+            "Admite el parametro de busqueda `?search=` que filtra por "
+            "nombre o ubigeo (case-insensitive)."
+        ),
+    )
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='light',
+        permission_classes=[IsAuthenticatedOrReadOnly],
+        filter_backends=[filters.SearchFilter, filters.OrderingFilter],
+        pagination_class=None,
+    )
+    def light(self, request):
+        """
+            Endpoint liviano para poblar desplegables/selectores de distritos
+            en el cliente. A diferencia de `GET /districts/`:
+              - No incluye geometrías GeoJSON ((serializer `DistrictLightSerializer`).
+              - Desactiva la paginación por defecto, devolviendo todos los
+                registros (los distritos son cientos, no decenas de miles;
+                el payload sin geometrias es ligero).
+              - Permite buscar con `?search=<nombre|ubigeo>` gracias al
+                `SearchFilter` heredado del ViewSet.
+        """
+        queryset = self.filter_queryset(
+            District.objects.all().order_by('ubigeo')
+        )
+        serializer = DistrictLightSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 @extend_schema_view(
     list=extend_schema(tags=['Places / Sector'], summary="Listar sectores"),

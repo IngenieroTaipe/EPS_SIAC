@@ -19,6 +19,7 @@ import {
 import { apiComponentes } from '@/services/apiComponentes';
 import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
 import { mapTipo } from '@/services/adaptadores';
+import { FilterableSelect } from '@/shared/components/FilterableSelect';
 
 // Iconos del componente (SVG importados como URL para el icono delSidebar).
 import CaptacionIconUrl from '@/assets/icons/captacion.svg?url';
@@ -89,6 +90,12 @@ interface EditorComponenteProps {
     operationalStatusCode?: string;
     physicalStatusCode?: string;
     criticalityId?: number;
+    /** Id del ComponentCoord existente (si lo hay). Permite PATCH en lugar de POST. */
+    coordId?: number;
+    /** Id de criticidad tomado de la coordenada existente (heuristica por nombre en EditorComponentePage). */
+    criticalityIdFromCoord?: number;
+    /** Nombre de la criticidad (viene como StringRelatedField en la coord embebida). */
+    criticalityName?: string;
   };
 }
 
@@ -105,7 +112,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
   useEffect(() => {
     Promise.all([
       apiComponentes.listTipos(),
-      apiPlaces.listDistricts(),
+      apiPlaces.listDistrictsLight(),
       apiComponentes.listEstadosOperacionales(),
       apiComponentes.listEstadosFisicos(),
       apiComponentes.listCriticidades(),
@@ -116,6 +123,19 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
         setEstadosOpOptions(ops.map((o) => ({ value: o.code, label: o.name })));
         setEstadosFisOptions(fis.map((f) => ({ value: f.code, label: f.name })));
         setCriticidadesOptions(crits.map((c) => ({ value: String(c.id), label: c.name })));
+
+        // Criticidad: el backend trae solo el *nombre* de la criticidad
+        // (StringRelatedField en la coord embebida), no el id. Mapeamos el
+        // nombre al id del catalogo recien cargado, ignorando mayusculas.
+        if (!criticidadId) {
+          const nombre = (initialBackend?.criticalityName ?? '').toUpperCase().trim();
+          if (nombre) {
+            const match = crits.find((c) =>
+              c.name.toUpperCase().includes(nombre.slice(0, 3)),
+            );
+            if (match) setCriticidadId(String(match.id));
+          }
+        }
       })
       .catch(() => {});
   }, []);
@@ -172,6 +192,22 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
       setErrorGuardar('Complete los campos obligatorios: tipo, código, nombre y distrito.');
       return;
     }
+
+    // Validar coordenadas UTM (el backend rechaza easting=0/northing=0 con
+    // ValidationError 400 porque caen fuera del rango métrico válido del
+    // Perú). Si vienen en cero, exigimos al usuario que las ingrese.
+    const e = parseFloat(utmE);
+    const n = parseFloat(utmN);
+    const utmValido =
+      !isNaN(e) && !isNaN(n) && e >= 100000 && e <= 900000 && n > 0 && n <= 10000000;
+
+    if (!utmValido) {
+      setErrorGuardar(
+        'Ingrese coordenadas UTM válidas para el Perú (Este entre 100000 y 900000; Norte mayor a 0).',
+      );
+      return;
+    }
+
     setGuardando(true);
     try {
       const bodyComp = {
@@ -184,36 +220,39 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
         physical_status: estadoFisicoCode || null,
       };
 
-      let compId: number;
-
       if (initial?.id) {
-        // PATCH — editar existente
-        const comp = await apiComponentes.updateComponente(Number(initial.id), bodyComp);
-        compId = comp.id;
-      } else {
-        // POST — crear nuevo
-        const comp = await apiComponentes.createComponente(bodyComp);
-        compId = comp.id;
+        await apiComponentes.updateComponente(Number(initial.id), bodyComp);
       }
 
-      // Guardar coordenada (UTM → backend convierte a WGS84)
-      const e = parseFloat(utmE);
-      const n = parseFloat(utmN);
-      await apiComponentes.createCoord({
-        component: compId,
-        criticality: Number(criticidadId) || 1,
-        easting: isNaN(e) ? 0 : e,
-        northing: isNaN(n) ? 0 : n,
+      // Coordenada: PATCH si ya existe (InitialBackend.coordId); POST si es nuevo.
+      const criticality = Number(criticidadId) || 1;
+      const coordBody = {
+        criticality,
+        easting: e,
+        northing: n,
         srid_origin: 18,
-      });
+      };
+
+      if (initial?.id && initialBackend?.coordId) {
+        await apiComponentes.updateCoord(initialBackend.coordId, {
+          ...coordBody,
+          component: Number(initial.id),
+        });
+      } else if (initial?.id) {
+        // Componente existente que por alguna razón no trajo coord; crearlo.
+        await apiComponentes.createCoord({
+          ...coordBody,
+          component: Number(initial.id),
+        });
+      } else {
+        // Primero creamos el componente (POST) y luego su coordenada (POST).
+        const comp = await apiComponentes.createComponente(bodyComp);
+        await apiComponentes.createCoord({ ...coordBody, component: comp.id });
+      }
 
       navigate('/componentes/gestion');
     } catch (err: unknown) {
-      const e = err as { response?: { data?: Record<string, unknown> } };
-      const msg =
-        (e?.response?.data as { detail?: string } | undefined)?.detail ??
-        'Error al guardar el componente.';
-      setErrorGuardar(msg);
+      setErrorGuardar(extraerErrorGuardar(err));
     } finally {
       setGuardando(false);
     }
@@ -228,14 +267,27 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
       await apiComponentes.deleteComponente(Number(initial.id));
       navigate('/componentes/gestion');
     } catch (err: unknown) {
-      const e = err as { response?: { data?: Record<string, unknown> } };
-      const msg =
-        (e?.response?.data as { detail?: string } | undefined)?.detail ??
-        'Error al eliminar el componente.';
-      setErrorGuardar(msg);
+      setErrorGuardar(extraerErrorGuardar(err, 'Error al eliminar el componente.'));
     } finally {
       setGuardando(false);
     }
+  }
+
+  function extraerErrorGuardar(err: unknown, fallback = 'Error al guardar el componente.'): string {
+    const e = err as { response?: { data?: Record<string, unknown> } };
+    const data = e?.response?.data;
+    if (data && typeof data === 'object') {
+      const parts: string[] = [];
+      for (const [k, v] of Object.entries(data)) {
+        if (Array.isArray(v)) parts.push(`${k}: ${(v as unknown[]).join('; ')}`);
+        else if (typeof v === 'string') parts.push(`${k}: ${v}`);
+        else if (typeof v === 'object' && v !== null) parts.push(`${k}: ${JSON.stringify(v)}`);
+      }
+      if (parts.length) return parts.join(' · ');
+      const detail = (data as { detail?: string }).detail;
+      if (detail) return detail;
+    }
+    return fallback;
   }
 
   function handleCancelar() {
@@ -243,6 +295,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
   }
 
   return (
+    <div className="h-full flex flex-col">
     <div className="h-full overflow-y-auto p-5 flex flex-col items-start gap-5">
       {/* ── Cuerpo: 40% izquierda (datos) + 60% derecha (mapa+vistaprevia) ── */}
       <div className="self-stretch flex justify-center items-stretch gap-6">
@@ -305,11 +358,13 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
           {/* Distrito (Unidad Operativa) */}
           <Field label="Unidad Operativa (Distrito)">
-            <SelectInput
+            <FilterableSelect
               value={distritoUbigeo}
               onChange={setDistritoUbigeo}
               options={distritosOptions.map((d) => ({ value: d.ubigeo, label: d.name }))}
-              placeholder="Seleccionar distrito"
+              placeholder="Buscar distrito…"
+              emptyLabel="— Seleccionar distrito —"
+              dropdownMinWidth="min-w-[480px]"
             />
           </Field>
 
@@ -398,7 +453,12 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
         {/* Tarjeta derecha — Mapa referencial (más grande) + vista previa (60%) */}
         <div className="flex-1 flex flex-col gap-6">
-          <MapaReferencial lat={lat} lon={lon} iconUrl={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl} />
+          <MapaReferencial
+            lat={lat}
+            lon={lon}
+            iconUrl={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl}
+            excludeId={initial?.id}
+          />
           <VistaPrevia
             tipo={tipoLabel}
             lat={lat}
@@ -412,13 +472,14 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
           />
         </div>
       </div>
+      </div>
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <div className="px-8 py-5 border-t border-button-stroke inline-flex flex-col items-end gap-2 bg-background-main">
+      <div className="shrink-0 px-8 py-5 border-t border-button-stroke bg-background-main flex flex-col items-end gap-2 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         {errorGuardar && (
           <p className="text-red-600 text-sm font-sans">{errorGuardar}</p>
         )}
-        <div className="inline-flex justify-end items-center gap-3 w-full">
+        <div className="flex justify-end items-center gap-3 w-full">
           {initial?.id && (
             <button
               type="button"
@@ -428,9 +489,9 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
                          hover:bg-secondary-hover transition-colors
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-main focus-visible:ring-offset-2
                          disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
-            >
-              Eliminar
-            </button>
+>
+               {guardando ? 'Eliminando…' : 'Eliminar'}
+             </button>
           )}
           <button
             type="button"
@@ -466,6 +527,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
           </button>
         </div>
       </div>
+    
     </div>
   );
 }
@@ -550,9 +612,9 @@ function SelectInput({
  * Al cambiar las coordenadas (lat/lon) en el formulario, el mapa hace
  * pan automático al nuevo punto con zoom 15.
  */
-function MapaReferencial({ lat, lon, iconUrl }: { lat: number; lon: number; iconUrl: string }) {
+function MapaReferencial({ lat, lon, iconUrl, excludeId }: { lat: number; lon: number; iconUrl: string; excludeId?: string }) {
   return (
-    <div className="flex-1 min-h-[500px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-4 bg-background-main">
+    <div className="flex-1 min-h-[500px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-4 bg-background-main relative isolate">
       <div className="flex items-center gap-2">
         <h3 className="text-text-primary text-lg font-bold font-sans">
           Ubicación del componente
@@ -561,7 +623,7 @@ function MapaReferencial({ lat, lon, iconUrl }: { lat: number; lon: number; icon
           Vista referencial
         </span>
       </div>
-      <MiniMapa lat={lat} lon={lon} iconUrl={iconUrl} />
+      <MiniMapa lat={lat} lon={lon} iconUrl={iconUrl} excludeId={excludeId} />
     </div>
   );
 }
@@ -674,10 +736,12 @@ function MiniMapa({
   lat,
   lon,
   iconUrl,
+  excludeId,
 }: {
   lat: number;
   lon: number;
   iconUrl: string;
+  excludeId?: string;
 }) {
   // Cast a any para evitar el bug de tipos de react-leaflet@5 + @types/leaflet
   // bajo TS6 moduleResolution: bundler. Mismo workaround que el resto del mapa.
@@ -734,7 +798,7 @@ function MiniMapa({
           attribution='&copy; OpenStreetMap'
         />
         {/* Componentes del sistema (para ver la relación con los demás). */}
-        <ComponentLayer />
+        <ComponentLayer excludeId={excludeId} />
         {/* AutoPan ajusta el centro cuando cambian lat/lon. */}
         <AutoPan lat={lat} lon={lon} />
         {/* Marker destacado del componente en edición. */}

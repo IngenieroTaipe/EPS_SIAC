@@ -87,6 +87,10 @@ export const navConfig: NavGroup[] = [
         to: '/climatico',
         label: 'Mapa Climático',
         icon: MapaIcon,
+        subitems: [
+          { to: '/climatico', label: 'Vista Geoespacial' },
+          { to: '/umbrales/gestion', label: 'Gestionar Umbrales' },
+        ],
       },
     ],
   },

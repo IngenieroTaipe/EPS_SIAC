@@ -1,4 +1,5 @@
 import { httpClient } from './httpClient';
+import { cachedGet } from './requestCache';
 import type {
   GfsCellFeatureCollection,
   GfsClusterFeatureCollection,
@@ -14,10 +15,18 @@ import type {
 export const apiGFS = {
   /** Trae la ventana 18h (T-6h .. T+12h) de la última corrida GFS. */
   async getWindow18h(): Promise<GfsClusterFeatureCollection> {
-    const res = await httpClient.get(
-      '/core_predictive/gfs-clusters-snapshots/window-18h/',
+    // Caché de 60s: la ventana 18h sólo cambia por corrida GFS (cada 6h),
+    // pero ponemos TTL corto para respetar el "Última actualización".
+    return cachedGet(
+      'gfs:window-18h',
+      async () => {
+        const res = await httpClient.get(
+          '/core_predictive/gfs-clusters-snapshots/window-18h/',
+        );
+        return res.data as GfsClusterFeatureCollection;
+      },
+      60_000,
     );
-    return res.data as GfsClusterFeatureCollection;
   },
 
   /**
