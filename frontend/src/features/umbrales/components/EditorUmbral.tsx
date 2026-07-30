@@ -186,7 +186,7 @@ export function EditorUmbral({
           u.district?.ubigeo === districtUbigeo &&
           u.natural_phenomena?.id === npId &&
           u.variable?.id === varId &&
-          u.threshold?.id !== thrId, // excluir自身的 categoría
+          u.threshold?.id !== thrId, // excluir su propia categoría
       );
       const res = validarContinuidad(min, max, siblings, initial?.id);
       if (!res.ok) {

@@ -54,7 +54,7 @@ export function adaptarComponentes(
   for (const comp of comps) {
     const tipo = mapTipo(comp.type);
     const coordList: BackendComponentListCoord[] = (comp.coords ?? []).filter(
-      (c) => c.coords !== null,
+      (c) => c.geojson !== null,
     );
     if (coordList.length === 0) continue;
 
@@ -62,7 +62,7 @@ export function adaptarComponentes(
 
     if (esLinea) {
       const puntos: Array<[number, number]> = coordList.map((c) => {
-        const [lng, lat] = c.coords!.coordinates;
+        const [lng, lat] = c.geojson!.coordinates;
         return [lat, lng] as [number, number];
       });
       const [lat0, lng0] = puntos[0];
@@ -74,13 +74,13 @@ export function adaptarComponentes(
         codigo: comp.code,
         nombre: comp.name,
         estado: 'normal',
-        criticidad: mapCriticidad(coordList[0].criticality),
+        criticidad: mapCriticidad(coordList[0].criticality?.name),
         unidadOperativa: comp.district,
-        especificacion: '',
+        especificacion: comp.specification ?? '',
         puntos,
       });
     } else {
-      const [lng, lat] = coordList[0].coords!.coordinates;
+      const [lng, lat] = coordList[0].geojson!.coordinates;
       componentes.push({
         id: String(comp.id),
         tipo,
@@ -89,9 +89,9 @@ export function adaptarComponentes(
         codigo: comp.code,
         nombre: comp.name,
         estado: 'normal',
-        criticidad: mapCriticidad(coordList[0].criticality),
+        criticidad: mapCriticidad(coordList[0].criticality?.name),
         unidadOperativa: comp.district,
-        especificacion: '',
+        especificacion: comp.specification ?? '',
       });
     }
   }

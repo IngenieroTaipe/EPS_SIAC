@@ -39,18 +39,27 @@ export interface BackendCriticality {
 
 /**
  * Coordenada ligera embebida en el listado/retrieve de componentes (viene del
- * `ComponentCoordLightSerializer` del backend). `coords` aquí es un geojson
- * Point { type, coordinates:[lng,lat] }. `criticality` es un string con el
- * nombre de la criticidad (StringRelatedField). Incluye `id` (id del
- * ComponentCoord) para que el editor distinga creación (POST) de edición
- * (PATCH) y no duplique coordenadas al guardar.
+ * `ComponentCoordLightSerializer` del backend). El backend expone:
+ *   - `id`            : id del ComponentCoord.
+ *   - `criticality`   : objeto ligero `{ id, name }` (CriticalityLightSerializer).
+ *   - `coords`        : WKT string de PostGIS ("SRID=4326;POINT(lng lat)").
+ *   - `geojson`       : objeto GeoJSON Point { type, coordinates:[lng,lat] }
+ *     (usar este para extraer lat/lon en el frontend).
+ *   - `utm_coords`    : { easting, northing, srid, zone } calculado desde WGS84.
  */
 export interface BackendComponentListCoord {
   id: number;
-  criticality: string;
-  coords: {
+  criticality: { id: number; name: string };
+  coords: string | null;
+  geojson: {
     type: 'Point';
     coordinates: [number, number];
+  } | null;
+  utm_coords: {
+    easting: number;
+    northing: number;
+    srid: number;
+    zone: string;
   } | null;
 }
 
@@ -69,6 +78,7 @@ export interface BackendComponentListItem {
   type: string;
   district: string;
   coords: BackendComponentListCoord[];
+  specification?: string | null;
 }
 
 /**
@@ -107,7 +117,7 @@ export interface BackendComponentCoord {
 async function fetchAllPages<T>(url: string, params?: Record<string, unknown>): Promise<T[]> {
   let all: T[] = [];
   let page = 1;
-  let next: string | null = null;
+  let next: string | null;
   do {
     const res = await httpClient.get(url, { params: { page, ...params } });
     const data = res.data;
@@ -139,6 +149,14 @@ export const apiComponentes = {
     type: number;
     operational_status?: string | null;
     physical_status?: string | null;
+    coords?: Array<{
+      criticality: number;
+      easting?: number;
+      northing?: number;
+      srid_origin?: number;
+      latitude?: number;
+      longitude?: number;
+    }>;
   }): Promise<BackendComponent> {
     const res = await httpClient.post('/components/components/', body);
     return res.data;
@@ -154,6 +172,14 @@ export const apiComponentes = {
       type: number;
       operational_status?: string | null;
       physical_status?: string | null;
+      coords?: Array<{
+        criticality: number;
+        easting?: number;
+        northing?: number;
+        srid_origin?: number;
+        latitude?: number;
+        longitude?: number;
+      }>;
     }>,
   ): Promise<BackendComponent> {
     const res = await httpClient.patch(`/components/components/${id}/`, body);

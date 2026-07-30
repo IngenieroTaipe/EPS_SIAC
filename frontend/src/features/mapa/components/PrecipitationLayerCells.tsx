@@ -6,6 +6,7 @@ import { usePrecipitationTimeline } from '@/features/mapa/timeline/usePrecipitat
 import {
   GFS_COLOR_MAP,
   GFS_LABEL,
+  extractHHmm,
   getThreshold,
   intensityAt,
   type GfsCategory,
@@ -96,6 +97,34 @@ export function PrecipitationLayerCells() {
     layer.setStyle((feature: GfsCellFeature) => styleFor(feature, hourIndex));
   }, [hourIndex, data]);
 
+  // Re-bindea los tooltips por hora activa: muestra el umbral + intensidad
+  // del frame seleccionado (no el máximo de las 12h como antes).
+  useEffect(() => {
+    const layer = geoJsonRef.current;
+    if (!layer) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    layer.eachLayer((l: any) => {
+      const f = l.feature as GfsCellFeature | undefined;
+      if (!f) {
+        l.unbindTooltip?.();
+        return;
+      }
+      l.unbindTooltip?.();
+      const mmh = intensityAt(f, hourIndex);
+      const cat = getThreshold(mmh);
+      if (cat === '-') return;
+      const ts = f.properties?.timestamps?.[hourIndex];
+      const hhmm = extractHHmm(ts);
+      l.bindTooltip(
+        `<div style="font-family: var(--eps-font-family-sans); color: var(--eps-text-primary);">
+           <strong style="color: var(--eps-primary-main);">${GFS_LABEL[cat]}</strong><br/>
+           <span style="font-size: 12px;">${hhmm} · ${mmh.toFixed(2)} mm/h</span>
+         </div>`,
+        { sticky: true, direction: 'top', offset: [0, -5] },
+      );
+    });
+  }, [hourIndex, data]);
+
   function styleFor(feature: GfsCellFeature, idx: number) {
     const mmh = intensityAt(feature, idx);
     const cat: GfsCategory = getThreshold(mmh);
@@ -108,21 +137,8 @@ export function PrecipitationLayerCells() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function onEachFeature(feature: GfsCellFeature, layer: any) {
-    const p = feature.properties;
-    if (!p) return;
-    // Etiqueta dinámica usaría la hora activa; para el tooltip mostramos el
-    // máximo del periodo (información más útil al inspeccionar celdas).
-    const mmh = p.max_intensity_mm_h ?? 0;
-    const cat = getThreshold(mmh);
-    if (cat === '-') return;
-    layer.bindTooltip(
-      `<div style="font-family: var(--eps-font-family-sans); color: var(--eps-text-primary);">
-         <strong style="color: var(--eps-primary-main);">${GFS_LABEL[cat]}</strong><br/>
-         <span style="font-size: 12px;">máx ${mmh.toFixed(2)} mm/h</span>
-       </div>`,
-      { sticky: true, direction: 'top', offset: [0, -5] },
-    );
+  function onEachFeature(_feature: GfsCellFeature, _layer: any) {
+    // Sin bindeo inicial: el useEffect de arriba re-bindea por hora activa.
   }
 
   // === SEPARACIÓN DE GEOMETRÍAS (pintar vs negocio) ========================

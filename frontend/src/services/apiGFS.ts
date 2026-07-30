@@ -15,8 +15,10 @@ import type {
 export const apiGFS = {
   /** Trae la ventana 18h (T-6h .. T+12h) de la última corrida GFS. */
   async getWindow18h(): Promise<GfsClusterFeatureCollection> {
-    // Caché de 60s: la ventana 18h sólo cambia por corrida GFS (cada 6h),
-    // pero ponemos TTL corto para respetar el "Última actualización".
+    // Caché en localStorage: la ventana 18h sólo cambia por corrida GFS
+    // (cada 6h aprox.). TTL de 10 min para respetar el "Última
+    // actualización" del TopBar, pero sin re-refetchear en cada navegación.
+    // Sobrevive a recargas del navegador.
     return cachedGet(
       'gfs:window-18h',
       async () => {
@@ -25,7 +27,7 @@ export const apiGFS = {
         );
         return res.data as GfsClusterFeatureCollection;
       },
-      60_000,
+      10 * 60_000,
     );
   },
 
