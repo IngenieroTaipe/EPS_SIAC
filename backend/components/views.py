@@ -157,12 +157,12 @@ class ComponentViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         # `ComponentListSerializer` usa `StringRelatedField` (solo lectura)
-        # para `type` y `district`, por lo que no sirve para escribir.
-        # Para creacion/edicion se debe usar `ComponentSerializer`, que define
-        # esas relaciones como `PrimaryKeyRelatedField`/`SlugRelatedField`
-        # writables; de lo contrario los FK se persisten como NULL y se
-        # produce un `IntegrityError` (500) en el INSERT.
-        if self.action in ('create', 'update', 'partial_update'):
+        # para `type` y `district`, por lo que no sirve para escribir ni para
+        # retrievet detallado (no envia id/ubigeo, solo el string del __str__).
+        # Por eso recuperamos con `ComponentSerializer` tambien, que expone
+        # los FK como objetos ligeros {id, name} / {ubigeo, name} en la salida
+        # (to_representation) y ademas acepta PrimaryKeyRelatedField en escritura.
+        if self.action in ('create', 'update', 'partial_update', 'retrieve'):
             return ComponentSerializer
         return ComponentListSerializer
 

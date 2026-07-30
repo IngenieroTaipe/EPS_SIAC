@@ -131,7 +131,7 @@ export const apiUmbrales = {
         params,
       );
       return dedupeUmbrales(all);
-    }, 5 * 60_000);
+    }, 15 * 60_000);
   },
 
   async createUmbral(body: UmbralInput): Promise<UmbralFenomeno> {

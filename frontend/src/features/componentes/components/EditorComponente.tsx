@@ -118,6 +118,54 @@ type PuntoConLatLon = Punto & { lat: number; lon: number; valido: boolean };
 export function EditorComponente({ initial, initialBackend }: EditorComponenteProps) {
   const navigate = useNavigate();
 
+  // ── Estado del formulario ─────────────────────────────────────────
+  const [tipoId, setTipoId] = useState<string>(initialBackend?.typeId ? String(initialBackend.typeId) : '');
+  // `tipoLabel` guarda el nombre legible del backend (ej. "CAPTACIÓN").
+  // La clave interna (TipoComponente) se deriva con `mapTipo(tipoLabel)`.
+  const [tipoLabel, setTipoLabel] = useState<string>(
+    initial ? TIPO_LABEL[initial.tipo] : '',
+  );
+  const [codigo, setCodigo] = useState(initial?.codigo ?? '');
+  const [nombre, setNombre] = useState(initial?.nombre ?? '');
+  const [distritoUbigeo, setDistritoUbigeo] = useState<string>(initialBackend?.districtUbigeo ?? '');
+  const [estadoOperacionalCode, setEstadoOperacionalCode] = useState<string>(initialBackend?.operationalStatusCode ?? '');
+  const [estadoFisicoCode, setEstadoFisicoCode] = useState<string>(initialBackend?.physicalStatusCode ?? '');
+  const [especificacion, setEspecificacion] = useState(initial?.especificacion ?? '');
+
+  // ── Lista de puntos (coordenadas) del componente ───────────────────
+  // Para tipos "LÍNEA DE CONDUCCIÓN" y "LÍNEA DE ADUCCIÓN" puede haber
+  // N puntos; para el resto de tipos se mantiene 1 solo.
+  const inicialPuntos: Punto[] = useMemo(() => {
+    const coords = initialBackend?.coords ?? [];
+    if (coords.length > 0) {
+      return coords.map((c) => {
+        const lat = c.geojson?.coordinates?.[1] ?? 0;
+        const lon = c.geojson?.coordinates?.[0] ?? 0;
+        const utm = lat !== 0 || lon !== 0
+          ? latLonToUtm(lat, lon, ZONA_UTM_DEFAULT)
+          : { easting: 0, northing: 0 };
+        return {
+          id: c.id,
+          east: String(utm.easting),
+          north: String(utm.northing),
+          criticalityId: c.criticality?.id ? String(c.criticality.id) : '',
+          criticalityName: c.criticality?.name,
+        };
+      });
+    }
+    // Componente nuevo o sin coords previas: partir de 1 punto vacío.
+    return [{ east: '', north: '', criticalityId: '' }];
+  }, [initialBackend]);
+
+  const [puntos, setPuntos] = useState<Punto[]>(inicialPuntos);
+  // Cuando cambian los coords iniciales (ej. abre otra edición) sincronizamos.
+  // (No se incluye en el efecto de catálogo para no pisar edits del usuario.)
+  /* eslint-disable react-hooks/set-state-in-effect -- sincronizacion de
+     state cuando cambian los coords iniciales al cargar otra edicion
+     (mismo patrón que el resto del código: GestionUmbrales, EditorUmbral). */
+  useEffect(() => { setPuntos(inicialPuntos); }, [inicialPuntos]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   // ── Opciones dinámicas desde el backend ────────────────────────────
   const [tiposOptions, setTiposOptions] = useState<OpcionSelect[]>([]);
   const [distritosOptions, setDistritosOptions] = useState<BackendDistrict[]>([]);
@@ -143,65 +191,19 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
         // Criticidad de cada punto: el backend trae solo el *nombre* de la
         // criticidad (StringRelatedField en la coord embebida), no el id.
         // Mapeamos nombre→id por coincidencia de los 3 primeros caracteres.
-        if (puntos.some((p) => !p.criticalityId && p.criticalityName)) {
-          setPuntos((prev) =>
-            prev.map((p) => {
-              if (p.criticalityId || !p.criticalityName) return p;
-              const nombre = p.criticalityName.toUpperCase().trim();
-              const match = crits.find((c) =>
-                c.name.toUpperCase().includes(nombre.slice(0, 3)),
-              );
-              return match ? { ...p, criticalityId: String(match.id) } : p;
-            }),
-          );
-        }
+        setPuntos((prev) =>
+          prev.map((p) => {
+            if (p.criticalityId || !p.criticalityName) return p;
+            const nombre = p.criticalityName.toUpperCase().trim();
+            const match = crits.find((c) =>
+              c.name.toUpperCase().includes(nombre.slice(0, 3)),
+            );
+            return match ? { ...p, criticalityId: String(match.id) } : p;
+          }),
+        );
       })
       .catch(() => {});
   }, []);
-
-  // ── Estado del formulario ─────────────────────────────────────────
-  const [tipoId, setTipoId] = useState<string>(initialBackend?.typeId ? String(initialBackend.typeId) : '');
-  // `tipoLabel` guarda el nombre legible del backend (ej. "CAPTACIÓN").
-  // La clave interna (TipoComponente) se deriva con `mapTipo(tipoLabel)`.
-  const [tipoLabel, setTipoLabel] = useState<string>(
-    initial ? TIPO_LABEL[initial.tipo] : '',
-  );
-  const [codigo, setCodigo] = useState(initial?.codigo ?? '');
-  const [nombre, setNombre] = useState(initial?.nombre ?? '');
-  const [distritoUbigeo, setDistritoUbigeo] = useState<string>(initialBackend?.districtUbigeo ?? '');
-  const [estadoOperacionalCode, setEstadoOperacionalCode] = useState<string>(initialBackend?.operationalStatusCode ?? '');
-  const [estadoFisicoCode, setEstadoFisicoCode] = useState<string>(initialBackend?.physicalStatusCode ?? '');
-  const [especificacion, setEspecificacion] = useState(initial?.especificacion ?? '');
-
-  // ── Lista de puntos (coordenadas) del componente ───────────────────
-  // Para tipos "LÍNEA DE CONDUCCIÓN" y "LÍNEA DE ADUCCIÓN" puede haber
-  // N puntos; para el resto de tipos se mantiene 1 solo.
-  const inicialPuntos: Punto[] = useMemo(() => {
-    const coords = initialBackend?.coords ?? [];
-    if (coords.length > 0) {
-      return coords.map((c) => {
-        const lat = c.coords?.coordinates?.[1] ?? 0;
-        const lon = c.coords?.coordinates?.[0] ?? 0;
-        const utm = lat !== 0 || lon !== 0
-          ? latLonToUtm(lat, lon, ZONA_UTM_DEFAULT)
-          : { easting: 0, northing: 0 };
-        return {
-          id: c.id,
-          east: String(utm.easting),
-          north: String(utm.northing),
-          criticalityId: '',
-          criticalityName: c.criticality,
-        };
-      });
-    }
-    // Componente nuevo o sin coords previas: partir de 1 punto vacío.
-    return [{ east: '', north: '', criticalityId: '' }];
-  }, [initialBackend]);
-
-  const [puntos, setPuntos] = useState<Punto[]>(inicialPuntos);
-  // Cuando cambian los coords iniciales (ej. abre otra edición) sincronizamos.
-  // (No se incluye en el efecto de catalogo para no pisar edits del usuario.)
-  useEffect(() => { setPuntos(inicialPuntos); }, [inicialPuntos]);
 
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
@@ -231,9 +233,6 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
       return { ...p, lat, lon, valido };
     });
   }, [puntos]);
-
-  // Compatibilidad hacia atrás (MapaReferencial/VistaPrevia usan el 1er punto).
-  const primerPunto = puntosGeo[0];
 
   function actualizarPunto(idx: number, cambios: Partial<Punto>) {
     setPuntos((prev) => prev.map((p, i) => (i === idx ? { ...p, ...cambios } : p)));
@@ -276,7 +275,11 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
     setGuardando(true);
     try {
-      const bodyComp = {
+      // Contrato backend: coords[] embebido en una sola transaccion.
+      //   POST   /components/         → crea componente + coords en lote
+      //   PATCH  /components/{id}/    → reemplaza el conjunto de coords por
+      //                               el array enviado (los previos se borran)
+      const body = {
         code: codigo.padStart(4, '0'),
         name: nombre,
         specification: especificacion,
@@ -284,43 +287,18 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
         type: Number(tipoId),
         operational_status: estadoOperacionalCode || null,
         physical_status: estadoFisicoCode || null,
-      };
-
-      let compId: number;
-      if (initial?.id) {
-        await apiComponentes.updateComponente(Number(initial.id), bodyComp);
-        compId = Number(initial.id);
-      } else {
-        const comp = await apiComponentes.createComponente(bodyComp);
-        compId = comp.id;
-      }
-
-      // Diff coords: PATCH las existentes, POST las nuevas, DELETE las que
-      // ya no están en la lista final (sus ids faltan).
-      const idsFinales = new Set(
-        puntos.map((p) => p.id).filter((id): id is number => typeof id === 'number'),
-      );
-      const coordsPrevias = initialBackend?.coords ?? [];
-      const idsEliminar = coordsPrevias
-        .map((c) => c.id)
-        .filter((id) => !idsFinales.has(id));
-
-      for (const p of puntos) {
-        const body = {
-          component: compId,
+        coords: puntos.map((p) => ({
           criticality: Number(p.criticalityId) || 1,
           easting: parseFloat(p.east),
           northing: parseFloat(p.north),
           srid_origin: 18,
-        };
-        if (p.id) {
-          await apiComponentes.updateCoord(p.id, body);
-        } else {
-          await apiComponentes.createCoord(body);
-        }
-      }
-      for (const id of idsEliminar) {
-        try { await apiComponentes.deleteCoord(id); } catch { /* tolerar */ }
+        })),
+      };
+
+      if (initial?.id) {
+        await apiComponentes.updateComponente(Number(initial.id), body);
+      } else {
+        await apiComponentes.createComponente(body);
       }
 
       navigate('/componentes/gestion');
@@ -461,16 +439,6 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
             </Field>
           </div>
 
-          {/* Criticidad — select dinámico */}
-          <Field label="Criticidad">
-            <SelectInput
-              value={criticidadId}
-              onChange={setCriticidadId}
-              options={criticidadesOptions}
-              placeholder="Seleccionar criticidad"
-            />
-          </Field>
-
           {/* Especificación */}
           <Field label="Especificación (descripción - observaciones)">
             <textarea
@@ -484,42 +452,107 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
             </span>
           </Field>
 
-          {/* Coordenadas UTM → LatLon */}
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-text-primary text-sm font-medium font-sans">
-                Coordenadas UTM
-              </span>
+          {/* Coordenadas UTM (lista dinámica: N puntos para líneas, 1 para el resto) */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-primary text-sm font-medium font-sans">
+                  {esLinea ? 'Vértices de la línea (UTM)' : 'Coordenadas UTM'}
+                </span>
+                {esLinea && (
+                  <span className="px-2 py-0.5 rounded-full bg-primary-states-hover-main/30 text-text-secondary text-xs font-sans">
+                    {puntos.length} punto{puntos.length === 1 ? '' : 's'} · mínimo {minPuntos}
+                  </span>
+                )}
+              </div>
+              {esLinea && (
+                <button
+                  type="button"
+                  onClick={agregarPunto}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-main/10 text-primary-main text-xs font-medium font-sans hover:bg-primary-main/20 transition-colors"
+                >
+                  <Plus className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                  Agregar vértice
+                </button>
+              )}
             </div>
             <span className="text-text-secondary text-xs font-sans">
-              Ingrese las coordenadas UTM y se transformarán automáticamente a Latitud y Longitud.
+              Ingrese las coordenadas UTM y se transformarán automáticamente a Lat/Lon.
+              {esLinea && ' Cada vértice del tramo lleva su propia criticidad.'}
             </span>
 
-            <div className="pt-2 flex gap-3 items-end">
-              <Field label="Este (X)" inline>
-                <input
-                  type="number"
-                  value={utmE}
-                  onChange={(e) => handleUtmChange('e', e.target.value)}
-                  placeholder="Ej. 463529.00"
-                  className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-3 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
-                />
-              </Field>
-              <div className="w-5 pb-3" />
-              <Field label="Norte (Y)" inline>
-                <input
-                  type="number"
-                  value={utmN}
-                  onChange={(e) => handleUtmChange('n', e.target.value)}
-                  placeholder="Ej. 8777285.00"
-                  className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-3 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
-                />
-              </Field>
-            </div>
+            <div className="flex flex-col gap-3 pt-1">
+              {puntos.map((p, idx) => {
+                const geo = puntosGeo[idx];
+                const puedeQuitar = esLinea && puntos.length > minPuntos;
+                return (
+                  <div
+                    key={p.id ?? `new-${idx}`}
+                    className="rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke p-3 flex flex-col gap-2 bg-background-main"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-text-primary text-xs font-bold font-sans">
+                        {esLinea ? `Vértice ${idx + 1}` : 'Punto'}
+                      </span>
+                      {puedeQuitar && (
+                        <button
+                          type="button"
+                          onClick={() => quitarPunto(idx)}
+                          className="p-1 rounded-md text-secondary-main hover:bg-secondary-main/10 transition-colors"
+                          aria-label="Quitar vértice"
+                        >
+                          <Trash2 className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
 
-            <div className="pt-3 flex gap-3">
-              <ReadonlyField label="Latitud" value={lat.toString()} />
-              <ReadonlyField label="Longitud" value={lon.toString()} />
+                    <div className="flex gap-3 items-end">
+                      <Field label="Este (X)" inline>
+                        <input
+                          type="number"
+                          value={p.east}
+                          onChange={(e) => actualizarPunto(idx, { east: e.target.value })}
+                          placeholder="Ej. 463529.00"
+                          className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+                        />
+                      </Field>
+                      <div className="w-3" />
+                      <Field label="Norte (Y)" inline>
+                        <input
+                          type="number"
+                          value={p.north}
+                          onChange={(e) => actualizarPunto(idx, { north: e.target.value })}
+                          placeholder="Ej. 8777285.00"
+                          className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-text-primary text-sm font-medium font-sans">
+                        Criticidad
+                      </label>
+                      <SelectInput
+                        value={p.criticalityId}
+                        onChange={(v) => actualizarPunto(idx, { criticalityId: v })}
+                        options={criticidadesOptions}
+                        placeholder="Seleccionar criticidad"
+                      />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <ReadonlyField
+                        label="Latitud"
+                        value={(geo?.lat ?? 0).toString()}
+                      />
+                      <ReadonlyField
+                        label="Longitud"
+                        value={(geo?.lon ?? 0).toString()}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -527,21 +560,19 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
         {/* Tarjeta derecha — Mapa referencial (más grande) + vista previa (60%) */}
         <div className="flex-1 flex flex-col gap-6">
           <MapaReferencial
-            lat={lat}
-            lon={lon}
+            puntos={puntosGeo}
+            esLinea={esLinea}
             iconUrl={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl}
             excludeId={initial?.id}
           />
           <VistaPrevia
             tipo={tipoLabel}
-            lat={lat}
-            lon={lon}
-            utmE={utmE}
-            utmN={utmN}
+            puntos={puntosGeo}
+            esLinea={esLinea}
+            criticidadesOptions={criticidadesOptions}
             unidad={distritosOptions.find((d) => d.ubigeo === distritoUbigeo)?.name ?? ''}
             estadoOperacional={estadosOpOptions.find((o) => o.value === estadoOperacionalCode)?.label ?? ''}
             estadoFisico={estadosFisOptions.find((f) => f.value === estadoFisicoCode)?.label ?? ''}
-            criticidad={criticidadesOptions.find((c) => c.value === criticidadId)?.label ?? ''}
           />
         </div>
       </div>
@@ -685,18 +716,40 @@ function SelectInput({
  * Al cambiar las coordenadas (lat/lon) en el formulario, el mapa hace
  * pan automático al nuevo punto con zoom 15.
  */
-function MapaReferencial({ lat, lon, iconUrl, excludeId }: { lat: number; lon: number; iconUrl: string; excludeId?: string }) {
+function MapaReferencial({
+  puntos,
+  esLinea,
+  iconUrl,
+  excludeId,
+}: {
+  puntos: PuntoConLatLon[];
+  esLinea: boolean;
+  iconUrl: string;
+  excludeId?: string;
+}) {
+  const validos = puntos.filter((p) => p.valido);
+  // Centro: primero válido, o default Pichanaqui.
+  const primero = validos[0];
+  const lat = primero?.lat ?? 0;
+  const lon = primero?.lon ?? 0;
   return (
     <div className="flex-1 min-h-[500px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-4 bg-background-main relative isolate">
       <div className="flex items-center gap-2">
         <h3 className="text-text-primary text-lg font-bold font-sans">
-          Ubicación del componente
+          {esLinea ? 'Recorrido de la línea' : 'Ubicación del componente'}
         </h3>
         <span className="px-2.5 py-1 bg-primary-states-hover-main/30 rounded-full text-text-secondary text-xs font-medium font-sans">
           Vista referencial
         </span>
       </div>
-      <MiniMapa lat={lat} lon={lon} iconUrl={iconUrl} excludeId={excludeId} />
+      <MiniMapa
+        lat={lat}
+        lon={lon}
+        puntos={validos}
+        esLinea={esLinea}
+        iconUrl={iconUrl}
+        excludeId={excludeId}
+      />
     </div>
   );
 }
@@ -717,25 +770,29 @@ function AutoPan({ lat, lon }: { lat: number; lon: number }) {
 /** Vista previa —卡片 resumen de datos. */
 function VistaPrevia({
   tipo,
-  lat,
-  lon,
-  utmE,
-  utmN,
+  puntos,
+  esLinea,
+  criticidadesOptions,
   unidad,
   estadoOperacional,
   estadoFisico,
-  criticidad,
 }: {
   tipo: string;
-  lat: number;
-  lon: number;
-  utmE: string;
-  utmN: string;
+  puntos: PuntoConLatLon[];
+  esLinea: boolean;
+  criticidadesOptions: OpcionSelect[];
   unidad: string;
   estadoOperacional: string;
   estadoFisico: string;
-  criticidad: string;
 }) {
+  const primero = puntos[0];
+  const lat = primero?.lat ?? 0;
+  const lon = primero?.lon ?? 0;
+  const utmE = primero?.east ?? '';
+  const utmN = primero?.north ?? '';
+  const criticidadNombre =
+    criticidadesOptions.find((c) => c.value === primero?.criticalityId)?.label ?? '';
+
   return (
     <div className="self-stretch p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-text-status-placeholder flex flex-col gap-4 bg-background-main">
       <h3 className="text-text-primary text-lg font-bold font-sans">
@@ -743,11 +800,22 @@ function VistaPrevia({
       </h3>
       <div className="flex flex-col gap-3">
         <Fila label="Tipo:" value={tipo} />
-        <Fila
-          label="Ubicación:"
-          value={`Lat: ${lat.toFixed(6)}, Long: ${lon.toFixed(6)}`}
-        />
-        <Fila label="UTM:" value={`E: ${utmE}, N: ${utmN}`} />
+        {!esLinea ? (
+          <>
+            <Fila
+              label="Ubicación:"
+              value={lat === 0 && lon === 0
+                ? '—'
+                : `Lat: ${lat.toFixed(6)}, Long: ${lon.toFixed(6)}`}
+            />
+            <Fila label="UTM:" value={`E: ${utmE}, N: ${utmN}`} />
+          </>
+        ) : (
+          <Fila
+            label="Vértices:"
+            value={`${puntos.length} punto${puntos.length === 1 ? '' : 's'}`}
+          />
+        )}
         <Fila label="Unidad Operativa:" value={unidad} />
         <Fila
           label="Estado Operacional:"
@@ -759,20 +827,27 @@ function VistaPrevia({
           value={estadoFisico}
           badgeColor={STATE_BADGE_GENERIC}
         />
-        <Fila
-          label="Criticidad:"
-          value={criticidad}
-          badgeColor={
-            criticidad.toUpperCase().includes('ALT')
-              ? 'bg-secondary-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-secondary-main'
-              : criticidad.toUpperCase().includes('MED')
-                ? 'bg-warning-states-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-warning-dark'
-                : 'bg-success-states-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-success-dark'
-          }
-        />
+        {!esLinea && (
+          <Fila
+            label="Criticidad:"
+            value={criticidadNombre}
+            badgeColor={colorCriticidad(criticidadNombre)}
+          />
+        )}
       </div>
     </div>
   );
+}
+
+function colorCriticidad(nombre: string): string {
+  const n = nombre.toUpperCase();
+  if (n.includes('ALT')) {
+    return 'bg-secondary-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-secondary-main';
+  }
+  if (n.includes('MED')) {
+    return 'bg-warning-states-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-warning-dark';
+  }
+  return 'bg-success-states-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-success-dark';
 }
 
 function Fila({
@@ -808,11 +883,15 @@ function Fila({
 function MiniMapa({
   lat,
   lon,
+  puntos,
+  esLinea,
   iconUrl,
   excludeId,
 }: {
   lat: number;
   lon: number;
+  puntos: PuntoConLatLon[];
+  esLinea: boolean;
   iconUrl: string;
   excludeId?: string;
 }) {
@@ -824,6 +903,8 @@ function MiniMapa({
   const TileLayerAny = TileLayer as any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const MarkerAny = Marker as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const PolylineAny = Polyline as any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Lany = L as any;
 
@@ -846,6 +927,23 @@ function MiniMapa({
     tooltipAnchor: [0, -28],
   });
 
+  // Icono de vértice (más chico, numerado) para líneas.
+  const iconVertice = (idx: number) =>
+    Lany.divIcon({
+      html: `<div style="
+        color: white;
+        display:grid;place-items:center;
+        width:24px;height:24px;
+        background: var(--eps-primary-main);
+        border-radius: 50%;
+        font-size:11px;font-weight:bold;font-family:sans-serif;
+        filter: drop-shadow(0 2px 2px rgba(0,0,0,0.35));
+      ">${idx}</div>`,
+      className: 'mini-vertice',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+
   // Centro inicial: si hay coordenadas válidas, usa esas; si no, Pichanaqui.
   const center: [number, number] =
     lat !== 0 && lon !== 0 ? [lat, lon] : [-11.019, -75.297];
@@ -854,7 +952,10 @@ function MiniMapa({
   // remonta el MapContainer con el nuevo `center`. Esto permite que el
   // `AutoPan` (que usa `useMap`) tenga tiempo de ajustar el centro sin
   // conflictos con el `center` inicial.
-  const mapKey = `mini-${lat.toFixed(4)}-${lon.toFixed(4)}`;
+  const mapKey = `mini-${lat.toFixed(4)}-${lon.toFixed(4)}-${puntos.length}`;
+
+  // Polyline path: lista de [lat,lon] por cada punto valido.
+  const path: [number, number][] = puntos.map((p) => [p.lat, p.lon]);
 
   return (
     <div className="flex-1 rounded-2xl overflow-hidden border border-input-stroke-main min-h-[400px]">
@@ -874,8 +975,21 @@ function MiniMapa({
         <ComponentLayer excludeId={excludeId} />
         {/* AutoPan ajusta el centro cuando cambian lat/lon. */}
         <AutoPan lat={lat} lon={lon} />
-        {/* Marker destacado del componente en edición. */}
-        <MarkerAny position={center} icon={icon} />
+        {esLinea && path.length >= 2 && (
+          <PolylineAny
+            positions={path}
+            pathOptions={{ color: '#1f6feb', weight: 4, opacity: 0.8 }}
+          />
+        )}
+        {esLinea
+          ? puntos.map((p, i) => (
+              <MarkerAny
+                key={p.id ?? `new-${i}`}
+                position={[p.lat, p.lon]}
+                icon={iconVertice(i + 1)}
+              />
+            ))
+          : <MarkerAny position={center} icon={icon} />}
       </MapContainerAny>
     </div>
   );

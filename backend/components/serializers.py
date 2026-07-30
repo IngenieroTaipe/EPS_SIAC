@@ -335,18 +335,23 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         allow_null=True
     )
 
-    coords = ComponentCoordItemSerializer(many=True, write_only=True, source='coords_relation')
+    coords = ComponentCoordItemSerializer(
+        many=True,
+        write_only=True,
+        required=False,
+        source='coords_relation'
+    )
 
-    class Meta: 
+    class Meta:
         model = Component
         fields = [
-            'id', 
-            'code', 
+            'id',
+            'code',
             'name',
-            'type', 
-            'district', 
-            'specification', 
-            'operational_status', 
+            'type',
+            'district',
+            'specification',
+            'operational_status',
             'physical_status',
             'coords'
         ]
@@ -354,11 +359,13 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
     
     @transaction.atomic
     def create(self, validated_data):
-        coords_data = validated_data.pop('coords', [])
-        
+        # DRF coloca el listado de coords bajo el campo `source`
+        # ('coords_relation'), no bajo el nombre declarado ('coords').
+        coords_data = validated_data.pop('coords_relation', [])
+
         # === Creación de la entidad principal Component ===
         component = Component.objects.create(**validated_data)
-        
+
         # === Inserción en lote de coordenadas ===
         coords_instances = [
             ComponentCoord(
@@ -368,11 +375,47 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
             )
             for coord_item in coords_data
         ]
-        
+
         if coords_instances:
             ComponentCoord.objects.bulk_create(coords_instances)
 
         return component
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+            Actualiza el componente y reemplaza completamente el conjunto
+            de coordenadas asociadas (`coords_relation`). El frontend envia
+            la lista completa de puntos finales bajo `coords[]`; cualquier
+            coordenada previa que no este en esa lista se elimina.
+        """
+        # DRF coloca el listado de coords bajo el campo `source`
+        # ('coords_relation'), no bajo el nombre declarado ('coords').
+        coords_data = validated_data.pop('coords_relation', None)
+
+        # Actualizar campos escalares del componente
+        for attr in ('code', 'name', 'specification', 'district',
+                     'type', 'operational_status', 'physical_status'):
+            if attr in validated_data:
+                setattr(instance, attr, validated_data[attr])
+        instance.save()
+
+        # Reemplazo completo de coords solo si el cliente envio `coords[]`.
+        # En PATCH sin `coords`, se preservan las coordenadas existentes.
+        if coords_data is not None:
+            instance.coords_relation.all().delete()
+            coords_instances = [
+                ComponentCoord(
+                    component=instance,
+                    criticality=item['criticality'],
+                    coords=item['coords']
+                )
+                for item in coords_data
+            ]
+            if coords_instances:
+                ComponentCoord.objects.bulk_create(coords_instances)
+
+        return instance
 
     def to_representation(self, instance):
         """

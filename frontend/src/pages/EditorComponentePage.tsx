@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { EditorComponente } from '@/features/componentes/components/EditorComponente';
-import { apiComponentes, type BackendComponent } from '@/services/apiComponentes';
+import { apiComponentes, type BackendComponent, type BackendComponentListCoord } from '@/services/apiComponentes';
 import { mapTipo } from '@/services/adaptadores';
 import type { Componente } from '@/features/mapa/types/componente';
 
@@ -21,18 +21,19 @@ export function EditorComponentePage() {
     operationalStatusCode?: string;
     physicalStatusCode?: string;
     criticalityId?: number;
-    coordId?: number;
-    criticalityIdFromCoord?: number;
-    /** Nombre de la criticidad traido desde la coordenada embebida (StringRelatedField). */
-    criticalityName?: string;
+    /** Coords embebidas traidas desde el retrieve (con id, criticality, geojson). */
+    coords?: BackendComponentListCoord[];
   } | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(!!id);
 
   useEffect(() => {
     if (!id) {
+      /* eslint-disable react-hooks/set-state-in-effect -- reset sincrono al
+         desmontar la edicion (mismo patron que el resto del codigo). */
       setInitial(undefined);
       setInitialBackend(undefined);
       setLoading(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
       return;
     }
 
@@ -45,10 +46,13 @@ export function EditorComponentePage() {
         if (cancelled) return;
         // Tras el último pull del backend, `ComponentSerializer` trae
         // `coords[]` embebido (BackendComponentListCoord) — no se necesita
-        // un segundo fetch a `/component-coords/`.
-        const coord = comp.coords?.[0];
-        const lat = coord?.coords?.coordinates?.[1] ?? 0;
-        const lng = coord?.coords?.coordinates?.[0] ?? 0;
+        // un segundo fetch a `/component-coords/`. Pasamos el array
+        // completo al editor para que gestione 1 (punto) o N (línea).
+        const coords: BackendComponentListCoord[] = comp.coords ?? [];
+        const first = coords[0];
+        const lat = first?.geojson?.coordinates?.[1] ?? 0;
+        const lng = first?.geojson?.coordinates?.[0] ?? 0;
+        const critName = first?.criticality?.name ?? '';
 
         setInitial({
           id: String(comp.id),
@@ -59,28 +63,21 @@ export function EditorComponentePage() {
           nombre: comp.name,
           estado: 'normal',
           criticidad:
-            (coord?.criticality ?? '').toUpperCase().includes('ALT')
+            critName.toUpperCase().includes('ALT')
               ? 'alta'
-              : (coord?.criticality ?? '').toUpperCase().includes('MED')
+              : critName.toUpperCase().includes('MED')
                 ? 'media'
                 : 'baja',
           unidadOperativa: comp.district.name,
           especificacion: comp.specification ?? '',
         });
 
-        // `BackendComponentListCoord` expone `id` del ComponentCoord y el
-        // nombre de la criticidad como StringRelatedField (no el id). Pasamos
-        // el nombre al editor via `criticalityName` para que pueda mapearlo
-        // al id del catalogo una vez cargado.
         setInitialBackend({
           typeId: comp.type?.id,
           districtUbigeo: comp.district?.ubigeo,
           operationalStatusCode: comp.operational_status?.code,
           physicalStatusCode: comp.physical_status?.code,
-          criticalityId: undefined,
-          coordId: coord?.id,
-          criticalityIdFromCoord: undefined,
-          criticalityName: coord?.criticality,
+          coords,
         });
 
         setLoading(false);
