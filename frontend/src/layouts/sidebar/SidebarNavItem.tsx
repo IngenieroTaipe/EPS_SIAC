@@ -36,10 +36,18 @@ const ITEM_BASE =
 export function SidebarNavItem({ item, collapsed }: SidebarNavItemProps) {
   const Icon = item.icon;
   const location = useLocation();
-  // El parent está activo si la ruta actual empieza con su `to`.
+  const pathname = location.pathname;
+  // El parent está activo si la ruta actual coincide con su `to` o empieza
+  // con `to + '/'`, o bien si coincide con la ruta de alguno de sus
+  // subitems (necesario cuando un subitem vive bajo otra rama, p. ej.
+  // "Gestionar Umbrales" en `/umbrales/gestion` colgando de "Mapa Climático").
   const parentActive =
-    location.pathname === item.to ||
-    location.pathname.startsWith(item.to + '/');
+    pathname === item.to ||
+    pathname.startsWith(item.to + '/') ||
+    (!!item.subitems &&
+      item.subitems.some(
+        (s) => pathname === s.to || pathname.startsWith(s.to + '/'),
+      ));
 
   return (
     <div className="self-stretch flex flex-col items-start">

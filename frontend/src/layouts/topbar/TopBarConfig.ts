@@ -119,6 +119,11 @@ export const topBarConfig: TopBarPageConfig[] = [
     widgets: [{ kind: 'updatedAt' }],
   },
   {
+    route: '/umbrales/gestion',
+    title: 'Gestión de Umbrales',
+    widgets: [{ kind: 'updatedAt' }],
+  },
+  {
     route: '/componentes/gestion',
     title: 'Gestión de Componentes',
     widgets: [{ kind: 'updatedAt' }, { kind: 'loadDataButton' }],
@@ -162,4 +167,5 @@ export const HIDE_UNIDAD_OPERATIVA_ROUTES: string[] = [
   '/componentes/gestion',
   '/alertas/gestion',
   '/componentes/nuevo',
+  '/umbrales/gestion',
 ];

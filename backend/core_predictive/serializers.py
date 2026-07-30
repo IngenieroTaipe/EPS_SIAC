@@ -291,7 +291,7 @@ class UnitsMeasurementLightSerializer(PrepareDataMixin, serializers.ModelSeriali
 # SERIALIZADORES DE VARIABLES
 # ==============================================================================
 class VariableSerializer(PrepareDataMixin, serializers.ModelSerializer):
-    
+
     prepare_fields = {
         'name': DataFormatter.upper_case,
         'description': DataFormatter.trim_string,
@@ -302,7 +302,7 @@ class VariableSerializer(PrepareDataMixin, serializers.ModelSerializer):
         required=True
     )
 
-    units_measurement = serializers.PrimaryKeyRelatedField(
+    unit_measurement = serializers.PrimaryKeyRelatedField(
         queryset=UnitsMeasurement.objects.all(),
         required=True
     )
@@ -314,7 +314,7 @@ class VariableSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'name',
             'description',
             'variable_type',
-            'units_measurement'
+            'unit_measurement'
         ]
         read_only_fields = ['id']
 
@@ -322,8 +322,8 @@ class VariableSerializer(PrepareDataMixin, serializers.ModelSerializer):
         representation = super().to_representation(instance)
         if instance.variable_type:
             representation['variable_type'] = VariableTypeLightSerializer(instance.variable_type).data
-        if instance.units_measurement:
-            representation['units_measurement'] = UnitsMeasurementLightSerializer(instance.units_measurement).data
+        if instance.unit_measurement:
+            representation['unit_measurement'] = UnitsMeasurementLightSerializer(instance.unit_measurement).data
         return representation
 
 class VariableLightSerializer(PrepareDataMixin, serializers.ModelSerializer):

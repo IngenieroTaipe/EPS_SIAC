@@ -11,6 +11,7 @@ import { HistoricoAlertasPage } from '@/pages/HistoricoAlertasPage';
 import { GestionAlertasPage } from '@/pages/GestionAlertasPage';
 import { HistoricoComponentesPage } from '@/pages/HistoricoComponentesPage';
 import { EditorComponentePage } from '@/pages/EditorComponentePage';
+import { GestionUmbralesPage } from '@/pages/GestionUmbralesPage';
 
 /**
  * Punto de entrada de la SPA.
@@ -49,6 +50,7 @@ function App() {
         <Route element={<AppLayout />}>
           <Route path="/alertas" element={<MapaAlertasPage />} />
           <Route path="/climatico" element={<MapaClimaticoPage />} />
+          <Route path="/umbrales/gestion" element={<GestionUmbralesPage />} />
           <Route path="/componentes" element={<MapaComponentesPage />} />
           <Route path="/componentes/gestion" element={<HistoricoComponentesPage />} />
           <Route path="/componentes/:id/editar" element={<EditorComponentePage />} />

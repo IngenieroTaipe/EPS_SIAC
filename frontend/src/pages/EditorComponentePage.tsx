@@ -21,6 +21,10 @@ export function EditorComponentePage() {
     operationalStatusCode?: string;
     physicalStatusCode?: string;
     criticalityId?: number;
+    coordId?: number;
+    criticalityIdFromCoord?: number;
+    /** Nombre de la criticidad traido desde la coordenada embebida (StringRelatedField). */
+    criticalityName?: string;
   } | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(!!id);
 
@@ -64,13 +68,19 @@ export function EditorComponentePage() {
           especificacion: comp.specification ?? '',
         });
 
-        // Pasar los IDs/codes crudos del backend para precargar selects
+        // `BackendComponentListCoord` expone `id` del ComponentCoord y el
+        // nombre de la criticidad como StringRelatedField (no el id). Pasamos
+        // el nombre al editor via `criticalityName` para que pueda mapearlo
+        // al id del catalogo una vez cargado.
         setInitialBackend({
           typeId: comp.type?.id,
           districtUbigeo: comp.district?.ubigeo,
           operationalStatusCode: comp.operational_status?.code,
           physicalStatusCode: comp.physical_status?.code,
-          criticalityId: undefined, // el serializer Light no trae id de criticidad
+          criticalityId: undefined,
+          coordId: coord?.id,
+          criticalityIdFromCoord: undefined,
+          criticalityName: coord?.criticality,
         });
 
         setLoading(false);
