@@ -1,5 +1,5 @@
 from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from components.models import (

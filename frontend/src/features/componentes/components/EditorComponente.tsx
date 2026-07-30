@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib/cn';
 import {
   type Componente,
   type TipoComponente,
+  TIPO_LABEL,
 } from '@/features/mapa/types/componente';
 import { ComponentLayer } from '@/features/mapa/components/ComponentLayer';
 import {
@@ -17,12 +18,14 @@ import {
 } from '../utm-utils';
 import { apiComponentes } from '@/services/apiComponentes';
 import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
+import { mapTipo } from '@/services/adaptadores';
 
 // Iconos del componente (SVG importados como URL para el icono delSidebar).
 import CaptacionIconUrl from '@/assets/icons/captacion.svg?url';
 import ReservorioIconUrl from '@/assets/icons/reservorio.svg?url';
 import PlantaTratamientoIconUrl from '@/assets/icons/planta-tratamiento.svg?url';
 import LineaConduccionIconUrl from '@/assets/icons/linea-conduccion.svg?url';
+import CircleIconUrl from '@/assets/icons/circle.svg?url';
 
 /**
  * EditorComponente — formulario de creación/edición de un componente.
@@ -60,9 +63,16 @@ import LineaConduccionIconUrl from '@/assets/icons/linea-conduccion.svg?url';
 
 const ICON_URL_BY_TIPO: Record<TipoComponente, string> = {
   'captacion': CaptacionIconUrl,
+  'fuente': CaptacionIconUrl,
   'planta-tratamiento': PlantaTratamientoIconUrl,
+  'planta-aguas-residuales': PlantaTratamientoIconUrl,
   'reservorio': ReservorioIconUrl,
   'linea-conduccion': LineaConduccionIconUrl,
+  'linea-aduccion': LineaConduccionIconUrl,
+  'estacion-bombeo': CircleIconUrl,
+  'desinfeccion': CircleIconUrl,
+  'purgado-redes': CircleIconUrl,
+  'otro': CircleIconUrl,
 };
 
 const STATE_BADGE_GENERIC = 'bg-text-status-placeholder rounded-full px-3 py-[3px] text-xs font-bold font-sans';
@@ -112,7 +122,11 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
   // ── Estado del formulario ─────────────────────────────────────────
   const [tipoId, setTipoId] = useState<string>(initialBackend?.typeId ? String(initialBackend.typeId) : '');
-  const [tipoLabel, setTipoLabel] = useState<string>(initial?.tipo ?? 'captacion');
+  // `tipoLabel` guarda el nombre legible del backend (ej. "CAPTACIÓN").
+  // La clave interna (TipoComponente) se deriva con `mapTipo(tipoLabel)`.
+  const [tipoLabel, setTipoLabel] = useState<string>(
+    initial ? TIPO_LABEL[initial.tipo] : '',
+  );
   const [codigo, setCodigo] = useState(initial?.codigo ?? '');
   const [nombre, setNombre] = useState(initial?.nombre ?? '');
   const [distritoUbigeo, setDistritoUbigeo] = useState<string>(initialBackend?.districtUbigeo ?? '');
@@ -249,7 +263,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
                 onChange={(v) => {
                   setTipoId(v);
                   const opt = tiposOptions.find((t) => t.value === v);
-                  setTipoLabel(opt?.label ?? 'captacion');
+                  setTipoLabel(opt?.label ?? '');
                 }}
                 options={tiposOptions}
                 placeholder="Seleccionar tipo de componente"
@@ -259,7 +273,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
               <label className="text-text-primary text-sm font-medium font-sans">Ícono</label>
               <div className="size-16 py-3.5 rounded-xl border border-button-stroke grid place-items-center bg-background-main">
                 <img
-                  src={ICON_URL_BY_TIPO[tipoLabel as TipoComponente] ?? CaptacionIconUrl}
+                  src={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl}
                   alt=""
                   className="w-10 h-10"
                 />
@@ -384,7 +398,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
         {/* Tarjeta derecha — Mapa referencial (más grande) + vista previa (60%) */}
         <div className="flex-1 flex flex-col gap-6">
-          <MapaReferencial lat={lat} lon={lon} iconUrl={ICON_URL_BY_TIPO[tipoLabel as TipoComponente] ?? CaptacionIconUrl} />
+          <MapaReferencial lat={lat} lon={lon} iconUrl={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl} />
           <VistaPrevia
             tipo={tipoLabel}
             lat={lat}
@@ -676,17 +690,23 @@ function MiniMapa({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Lany = L as any;
 
-  // Icono destacado del componente en edición (40x40 + yellow ring).
+  // Icono destacado del componente en edición (56x56 + anilloamarillo,
+  // idéntico al marker "selected" de ComponentLayer para que ambos mapas
+  // se vean iguales y no haya desplazamiento visual entre ellos).
   const icon = Lany.divIcon({
     html: `<div style="
-      display:grid;place-items:center;width:40px;height:40px;
+      color: var(--eps-primary-main);
+      display:grid;place-items:center;
+      width:56px;height:56px;
       background: var(--eps-background-selected);
       border-radius: 50%;
-      box-shadow: 0 0 0 4px var(--eps-background-selected);
-    "><img src="${iconUrl}" style="width:32px;height:32px;" alt=""/></div>`,
+      padding: 12px;
+      filter: drop-shadow(0 6px 6px rgba(0,0,0,0.35));
+    "><img src="${iconUrl}" style="width:60px;height:60px;" alt=""/></div>`,
     className: 'mini-marker-selected',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    iconSize: [56, 56],
+    iconAnchor: [28, 28],
+    tooltipAnchor: [0, -28],
   });
 
   // Centro inicial: si hay coordenadas válidas, usa esas; si no, Pichanaqui.

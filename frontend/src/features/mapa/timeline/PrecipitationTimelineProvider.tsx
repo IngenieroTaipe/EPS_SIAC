@@ -69,10 +69,15 @@ function dayLabelFor(d: Date): string {
  * playback a través del `onTogglePlay` invocado por el propio TimelineBar.
  */
 export function PrecipitationTimelineProvider({ children }: { children: ReactNode }) {
-  const { data, loading, error, refetch } = useGfsForecast();
+  const { data, loading, error, refetch: refetchGfs } = useGfsForecast();
 
   const [frameIndex, setFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // ── Una vez que llegan los frames por primera vez, posiciona el thumb
+  //    del timeline en la hora actual (realSlot) en vez de dejarlo en 0.
+  //    Se ejecuta una sola vez por carga de ventana (flag ref).
+  const hasInitializedRef = useRef(false);
 
   // ── Ticker: refresca `currentRealHour` cada minuto para que la franja
   //    roja del timeline siga la hora real de Perú aunque el componente
@@ -84,10 +89,39 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
     return () => clearInterval(id);
   }, []);
 
+  // ── Polling del pronóstico GFS: el backend publica una corrida nueva
+  //    cada 6 h (Celery beat 1/7/13/19 UTC ≈ 02/08/14/20 PET), pero la
+  //    descarga del NOAA tarda minutos variables. En vez de sincronizar al
+  //    cron, hacemos polling ligero cada 5 min: el backend sirve 304 cuando
+  //    no hay cambios (overhead ~0), así detectamos la nueva corrida en
+  //    ≤5 min tras su publicación. Se pausa mientras la pestaña está oculta
+  //    (no consumimos red en background) y se dispara refresco inmediato al
+  //    recobrar visibilidad. Convive con el ticker de 60s de la franja roja.
+  const refetch = refetchGfs;
+  useEffect(() => {
+    const POLL_MS = 5 * 60_000;
+
+    const poll = () => refetch();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
+
+    let id: ReturnType<typeof setInterval> | null = null;
+    if (document.visibilityState === 'visible') {
+      id = setInterval(poll, POLL_MS);
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      if (id != null) clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refetch]);
+
   // ── Frames ordenados cronológicamente (HISTORIC → FORECAST) ──────────
   const frames = useMemo<GfsFrame[]>(() => {
     const feats = (data as GfsClusterFeatureCollection | null)?.features ?? [];
     const byKey = new Map<string, GfsFrame>();
+    const seenTimestamps = new Set<number>();
     for (const f of feats) {
       const p = f.properties ?? null;
       if (!p) continue;
@@ -95,19 +129,32 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
       const status = (p.temporal_status ?? 'FORECAST') as GfsTemporalStatus;
       if (step === null) continue;
       const key = `${status}-${step}`;
+      const timestampDate =
+        parsePetTimestamp(p.timestamp_str) ?? peruNow();
+      // Tapón defensivo contra duplicados: si el backend sirve dos frames
+      // con el MISMO timestamp (p.ej. cuando solo existe una corrida
+      // COMPLETED y previous_slice reutiliza la misma tabla), el eje
+      // duplicaría etiquetas (19 19 20 20…). Nos quedamos con el primero
+      // que llegue —por convención (status, step) asc—, que es el HISTORIC,
+      // y descartamos el/los siguientes con igual instante. Cuando llegue
+      // la 2da corrida real, los timestamps ya no colisionarán y se verán
+      // los 18 slots distintos.
+      const tsKey = timestampDate.getTime();
+      if (seenTimestamps.has(tsKey)) continue;
+      seenTimestamps.add(tsKey);
       if (!byKey.has(key)) {
         byKey.set(key, {
           temporal_status: status,
           time_step: step,
           label: extractHHmm(p.timestamp_str),
-          timestampDate:
-            parsePetTimestamp(p.timestamp_str) ?? peruNow(),
+          timestampDate,
         });
       }
     }
     const arr = Array.from(byKey.values());
     arr.sort(
       (a, b) =>
+        a.timestampDate.getTime() - b.timestampDate.getTime() ||
         temporalStatusPriority(a.temporal_status) -
           temporalStatusPriority(b.temporal_status) ||
         a.time_step - b.time_step,
@@ -147,6 +194,17 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
     );
     return clamp(slot, 0, maxSlot);
   }, [currentRealHour, base, totalSlots, maxSlot]);
+
+  // ── Posicionar el thumb en la hora actual (realSlot) cuando los frames
+  //    llegan por primera vez. Una sola vez por carga de ventana; el
+  //    usuario puede moverlo libremente después.
+  useLayoutEffect(() => {
+    if (hasInitializedRef.current) return;
+    if (totalSlots === 0) return;
+    hasInitializedRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFrameIndex(realSlot);
+  }, [totalSlots, realSlot]);
 
   // `slotHours[i]` = hora absoluta (0..23) del frame i. Derivada de los
   // `timestampDate` reales del backend, así soporta cruces de medianoche.
@@ -264,7 +322,7 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
     renderData,
     loading,
     error,
-    refetch,
+    refetch: refetchGfs,
     frames,
     frameIndex: clampedFrameIndex,
     setFrameIndex,

@@ -138,7 +138,7 @@ class ComponentCoordLightSerializer(serializers.ModelSerializer):
 class ComponentListSerializer(PrepareDataMixin, serializers.ModelSerializer):
     type = serializers.StringRelatedField()
     district = serializers.StringRelatedField()
-    coords = ComponentCoordLightSerializer(many=True, read_only=True)
+    coords = ComponentCoordLightSerializer(many=True, read_only=True, source='coords_relation')
 
     class Meta: 
         model = Component
@@ -178,7 +178,7 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         allow_null=True
     )
 
-    coords = ComponentCoordLightSerializer(many=True, read_only=True)
+    coords = ComponentCoordLightSerializer(many=True, read_only=True, source='coords_relation')
 
     class Meta: 
         model = Component

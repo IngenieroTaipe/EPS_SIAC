@@ -1,6 +1,6 @@
 import type {
-  BackendComponent,
-  BackendComponentCoord,
+  BackendComponentListItem,
+  BackendComponentListCoord,
 } from '@/services/apiComponentes';
 import type {
   Componente,
@@ -8,20 +8,29 @@ import type {
   CriticidadComponente,
   TipoComponente,
 } from '@/features/mapa/types/componente';
+import { TIPO_LINEA } from '@/features/mapa/types/componente';
 
 const TIPO_NAME_TO_ID: Record<string, TipoComponente> = {
+  FUENTE: 'fuente',
   CAPTACIÓN: 'captacion',
   CAPTACION: 'captacion',
-  'PLANTA DE TRATAMIENTO DE AGUA POTABLE': 'planta-tratamiento',
-  'PLANTA DE TRATAMIENTO': 'planta-tratamiento',
   RESERVORIO: 'reservorio',
+  'ESTACIÓN DE BOMBEO Y REBOMBEO DE AGUA POTABLE': 'estacion-bombeo',
+  'ESTACION DE BOMBEO Y REBOMBEO DE AGUA POTABLE': 'estacion-bombeo',
+  'PLANTA DE TRATAMIENTO DE AGUA POTABLE': 'planta-tratamiento',
+  'PLANTA DE TRATAMIENTO DE AGUAS RESIDUALES': 'planta-aguas-residuales',
+  'UNIDADES DE DESINFECCIÓN': 'desinfeccion',
+  'UNIDADES DE DESINFECCION': 'desinfeccion',
+  'PUNTO DE PURGADO DE REDES': 'purgado-redes',
   'LÍNEA DE CONDUCCIÓN': 'linea-conduccion',
   'LINEA DE CONDUCCION': 'linea-conduccion',
+  'LÍNEA DE ADUCCIÓN': 'linea-aduccion',
+  'LINEA DE ADUCCION': 'linea-aduccion',
 };
 
-function mapTipo(backendName: string): TipoComponente {
+export function mapTipo(backendName: string): TipoComponente {
   const upper = backendName.toUpperCase();
-  return TIPO_NAME_TO_ID[upper] ?? 'captacion';
+  return TIPO_NAME_TO_ID[upper] ?? 'otro';
 }
 
 function mapCriticidad(name: string | undefined): CriticidadComponente {
@@ -32,49 +41,59 @@ function mapCriticidad(name: string | undefined): CriticidadComponente {
   return 'baja';
 }
 
-function derivarEstado(
-  opCode: string | null | undefined,
-  physCode: string | null | undefined,
-): Componente['estado'] {
-  if (opCode === '002') return 'critico';
-  if (opCode === '003') return 'alerta';
-  if (physCode === 'M') return 'critico';
-  if (physCode === 'R') return 'alerta';
-  return 'normal';
-}
-
+/**
+ * Adapta la respuesta del listado de componentes al modelo del mapa.
+ * El `ComponentListSerializer` actual del backend no devuelve los
+ * operational/physical status, así que el estado se toma como 'normal'.
+ */
 export function adaptarComponentes(
-  comps: BackendComponent[],
-  coords: BackendComponentCoord[],
+  comps: BackendComponentListItem[],
 ): ComponentesResponse {
-  const coordsPorComponente = new Map<number, BackendComponentCoord>();
-  for (const c of coords) {
-    coordsPorComponente.set(c.component.id, c);
-  }
-
   const componentes: Componente[] = [];
 
   for (const comp of comps) {
-    const tipo = mapTipo(comp.type.name);
-    const coord = coordsPorComponente.get(comp.id);
-    if (!coord || !coord.geojson) continue;
+    const tipo = mapTipo(comp.type);
+    const coordList: BackendComponentListCoord[] = (comp.coords ?? []).filter(
+      (c) => c.coords !== null,
+    );
+    if (coordList.length === 0) continue;
 
-    const [lng, lat] = coord.geojson.coordinates;
-    componentes.push({
-      id: String(comp.id),
-      tipo: tipo === 'linea-conduccion' ? 'captacion' : tipo,
-      lat,
-      lng,
-      codigo: comp.code,
-      nombre: comp.name,
-      estado: derivarEstado(
-        comp.operational_status?.code ?? null,
-        comp.physical_status?.code ?? null,
-      ),
-      criticidad: mapCriticidad(coord.criticality.name),
-      unidadOperativa: comp.district.name,
-      especificacion: comp.specification ?? '',
-    });
+    const esLinea = TIPO_LINEA.includes(tipo) && coordList.length >= 2;
+
+    if (esLinea) {
+      const puntos: Array<[number, number]> = coordList.map((c) => {
+        const [lng, lat] = c.coords!.coordinates;
+        return [lat, lng] as [number, number];
+      });
+      const [lat0, lng0] = puntos[0];
+      componentes.push({
+        id: comp.code,
+        tipo,
+        lat: lat0,
+        lng: lng0,
+        codigo: comp.code,
+        nombre: comp.name,
+        estado: 'normal',
+        criticidad: mapCriticidad(coordList[0].criticality),
+        unidadOperativa: comp.district,
+        especificacion: '',
+        puntos,
+      });
+    } else {
+      const [lng, lat] = coordList[0].coords!.coordinates;
+      componentes.push({
+        id: comp.code,
+        tipo,
+        lat,
+        lng,
+        codigo: comp.code,
+        nombre: comp.name,
+        estado: 'normal',
+        criticidad: mapCriticidad(coordList[0].criticality),
+        unidadOperativa: comp.district,
+        especificacion: '',
+      });
+    }
   }
 
   return { componentes, tramos: [] };

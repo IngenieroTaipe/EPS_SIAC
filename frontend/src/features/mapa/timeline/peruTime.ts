@@ -47,6 +47,7 @@ export function peruStartOfDay(): Date {
 }
 
 const PET_TS_PARTS = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/;
+const ISO_UTC_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?Z$/;
 
 /**
  * ParsePetTimestamp — construye un `Date` a partir de un `timestamp_str`
@@ -65,7 +66,27 @@ const PET_TS_PARTS = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/;
  */
 export function parsePetTimestamp(s: string | null | undefined): Date | null {
   if (!s) return null;
-  const m = s.match(PET_TS_PARTS);
+  const trimmed = s.trim();
+
+  // Caso ISO 8601 UTC "YYYY-MM-DDTHH:mm[:ss]Z" — lo que realmente emite el
+  // backend GFS. Sin restar offset: tomamos los partes tal cual como
+  // wall-clock (igual que hace peruNow con los partes de Lima).
+  const iso = trimmed.match(ISO_UTC_PARTS);
+  if (iso) {
+    const [, y, mo, d, h, mi, se] = iso;
+    return new Date(
+      Number(y),
+      Number(mo) - 1,
+      Number(d),
+      Number(h),
+      Number(mi),
+      Number(se ?? 0),
+      0,
+    );
+  }
+
+  // Caso wall-clock "YYYY-MM-DD HH:mm [PET]".
+  const m = trimmed.match(PET_TS_PARTS);
   if (!m) return null;
   const [, y, mo, d, h, mi] = m;
   return new Date(
