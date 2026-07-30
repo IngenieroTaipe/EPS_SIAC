@@ -41,6 +41,7 @@ def send_telegram_notification_task(self, notification_id: int):
         ).get(pk=notification_id)
 
         # === Verificar si la notificación se envió ===
+        logger.info(f"Notificasción estado: {notification.is_sent}")
         if notification.is_sent:
             logger.info(f"Notificación #{notification_id} ya se encuentra marcada como enviada. Omitiendo.")
             return True
@@ -126,13 +127,9 @@ def dispatch_hourly_alerts_task():
         if alert.start_time_utc <= six_hours_future or notification.notification_type in ['CANCELLED', 'RESCHEDULED']:
             
             # Ejecución asíncrona de la lógica del worker
-            success = send_telegram_notification_task.delay(notification.id)
+            send_telegram_notification_task.delay(notification.id)
             
-            if success:
-                notification.is_sent = True
-                notification.sent_at = timezone.now()
-                notification.save()
-                logger.info(f"✅ [Worker] Notificación ID #{notification.id} despachada para Alerta {alert.code}")
+            logger.info(f"✅ [Worker] Notificación ID #{notification.id} despachada para Alerta {alert.code}")
 
 @shared_task(
     name="tasks.process_forecast_and_adapt_alerts",
@@ -187,7 +184,7 @@ def process_state_machine_timeouts_task():
     # === EVALUAR: Llega la hora 'start_time_utc' del fenómeno -> Migrar a 'En Espera de Confirmación' ===
     predicted_alerts = Alert.objects.filter(
         start_time_utc__lte=now,
-        history__alert__status_name="PREDICHO"
+        historic_alert__status__name="PREDICHO"
     ).distinct()
 
     for alert in predicted_alerts:
@@ -204,7 +201,7 @@ def process_state_machine_timeouts_task():
     one_hour_ago = now - timedelta(hours=1)
     
     waiting_histories = AlertHistory.objects.filter(
-        alert_status_phase__alert_status__name="EN ESPERA DE CONFIRMACIÓN",
+        status__name="EN ESPERA DE CONFIRMACIÓN",
         created_at__lte=one_hour_ago
     ).select_related('alert')
 

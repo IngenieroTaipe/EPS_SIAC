@@ -2,38 +2,38 @@
     {
         "district_ubigeo": "120301",
         "type_name": "Fuente",
-        "physical_status": null,
+        "physical_status": "B",
         "operational_status": "001",
         "code": "0001",
         "name": "TORO",
-        "specification": "ANTES(CFAL_NOM=RIO TORO)"
+        "specification": "Fuente superficial permanente. ANTES(CFAL_NOM=RIO TORO)"
     },
     {
         "district_ubigeo": "120301",
         "type_name": "Fuente",
-        "physical_status": null,
+        "physical_status": "B",
         "operational_status": "001",
         "code": "0003",
         "name": "CHANCHAMAYO",
-        "specification": "GALERIAS FILTRANTES"
+        "specification": "Fuente subterránea mediante GALERIAS FILTRANTES con alto rendimiento."
     },
     {
         "district_ubigeo": "120301",
         "type_name": "Captación",
-        "physical_status": null,
+        "physical_status": "B",
         "operational_status": "001",
         "code": "0005",
         "name": "CHANCHAMAYO",
-        "specification": "Abastecimiento Durante todo el Año"
+        "specification": "Estructura de captación principal. Abastecimiento Durante todo el Año."
     },
     {
         "district_ubigeo": "120301",
         "type_name": "Captación",
-        "physical_status": null,
+        "physical_status": "R",
         "operational_status": "001",
         "code": "0006",
         "name": "RIO TORO",
-        "specification": "2022 Abastecimiento durante estiaje"
+        "specification": "Captación secundaria. 2022 Abastecimiento durante estiaje con capacidad limitada."
     },
     {
         "district_ubigeo": "120303",
@@ -42,7 +42,7 @@
         "operational_status": "001",
         "code": "0002",
         "name": "LOS ANGELES",
-        "specification": ""
+        "specification": "Reservorio apoyado de concreto armado con capacidad de 500 m3."
     },
     {
         "district_ubigeo": "190301",
@@ -51,7 +51,7 @@
         "operational_status": "001",
         "code": "0001",
         "name": "R1 - OXAPAMPA",
-        "specification": ""
+        "specification": "Reservorio elevado de cabecera con capacidad de 1000 m3 para distribución por gravedad."
     },
     {
         "district_ubigeo": "120305",
@@ -60,7 +60,7 @@
         "operational_status": "001",
         "code": "0008",
         "name": "NUEVA VISTA",
-        "specification": "CI 2024"
+        "specification": "Estación de bombeo con 3 electrobombas centrífugas (CI 2024)."
     },
     {
         "district_ubigeo": "120301",
@@ -69,7 +69,7 @@
         "operational_status": "001",
         "code": "0009",
         "name": "CHANCHAMAYO",
-        "specification": "CI 2024"
+        "specification": "Estación de rebombeo principal hacia zonas altas (CI 2024)."
     },
     {
         "district_ubigeo": "120303",
@@ -78,7 +78,7 @@
         "operational_status": "001",
         "code": "0003",
         "name": "PLANTA DE TRATAMIENTO PKI",
-        "specification": "Cuenta con sedimentador y filtro. Consultar Subtipo de INFRAESTRUCTURA - Puse CONVENCIONAL"
+        "specification": "Cuenta con sedimentador y filtro. Subtipo de INFRAESTRUCTURA - CONVENCIONAL de flujo continuo."
     },
     {
         "district_ubigeo": "120303",
@@ -87,25 +87,25 @@
         "operational_status": "001",
         "code": "0005",
         "name": "PLANTA VILLA RICA",
-        "specification": "Cuenta con Pretratamiento (Desarenador),La Planta de Tratamientode Agua V.R. fue inaugurado 12/10/2004"
+        "specification": "Cuenta con Pretratamiento (Desarenador), inaugurada el 12/10/2004 con procesos completos."
     },
     {
         "district_ubigeo": "120303",
         "type_name": "Planta de Tratamiento de Aguas Residuales",
-        "physical_status": null,
+        "physical_status": "M",
         "operational_status": "001",
         "code": "0005",
         "name": "PTAR PICHANAKI 1",
-        "specification": ""
+        "specification": "Lagunas de estabilización primaria y secundaria con sistema de desinfección."
     },
     {
         "district_ubigeo": "120303",
         "type_name": "Planta de Tratamiento de Aguas Residuales",
-        "physical_status": null,
+        "physical_status": "M",
         "operational_status": "001",
         "code": "0012",
         "name": "PTAR SANGANI",
-        "specification": ""
+        "specification": "Sistema de lodos activados con aireación extendida para zona urbana."
     },
     {
         "district_ubigeo": "190301",
@@ -114,6 +114,24 @@
         "operational_status": "001",
         "code": "0002",
         "name": "LC - OXAPAMPA PRINCIPAL",
-        "specification": "Línea de conducción de agua potable para Oxapampa"
+        "specification": "Línea de conducción de agua potable principal para Oxapampa, tubería HDPE."
+    },
+    {
+        "district_ubigeo": "190301",
+        "type_name": "Línea de Conducción",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "0003",
+        "name": "LC - OXAPAMPA SUR",
+        "specification": "Línea de conducción secundaria hacia el sector sur, tubería PVC."
+    },
+    {
+        "district_ubigeo": "120303",
+        "type_name": "Línea de Conducción",
+        "physical_status": "R",
+        "operational_status": "001",
+        "code": "0015",
+        "name": "LC - PICHANAQUI NORTE",
+        "specification": "Línea de conducción interconectada a PTAP PKI, tramo norte."
     }
 ]

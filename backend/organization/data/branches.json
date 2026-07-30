@@ -1,0 +1,82 @@
+[
+    {
+        "code": "010",
+        "name": "LA MERCED - CHANCHAMAYO",
+        "acronym": "LM",
+        "district": "120301",
+        "status": true,
+        "observations": "Oficina de La Merced de la EPS Selva Central"
+    },
+    {
+        "code": "020",
+        "name": "SAN RAMÓN",
+        "acronym": "SR",
+        "district": "120305",
+        "status": true,
+        "observations": "Oficina de San Ramón de la EPS Selva Central"
+    },
+    {
+        "code": "021",
+        "name": "VITOC",
+        "acronym": "VT",
+        "district": "120306",
+        "status": false,
+        "observations": "Oficina de Vitoc de la EPS Selva Central"
+    },
+    {
+        "code": "030",
+        "name": "PERENÉ",
+        "acronym": "PE",
+        "district": "120302",
+        "status": false,
+        "observations": "Oficina de Perené de la EPS Selva Central"
+    },
+    {
+        "code": "040",
+        "name": "PICHANAKI",
+        "acronym": "PI",
+        "district": "120303",
+        "status": true,
+        "observations": "Oficina de Pichanaki de la EPS Selva Central"
+    },
+    {
+        "code": "050",
+        "name": "OXAPAMPA",
+        "acronym": "OX",
+        "district": "190301",
+        "status": true,
+        "observations": "Oficina de Oxapampa de la EPS Selva Central"
+    },
+    {
+        "code": "051",
+        "name": "VILLA RICA",
+        "acronym": "VR",
+        "district": "190307",
+        "status": true,
+        "observations": "Oficina de Villa Rica de la EPS Selva Central"
+    },
+    {
+        "code": "060",
+        "name": "SATIPO",
+        "acronym": "ST",
+        "district": "120601",
+        "status": true,
+        "observations": "Oficina de Satipo de la EPS Selva Central"
+    },
+    {
+        "code": "061",
+        "name": "PANGOA",
+        "acronym": "PG",
+        "district": "120606",
+        "status": false,
+        "observations": "Oficina de Pangoa de la EPS Selva Central"
+    },
+    {
+        "code": "062",
+        "name": "MAZAMARI",
+        "acronym": "MZ",
+        "district": "120604",
+        "status": false,
+        "observations": "Oficina de Mazamari de la EPS Selva Central"
+    }
+]

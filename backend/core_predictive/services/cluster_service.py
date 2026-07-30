@@ -606,7 +606,7 @@ class SpatialClusteringService:
                         WHEN jsonb_typeof(c.timestamps->(idx - 1)) = 'number' THEN 
                             to_timestamp((c.timestamps->>(idx - 1))::double precision) AT TIME ZONE 'UTC'
                         ELSE 
-                            (c.timestamps->>(idx - 1))::timestamptz
+                            ((c.timestamps->>(idx - 1))::timestamp) AT TIME ZONE 'UTC'
                     END AS timestamp_utc,
                     (c.intensity_series->>(idx - 1))::float AS intensity,
                     idx AS time_step

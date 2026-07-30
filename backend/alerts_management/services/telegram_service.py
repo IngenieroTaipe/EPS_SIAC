@@ -156,5 +156,6 @@ class TelegramService:
             f"{rango_tiempo}\n\n"
             f"📊 <b>Detalles del evento:</b>\n"
             f"• <b>Código de Alerta:</b> <code>{codigo}</code>\n"
-            f"• <b>Localidades / Sectores Abarcados:</b> {localidades}"
+            f"• <b>Localidades / Sectores Abarcados:</b> {localidades}\n\n"
+            f"🔗 <a href='http://localhost:5173/'>Ver más detalles aquí</a>"
         )

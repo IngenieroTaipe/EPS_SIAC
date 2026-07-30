@@ -233,7 +233,7 @@ CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'America/Lima' # El schedule usará la zona horario de América Latina
+CELERY_TIMEZONE = 'UTC' # El schedule usará la zona horario global UTC
 CELERY_ENABLE_UTC = True
 
 # === Planificador Periódico (Celery Beat) ===

@@ -149,7 +149,8 @@ class ComponentListSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'name',
             'type', 
             'district', 
-            'coords'
+            'coords',
+            'specification'
         ]
 
 class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):

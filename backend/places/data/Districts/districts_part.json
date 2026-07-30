@@ -3321,13 +3321,33 @@
         "province_ubigeo": "1203"
     },
     {
+        "name": "Perené",
+        "ubigeo": "120302",
+        "province_ubigeo": "1203"
+    },
+    {
         "name": "Pichanaqui",
         "ubigeo": "120303",
         "province_ubigeo": "1203"
     },
     {
+        "name": "Vitoc",
+        "ubigeo": "120306",
+        "province_ubigeo": "1203"
+    },
+    {
         "name": "Satipo",
         "ubigeo": "120601",
+        "province_ubigeo": "1206"
+    },
+    {
+        "name": "Mazamari",
+        "ubigeo": "120604",
+        "province_ubigeo": "1206"
+    },
+    {
+        "name": "Pangoa",
+        "ubigeo": "120606",
         "province_ubigeo": "1206"
     },
     {

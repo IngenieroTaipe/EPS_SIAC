@@ -19,10 +19,6 @@ from core_predictive.constants import (
     GFS_NATIVE_GRID_RES
 )
 
-from core_shared.constants import (
-    LIMA_TZ
-)
-
 logger = logging.getLogger(__name__)
 
 
