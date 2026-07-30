@@ -122,8 +122,9 @@ export const apiUmbrales = {
     variable?: number;
     threshold?: number;
   }): Promise<UmbralFenomeno[]> {
-    // Caché de 5 min: lista completa de umbrales (read-only en gestión).
-    // Se invalida al crear/editar/eliminar desde este mismo cliente.
+    // Caché en localStorage: lista de umbrales (read-only en gestión).
+    // TTL largo (1h) porque los umbrales cambian poco; al crear/editar/eliminar
+    // desde este cliente se invalida automáticamente. Sobrevive a recargas.
     const key = `umbrales:${JSON.stringify(params ?? {})}`;
     return cachedGet(key, async () => {
       const all = await fetchAllPages<UmbralFenomeno>(
@@ -131,7 +132,7 @@ export const apiUmbrales = {
         params,
       );
       return dedupeUmbrales(all);
-    }, 15 * 60_000);
+    }, 60 * 60_000);
   },
 
   async createUmbral(body: UmbralInput): Promise<UmbralFenomeno> {

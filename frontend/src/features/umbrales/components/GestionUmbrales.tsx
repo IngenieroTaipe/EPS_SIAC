@@ -134,6 +134,9 @@ export function GestionUmbrales() {
   }, [todosUmbrales, selectedUbigeo]);
 
   // 6. Máximo umbral registrado GFS para el distrito seleccionado.
+  //    Sólo considera los clústeres cuyo `affected_ubigeos` incluye al
+  //    distrito. Si la corrida GFS actual no genera lluvia sobre la zona,
+  //    no hay nada que mostrar (comportamiento original).
   const maxInfo = useMemo<{ umbral: UmbralFenomeno | null; mmh: number | null }>(() => {
     if (!clusters || selectedUbigeo === null) return { umbral: null, mmh: null };
     let maxMmh: number | null = null;
@@ -145,7 +148,7 @@ export function GestionUmbrales() {
       if (maxMmh === null || v > maxMmh) maxMmh = v;
     }
     if (maxMmh === null) return { umbral: null, mmh: null };
-    const encontrado = umbrales.find((u) => valorEnRango(maxMmh!, u)) ?? null;
+    const encontrado = umbrales.find((u) => valorEnRango(maxMmh, u)) ?? null;
     return { umbral: encontrado, mmh: maxMmh };
   }, [clusters, selectedUbigeo, umbrales]);
 
