@@ -78,7 +78,7 @@ function Campo({
         {label}
       </span>
       <div className="self-stretch bg-button-fill-button rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-2.5 inline-flex justify-between items-center">
-        <span className="text-text-status-placeholder text-sm font-normal font-sans leading-5">
+        <span className="text-text-primary text-sm font-normal font-sans leading-5">
           {value}
         </span>
         {withClock && (
