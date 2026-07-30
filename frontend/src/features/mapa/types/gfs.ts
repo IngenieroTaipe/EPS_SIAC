@@ -48,8 +48,13 @@ export interface GfsClusterFeatureProperties {
   gfs_request_id: number;
   /** Paso horario dentro de su corrida (1..12 FORECAST, 1..6 HISTORIC). */
   time_step: number;
-  /** Timestamp legible en hora local PET — ej. "2026-07-28 20:00 PET". */
-  timestamp_str: string;
+  /**
+   * Timestamp ISO, wall-clock en hora de Perú (PET = UTC-5 fijo).
+   * El builder PostGIS lo emite con offset literal `-05:00`, p. ej:
+   *   "2026-07-30T20:00:00-05:00"
+   * Aceptado tal cual por `parsePetTimestamp` (no requiere conversión).
+   */
+  timestamp_utc: string;
   /** Índice de clúster asignado por DBSCAN dentro del step. */
   cluster_index: number;
   /** Nº de celdas GFS originales agrupadas en este clúster. */
@@ -205,8 +210,9 @@ export function classifyCluster(p: GfsClusterFeatureProperties): GfsCategory {
 }
 
 /**
- * Extrae "HH:mm" de un `timestamp_str` con formato "YYYY-MM-DD HH:mm PET".
- * Defensivo: si el string no parsea, devuelve '—'.
+ * Extrae "HH:mm" de un `timestamp_utc` (ISO con offset, ej.
+ * "2026-07-30T20:00:00-05:00"). Defensivo: si el string no parsea,
+ * devuelve '—'.
  */
 export function extractHHmm(timestampStr?: string | null): string {
   if (typeof timestampStr !== 'string' || !timestampStr) return '—';

@@ -1,11 +1,28 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertsTable } from '@/features/alertas/components/AlertsTable';
 import { ESTADO_LABEL, type EstadoAlertaHistorica } from '@/features/alertas/types';
 import { mockAlertasHistoricas } from '@/features/alertas/data/mockAlertasHistoricas';
 import { cn } from '@/shared/lib/cn';
+import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
+import {
+  UNIDADES_OPERATIVAS,
+  UNIDAD_TODAS,
+} from '@/shared/context/UnidadOperativaContext';
 
-/** Unidades operativas disponibles (para el select de filtro). */
-const UNIDADES = ['Todas', 'Pichanaqui', 'San Ramón', 'La Merced', 'Oxapampa', 'Satipo'];
+/**
+ * Compara una unidad del mock (p.ej. "Pichanaqui") con el nombre del
+ * contexto (p.ej. "Pichanaqui-Sangani") usando la "raíz" antes del
+ * guion, para evitar duplicar de la lista de unidades en esta página.
+ * Mientras el mock usa nombres cortos heredados, el contexto usa los
+ * nombres canónicos; esto los reconcilia sin tocar el mock.
+ */
+function mismaUnidad(unidadAlerta: string, selectedNombre: string): boolean {
+  if (selectedNombre === UNIDAD_TODAS) return true;
+  const rootSel = selectedNombre.split('-')[0];
+  const rootAlerta = unidadAlerta.split('-')[0];
+  return rootSel === rootAlerta;
+}
 
 /** Estados se pueden filtrar individualmente (checkbox list). */
 const ESTADOS_FILTRABLES: EstadoAlertaHistorica[] = [
@@ -43,20 +60,31 @@ const ESTADO_DOT: Record<EstadoAlertaHistorica, string> = {
  *     añadir un selector "Comparar por: creación / notificación / predicción / cierre".
  */
 export function HistoricoAlertasPage() {
-  const [unidad, setUnidad] = useState<string>('Todas');
+  const [searchParams] = useSearchParams();
+  const preselectId = searchParams.get('id');
+
+  const { selectedNombre, setSelectedNombre } = useUnidadOperativa();
+
   const [estadosSeleccionados, setEstadosSeleccionados] = useState<Set<EstadoAlertaHistorica>>(
     () => new Set(ESTADOS_FILTRABLES),
   );
   const [desde, setDesde] = useState<string>('');
   const [hasta, setHasta] = useState<string>('');
 
-  // ID seleccionado en la tabla (para resaltar fila si hace falta).
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // ID seleccionado en la tabla (para resaltar fila si hace falta). Si
+  // llega ?id= desde el mapa (botón view del AlertaRow), pre-selecciona.
+  const [selectedId, setSelectedId] = useState<string | null>(preselectId);
+
+  // Toggle real: clic en fila seleccionada la deselecciona (igual que las
+  // demás vistas que usan AlertsTable/ComponentsTable).
+  function handleToggleSelect(id: string) {
+    setSelectedId((prev) => (prev === id ? null : id));
+  }
 
   // Aplicar filtros al mock.
   const alertasFiltradas = useMemo(() => {
     return mockAlertasHistoricas.filter((a) => {
-      if (unidad !== 'Todas' && a.unidadOperativa !== unidad) return false;
+      if (!mismaUnidad(a.unidadOperativa, selectedNombre)) return false;
       if (!estadosSeleccionados.has(a.estado)) return false;
       const fechaCreacion = new Date(a.fechaCreacion).getTime();
       if (desde) {
@@ -69,7 +97,13 @@ export function HistoricoAlertasPage() {
       }
       return true;
     });
-  }, [unidad, estadosSeleccionados, desde, hasta]);
+  }, [selectedNombre, estadosSeleccionados, desde, hasta]);
+
+  // Opciones del filtro: "Todas" + unidades operativas del contexto.
+  const unidadOptions = useMemo(
+    () => [UNIDAD_TODAS, ...UNIDADES_OPERATIVAS.map((u) => u.nombre)],
+    [],
+  );
 
   return (
     <div className="h-full overflow-y-auto p-6 text-text-primary">
@@ -83,12 +117,12 @@ export function HistoricoAlertasPage() {
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">Unidad Operativa</label>
           <select
-            value={unidad}
-            onChange={(e) => setUnidad(e.target.value)}
+            value={selectedNombre}
+            onChange={(e) => setSelectedNombre(e.target.value)}
             className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
                        focus:outline-2 focus:outline-primary-main"
           >
-            {UNIDADES.map((u) => (
+            {unidadOptions.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
@@ -155,7 +189,7 @@ export function HistoricoAlertasPage() {
         <button
           type="button"
           onClick={() => {
-            setUnidad('Todas');
+            setSelectedNombre(UNIDAD_TODAS);
             setEstadosSeleccionados(new Set(ESTADOS_FILTRABLES));
             setDesde('');
             setHasta('');
@@ -175,14 +209,22 @@ export function HistoricoAlertasPage() {
       <AlertsTable
         alertas={alertasFiltradas}
         selectedId={selectedId}
-        onToggleSelect={setSelectedId}
+        onToggleSelect={handleToggleSelect}
         highlightSelected={false}
+        sortSelectedFirst={false}
       />
 
       {/* Empty state si no hay resultados */}
       {alertasFiltradas.length === 0 && (
         <div className="mt-6 text-center text-text-secondary text-sm font-sans">
           No hay alertas que coincidan con los filtros seleccionados.
+        </div>
+      )}
+
+      {preselectId && (
+        <div className="mt-4 text-text-secondary text-xs font-sans">
+          Alerta pre-seleccionada desde el mapa:{' '}
+          <strong className="text-primary-main">{preselectId}</strong>
         </div>
       )}
     </div>

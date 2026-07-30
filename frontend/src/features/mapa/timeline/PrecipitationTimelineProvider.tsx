@@ -130,7 +130,7 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
       if (step === null) continue;
       const key = `${status}-${step}`;
       const timestampDate =
-        parsePetTimestamp(p.timestamp_str) ?? peruNow();
+        parsePetTimestamp(p.timestamp_utc) ?? peruNow();
       // Tapón defensivo contra duplicados: si el backend sirve dos frames
       // con el MISMO timestamp (p.ej. cuando solo existe una corrida
       // COMPLETED y previous_slice reutiliza la misma tabla), el eje
@@ -146,7 +146,7 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
         byKey.set(key, {
           temporal_status: status,
           time_step: step,
-          label: extractHHmm(p.timestamp_str),
+          label: extractHHmm(p.timestamp_utc),
           timestampDate,
         });
       }

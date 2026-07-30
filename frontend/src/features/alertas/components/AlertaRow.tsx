@@ -87,7 +87,9 @@ export function AlertaRow({ alerta, selected, onToggleSelect }: AlertaRowProps) 
       <div className="flex-1 min-w-24 py-2 inline-flex justify-center items-center gap-2">
         <IconButton
           label="Ver detalle"
-          onClick={() => navigate('/alertas/gestion')}
+          onClick={() =>
+            navigate(`/alertas/gestion?id=${encodeURIComponent(alerta.id)}`)
+          }
         >
           <ViewIcon className="size-5 text-text-primary" aria-hidden="true" />
         </IconButton>

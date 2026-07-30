@@ -50,6 +50,50 @@ class Command(BaseCommand):
                 "criticality_name": "MEDIA",
                 "coords": [[-74.8650, -10.9150]]
             },
+            # ==== CHANCHAMAYO (120301) — Fuentes, Captaciones, Estación de Bombeo ====
+            {
+                "ubigeo": "120301",
+                "type_name": "Fuente",
+                "code": "0001",
+                "criticality_name": "MEDIA",
+                "coords": [[-75.3050, -11.0580]]
+            },
+            {
+                "ubigeo": "120301",
+                "type_name": "Fuente",
+                "code": "0003",
+                "criticality_name": "MEDIA",
+                "coords": [[-75.3150, -11.0630]]
+            },
+            {
+                "ubigeo": "120301",
+                "type_name": "Captación",
+                "code": "0005",
+                "criticality_name": "MEDIA",
+                "coords": [[-75.3090, -11.0570]]
+            },
+            {
+                "ubigeo": "120301",
+                "type_name": "Captación",
+                "code": "0006",
+                "criticality_name": "MEDIA",
+                "coords": [[-75.3120, -11.0530]]
+            },
+            {
+                "ubigeo": "120301",
+                "type_name": "Estación de Bombeo y Rebombeo de Agua Potable",
+                "code": "0009",
+                "criticality_name": "MEDIA",
+                "coords": [[-75.3170, -11.0600]]
+            },
+            # ==== SAN RAMÓN (120305, distrito de la provincia de Chanchamayo) ====
+            {
+                "ubigeo": "120305",
+                "type_name": "Estación de Bombeo y Rebombeo de Agua Potable",
+                "code": "0008",
+                "criticality_name": "MEDIA",
+                "coords": [[-75.3480, -11.2080]]
+            },
             # ==== OXAPAMPA ====
             {
                 "ubigeo": "190301",

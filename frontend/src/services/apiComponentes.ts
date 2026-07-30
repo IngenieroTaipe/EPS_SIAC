@@ -60,6 +60,7 @@ export interface BackendComponentListCoord {
  *     `physical_status` (esos solo están en el detalle).
  */
 export interface BackendComponentListItem {
+  id: number;
   code: string;
   name: string;
   type: string;

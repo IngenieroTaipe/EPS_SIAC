@@ -414,11 +414,11 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
       </div>
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <div className="px-8 py-5 border-t border-button-stroke inline-flex flex-col items-end gap-2 bg-background-main">
+      <div className="self-stretch sticky bottom-0 z-10 px-8 py-5 border-t border-button-stroke bg-background-main flex flex-col items-end gap-2 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         {errorGuardar && (
           <p className="text-red-600 text-sm font-sans">{errorGuardar}</p>
         )}
-        <div className="inline-flex justify-end items-center gap-3 w-full">
+        <div className="flex justify-end items-center gap-3 w-full">
           {initial?.id && (
             <button
               type="button"
@@ -428,9 +428,9 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
                          hover:bg-secondary-hover transition-colors
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-main focus-visible:ring-offset-2
                          disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
-            >
-              Eliminar
-            </button>
+>
+               {guardando ? 'Eliminando…' : 'Eliminar'}
+             </button>
           )}
           <button
             type="button"
