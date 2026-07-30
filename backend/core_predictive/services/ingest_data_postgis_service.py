@@ -16,7 +16,10 @@ from core_predictive.constants import (
     PERU_BBOX, 
     MIN_THRESHOLD_MM_H,
     TARGET_GRID_RES,
-    GFS_NATIVE_GRID_RES,
+    GFS_NATIVE_GRID_RES
+)
+
+from core_shared.constants import (
     LIMA_TZ
 )
 

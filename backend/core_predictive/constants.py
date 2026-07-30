@@ -1,5 +1,3 @@
-import zoneinfo
-
 # ===================================
 ## Constantes para el servicio GFS NOOA AWS S3
 # ===================================
@@ -28,8 +26,6 @@ GFS_RUN_HOURS = [
     # Esto equivale a 12 archivos .grib2 (f001 a f012)
 GFS_TOTAL_HOURS_FORECAST = 12
 MIN_THRESHOLD_MM_H = 0.1
-
-LIMA_TZ = zoneinfo.ZoneInfo("America/Lima")
 
 # Resolución nativa del modelo GFS en grados
 GFS_NATIVE_GRID_RES = 0.25

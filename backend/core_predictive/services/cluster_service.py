@@ -110,7 +110,7 @@ class SpatialClusteringService:
                 SELECT 
                     c.id AS cell_id,
                     c.geometry,
-                    c.timestamps->>(idx - 1) AS timestamp_str,
+                    c.timestamps->>(idx - 1) AS timestamp_utc,
                     (c.intensity_series->>(idx - 1))::float AS intensity,
                     idx AS time_step
                 FROM gfs_active_cells c,
@@ -125,7 +125,7 @@ class SpatialClusteringService:
                     cell_id,
                     geometry,
                     intensity,
-                    timestamp_str,
+                    timestamp_utc,
                     time_step,
                     ST_ClusterDBSCAN(geometry, eps := %s, minpoints := %s) OVER (
                         PARTITION BY time_step ORDER BY cell_id
@@ -135,7 +135,7 @@ class SpatialClusteringService:
             dissolved_clusters AS (
                 SELECT 
                     time_step,
-                    timestamp_str,
+                    timestamp_utc,
                     cluster_id,
                     COUNT(cell_id) AS total_cells,
                     ROUND(MAX(intensity)::numeric, 2) AS max_intensity,
@@ -143,12 +143,12 @@ class SpatialClusteringService:
                     ST_Multi(ST_Union(geometry)) AS geom
                 FROM clustered
                 WHERE cluster_id IS NOT NULL
-                GROUP BY time_step, timestamp_str, cluster_id
+                GROUP BY time_step, timestamp_utc, cluster_id
             )
             -- Intersección con la tabla de distritos
             SELECT 
                 dc.time_step,
-                dc.timestamp_str,
+                dc.timestamp_utc,
                 dc.cluster_id,
                 dc.total_cells,
                 dc.max_intensity,
@@ -157,7 +157,7 @@ class SpatialClusteringService:
                 COALESCE(array_agg(DISTINCT d.ubigeo), ARRAY[]::varchar[]) AS intersected_ubigeos
             FROM dissolved_clusters dc
             LEFT JOIN districts d ON ST_Intersects(dc.geom, d.geometry)
-            GROUP BY dc.time_step, dc.timestamp_str, dc.cluster_id, dc.total_cells, dc.max_intensity, dc.avg_intensity, dc.geom
+            GROUP BY dc.time_step, dc.timestamp_utc, dc.cluster_id, dc.total_cells, dc.max_intensity, dc.avg_intensity, dc.geom
             ORDER BY dc.time_step, dc.cluster_id;
         """
 
@@ -207,7 +207,7 @@ class SpatialClusteringService:
 
                 idx AS time_step,
 
-                c.timestamps ->> (idx - 1) AS timestamp_str,
+                c.timestamps ->> (idx - 1) AS timestamp_utc,
 
                 (c.intensity_series ->> (idx - 1))::double precision
                     AS intensity
@@ -528,7 +528,7 @@ class SpatialClusteringService:
         time_labels AS (
             SELECT DISTINCT
                 time_step,
-                timestamp_str
+                timestamp_utc
             FROM active_cells
         )
 
@@ -538,7 +538,7 @@ class SpatialClusteringService:
         SELECT
             dh.time_step,
 
-            tl.timestamp_str,
+            tl.timestamp_utc,
 
             dh.cluster_id,
 
@@ -602,7 +602,12 @@ class SpatialClusteringService:
                 SELECT 
                     c.id AS cell_id,
                     c.geometry,
-                    c.timestamps->>(idx - 1) AS timestamp_str,
+                    CASE 
+                        WHEN jsonb_typeof(c.timestamps->(idx - 1)) = 'number' THEN 
+                            to_timestamp((c.timestamps->>(idx - 1))::double precision) AT TIME ZONE 'UTC'
+                        ELSE 
+                            (c.timestamps->>(idx - 1))::timestamptz
+                    END AS timestamp_utc,
                     (c.intensity_series->>(idx - 1))::float AS intensity,
                     idx AS time_step
                 FROM gfs_active_cells c,
@@ -626,7 +631,7 @@ class SpatialClusteringService:
                     fc.cell_id,
                     fc.geometry,
                     fc.time_step,
-                    fc.timestamp_str,
+                    fc.timestamp_utc,
                     fc.intensity,
                     gs.global_avg,
                     gs.global_stddev,
@@ -639,14 +644,14 @@ class SpatialClusteringService:
                        ON sub.time_step = fc.time_step
                       AND sub.geometry && fc.geometry
                       AND ST_DWithin(sub.geometry, fc.geometry, 0.15)
-                GROUP BY fc.cell_id, fc.geometry, fc.time_step, fc.timestamp_str, fc.intensity, gs.global_avg, gs.global_stddev, gs.n
+                GROUP BY fc.cell_id, fc.geometry, fc.time_step, fc.timestamp_utc, fc.intensity, gs.global_avg, gs.global_stddev, gs.n
             ),
             z_scores AS (
                 SELECT 
                     cell_id,
                     geometry,
                     time_step,
-                    timestamp_str,
+                    timestamp_utc,
                     intensity,
                     CASE 
                         WHEN global_stddev > 0 AND local_count > 0 THEN
@@ -666,7 +671,7 @@ class SpatialClusteringService:
                     cell_id,
                     geometry,
                     time_step,
-                    timestamp_str,
+                    timestamp_utc,
                     intensity,
                     ST_ClusterDBSCAN(geometry, eps := %s, minpoints := %s) OVER (
                         PARTITION BY time_step ORDER BY cell_id
@@ -676,7 +681,7 @@ class SpatialClusteringService:
             dissolved_clusters AS (
                 SELECT 
                     time_step,
-                    timestamp_str,
+                    timestamp_utc,
                     cluster_id,
                     COUNT(cell_id) AS total_cells,
                     ROUND(MAX(intensity)::numeric, 2) AS max_intensity,
@@ -684,11 +689,11 @@ class SpatialClusteringService:
                     ST_Multi(ST_Union(geometry)) AS geom
                 FROM clustered
                 WHERE cluster_id IS NOT NULL
-                GROUP BY time_step, timestamp_str, cluster_id
+                GROUP BY time_step, timestamp_utc, cluster_id
             )
             SELECT 
                 dc.time_step,
-                dc.timestamp_str,
+                dc.timestamp_utc,
                 dc.cluster_id,
                 dc.total_cells,
                 dc.max_intensity,
@@ -697,7 +702,7 @@ class SpatialClusteringService:
                 COALESCE(array_remove(array_agg(DISTINCT d.ubigeo), NULL), ARRAY[]::varchar[]) AS intersected_ubigeos
             FROM dissolved_clusters dc
             LEFT JOIN districts d ON dc.geom && d.geometry AND ST_Intersects(dc.geom, d.geometry)
-            GROUP BY dc.time_step, dc.timestamp_str, dc.cluster_id, dc.total_cells, dc.max_intensity, dc.avg_intensity, dc.geom
+            GROUP BY dc.time_step, dc.timestamp_utc, dc.cluster_id, dc.total_cells, dc.max_intensity, dc.avg_intensity, dc.geom
             ORDER BY dc.time_step, dc.cluster_id;
         """
         try:
@@ -739,7 +744,7 @@ class SpatialClusteringService:
         cluster_objects = []
 
         for row in raw_rows:
-            time_step, timestamp_str, cluster_id, total_cells, max_intensity, avg_intensity, wkt_geom, intersected_ubigeos = row
+            time_step, timestamp_utc, cluster_id, total_cells, max_intensity, avg_intensity, wkt_geom, intersected_ubigeos = row
             max_intensity_val = float(max_intensity)
 
             # Evaluamiento usando los nombres reales del modelo Threshold
@@ -753,7 +758,7 @@ class SpatialClusteringService:
                 GFSClusterSnapshot(
                     gfs_request=gfs_request,
                     time_step=time_step,
-                    timestamp_str=timestamp_str,
+                    timestamp_utc=timestamp_utc,
                     cluster_index=cluster_id,
                     total_cells=total_cells,
                     max_intensity_mm_h=max_intensity_val,

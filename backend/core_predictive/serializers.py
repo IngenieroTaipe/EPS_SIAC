@@ -178,7 +178,7 @@ class GFSClusterSnapshotGeoJSONSerializer(serializers.ModelSerializer):
         return {
             "gfs_request_id": obj.gfs_request_id,
             "time_step": obj.time_step,
-            "timestamp_str": obj.timestamp_str,
+            "timestamp_utc": obj.timestamp_utc,
             "cluster_index": obj.cluster_index,
             "total_cells": obj.total_cells,
             "max_intensity_mm_h": obj.max_intensity_mm_h,

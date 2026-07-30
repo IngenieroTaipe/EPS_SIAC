@@ -26,6 +26,8 @@ from core_predictive.serializers import (
     GFSRequestSerializer
 )
 
+from core_shared.constants import LIMA_TZ
+
 # ==============================================================================
 # SERIALIZADORES DE ESTADOS
 # ==============================================================================
@@ -161,17 +163,30 @@ class AlertClusterPointSerializer(serializers.ModelSerializer):
 class AlertListSerializer(serializers.ModelSerializer):
     alert_clusters = serializers.SerializerMethodField()
     max_threshold = serializers.StringRelatedField()
-
+ 
+    start_time_local = serializers.SerializerMethodField()
+    end_time_local = serializers.SerializerMethodField()
+    
     class Meta:
         model = Alert
         fields = [
             'code',
             'max_intensity_mm_h',
             'max_threshold',
-            'start_time_utc',
-            'end_time_utc',
+            'start_time_local',
+            'end_time_local',
             'alert_clusters'
         ]
+
+    def get_start_time_local(self, obj) -> str | None:
+        if obj.start_time_utc:
+            return obj.start_time_utc.astimezone(LIMA_TZ).isoformat()
+        return None
+
+    def get_end_time_local(self, obj) -> str | None:
+        if obj.end_time_utc:
+            return obj.end_time_utc.astimezone(LIMA_TZ).isoformat()
+        return None
 
     def get_alert_clusters(self, obj):
         return [
@@ -181,7 +196,7 @@ class AlertListSerializer(serializers.ModelSerializer):
                     "coordinates": [ac.representative_point.x, ac.representative_point.y]
                 } if ac.representative_point else None
             }
-            for ac in obj.alerts_clusters_alert.all()
+            for ac in obj.alerts_clusters_alerts.all()
         ]
 
 
@@ -193,24 +208,66 @@ class AlertDetailSerializer(serializers.ModelSerializer):
     clusters = serializers.SerializerMethodField()
     max_threshold = serializers.StringRelatedField()
 
+    start_time_local = serializers.SerializerMethodField()
+    end_time_local = serializers.SerializerMethodField()
+
+    status = serializers.SerializerMethodField()
+    phase = serializers.SerializerMethodField()
+    
     class Meta:
         model = Alert
         fields = [
             'code',
+            'status',
+            'phase',
             'max_intensity_mm_h',
             'max_threshold',
-            'start_time_utc',
-            'end_time_utc',
+            'start_time_local',
+            'end_time_local',
             'alert_cluster_components',
             'clusters'
         ]
+
+    def get_start_time_local(self, obj) -> str | None:
+        if obj.start_time_utc:
+            return obj.start_time_utc.astimezone(LIMA_TZ).isoformat()
+        return None
+
+    def get_end_time_local(self, obj) -> str | None:
+        if obj.end_time_utc:
+            return obj.end_time_utc.astimezone(LIMA_TZ).isoformat()
+        return None
+    
+    def get_status(self, obj) -> str:
+        """
+        Extrae la Etapa (Estado) actual desde el último registro de la FSM (AlertHistory).
+        """
+        latest_history = obj.history.select_related(
+            'historic_status__name'
+        ).order_by('-created_at').first()
+        
+        if latest_history and latest_history.historic_status:
+            return latest_history.historic_status.name
+        return "Desconocido"
+
+    def get_phase(self, obj) -> str:
+        """
+        Extrae la Fase actual desde el último registro de la FSM (AlertHistory).
+        """
+        latest_history = obj.history.select_related(
+            'historic_phase__name'
+        ).order_by('-created_at').first()
+        
+        if latest_history and latest_history.historic_phase:
+            return latest_history.historic_phase.name
+        return "Sin Fase"
 
     def get_alert_cluster_components(self, obj):
         components = []
         # Prevenimos duplicados si un componente es impactado en varios time_steps
         seen_components = set()
         
-        for ac in obj.alerts_clusters_alert.all():
+        for ac in obj.alerts_clusters_alerts.all():
             for acc in ac.alerts_clusters_components_alert_clusters.all():
                 comp = acc.component
                 if comp.id not in seen_components:
@@ -222,7 +279,7 @@ class AlertDetailSerializer(serializers.ModelSerializer):
 
     def get_clusters(self, obj):
         clusters = []
-        for ac in obj.alerts_clusters_alert.all():
+        for ac in obj.alerts_clusters_alerts.all():
             cluster = ac.cluster
             clusters.append({
                 "max_intensity_mm_h": cluster.max_intensity_mm_h,
@@ -251,7 +308,18 @@ class AlertTransitionSerializer(serializers.ModelSerializer):
     )
     
     # === CAMPOS DE DOMINIO PARA ALERTRESULT / ALERT ===
-    real_start_time = serializers.DateTimeField(required=False, allow_null=True, write_only=True)
+    start_time_local = serializers.DateTimeField(
+        required=False, 
+        allow_null=True, 
+        write_only=True,
+        default_timezone=LIMA_TZ
+    )
+    end_time_local = serializers.DateTimeField(
+        required=False, 
+        allow_null=True, 
+        write_only=True,
+        default_timezone=LIMA_TZ
+    )
     has_damage = serializers.BooleanField(required=False, write_only=True)
     damage_report = serializers.CharField(required=False, allow_blank=True, write_only=True)
     taken_actions = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -259,12 +327,21 @@ class AlertTransitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Alert
         fields = [
-            'id', 'code', 'start_time_utc', 'end_time_utc',
-            'status_name', 'phase_name', 'real_start_time', 
+            'id', 'code', 'start_time_local', 'end_time_local',
+            'status_name', 'phase_name', 
             'has_damage', 'damage_report', 'taken_actions'
         ]
-        read_only_fields = ['id', 'code', 'start_time_utc', 'end_time_utc']
+        read_only_fields = ['id', 'code', 'start_time_local', 'end_time_local']
 
+    def get_start_time_local(self, obj) -> str | None:
+        if obj.start_time_utc:
+            return obj.start_time_utc.astimezone(LIMA_TZ).isoformat()
+        return None
+
+    def get_end_time_local(self, obj) -> str | None:
+        if obj.end_time_utc:
+            return obj.end_time_utc.astimezone(LIMA_TZ).isoformat()
+        return None
     def validate(self, attrs):
         if attrs.get("has_damage") is True and not attrs.get("damage_report"):
             raise serializers.ValidationError({"damage_report": "Debe especificar el reporte si declara que existieron daños."})
@@ -366,9 +443,7 @@ class AlertHistoryLightSerializer(serializers.ModelSerializer):
             'id',
             'alert',
             'status',
-            'phase',
-            'natural_phenomena_value',
-            'date_predicted_start'
+            'phase'
         ]
         read_only_fields = ['id']
 

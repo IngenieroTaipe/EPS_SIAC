@@ -241,7 +241,6 @@ class NotificationChannel(models.TextChoices):
     WHATSAPP = 'WHATSAPP', 'WhatsApp'
     EMAIL = 'EMAIL', 'Correo Electrónico'
 
-
 class NotificationType(models.TextChoices):
     INITIAL = 'INITIAL', 'Alerta Inicial'
     RESCHEDULED = 'RESCHEDULED', 'Reprogramación Horaria'

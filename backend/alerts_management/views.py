@@ -4,13 +4,16 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
+from datetime import timedelta
+
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-from datetime import timedelta
-from django.utils import timezone
 
 from alerts_management.services.alert_state_machine_service import AlertStateMachineService
 from alerts_management.constants import MINIMUM_HOURS_TO_START_FILTER
+
+from core_shared.permissions import IsAdminUserOrReadOnly
 
 from alerts_management.models import (
     AlertStatus,
@@ -157,7 +160,7 @@ class AlertStatusPhaseViewSet(viewsets.ModelViewSet):
     partial_update=extend_schema(tags=['Alerts / Alert'], summary="Actualizar parcialmente una Alerta"),
     destroy=extend_schema(tags=['Alerts / Alert'], summary="Eliminar una Alerta")
 )
-class AlertViewSet(viewsets.ModelViewSet):
+class AlertViewSet(viewsets.ReadOnlyModelViewSet):
     """
         Controlador de Lectura para las Alertas.
         - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET, CREATE, UPDATE, PATCH, DELETE). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
@@ -165,7 +168,7 @@ class AlertViewSet(viewsets.ModelViewSet):
         - Permite la búsqueda en base a campos como: Nombre.
         - Permite el ordenamiento en base a campos como: Nombre    
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUserOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     
 
@@ -182,8 +185,14 @@ class AlertViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Alert.objects.select_related(
-            'natural_phenomena'
-        ).all() 
+            'natural_phenomena',
+            'max_threshold'
+        ).prefetch_related(
+            'alert_historic__historic_status',
+            'alert_historic__historic_phase',
+            'alerts_clusters_alerts__cluster__threshold',
+            'alerts_clusters_alerts__alerts_clusters_components_alert_clusters__component'
+        )
 
         upcoming_only = self.request.query_params.get('upcoming_only', 'false').lower() == 'true'
         if upcoming_only:

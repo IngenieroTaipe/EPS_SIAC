@@ -249,6 +249,16 @@ CELERY_BEAT_SCHEDULE = {
         # 18 UTC + 1:00 (periodo adicional) => 19:00 UTC (14:00 -> Perú)
         'schedule': crontab(hour='1,7,13,19'),
     },
+
+    'despacho-horario-alertas-telegram': {
+        'task': 'tasks.dispatch_hourly_alerts',
+        'schedule': crontab(minute=0),  # Se ejecuta al minuto 0 de cada hora (Ej: 01:00, 02:00, etc.)
+    },
+
+    'evaluacion-timeouts-maquina-estados': {
+        'task': 'tasks.process_state_machine_timeouts',
+        'schedule': crontab(minute=5),  # Se ejecuta cada hora al minuto 05 para dar margen
+    },
 }
 
 # === Configuración almacenamiento del modelo GFS ===
@@ -261,3 +271,8 @@ MEDIA_ROOT = GFS_STORAGE_DIR
 MEDIA_URL = '/media/'
 
 os.makedirs(MEDIA_ROOT, exist_ok=True)
+
+# === Configuración de Telegram ===
+TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default=None)
+TELEGRAM_CHAT_ID = env('TELEGRAM_CHAT_ID', default=None)
+

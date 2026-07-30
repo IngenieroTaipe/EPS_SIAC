@@ -134,7 +134,7 @@ class GFSClusterSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
         return GeoJSONResponseService.build_latest_response(
             model_class=GFSClusterSnapshot,
             properties_fields=[
-                'gfs_request_id', 'time_step', 'timestamp_str', 'cluster_index',
+                'gfs_request_id', 'time_step', 'timestamp_utc', 'cluster_index',
                 'total_cells', 'max_intensity_mm_h', 'avg_intensity_mm_h',
                 'threshold_id', 'affected_ubigeos'
             ],
@@ -151,7 +151,7 @@ class GFSClusterSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
         return GeoJSONResponseService.build_18h_window_response(
             model_class=GFSClusterSnapshot,
             properties_fields=[
-                'gfs_request_id', 'time_step', 'timestamp_str', 'cluster_index',
+                'gfs_request_id', 'time_step', 'timestamp_utc', 'cluster_index',
                 'total_cells', 'max_intensity_mm_h', 'avg_intensity_mm_h',
                 'threshold_id', 'affected_ubigeos'
             ],

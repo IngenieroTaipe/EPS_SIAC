@@ -91,9 +91,11 @@ class ForecastRainRequestService:
             )
 
             # === Desencadenar el proceso de adaptación de las alertas al nuevo pronóstico ===
-            process_forecast_and_adapt_alerts_task.apply_async(
-                args=[self.request_obj.id],
-                countdown=2  # Pequeño buffer para asegurar la visibilidad del COMMIT en BD
+            transaction.on_commit(
+                lambda: process_forecast_and_adapt_alerts_task.apply_async(
+                    args=[self.request_obj.id],
+                    countdown=2
+                )
             )
 
             logger.info(

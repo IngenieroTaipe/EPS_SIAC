@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from core_predictive.models import GFSRequest
+from core_shared.constants import LIMA_TZ_STR
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,18 @@ class PostGISGeoJSONExtractor:
         db_table = model_class._meta.db_table
         properties_sql = ", ".join([f"'{f}', c.{f}" for f in properties_fields])
 
+        formatted_properties = []
+        for f in properties_fields:
+            if ('timestamp' in f or 'date' in f) and f != 'timestamps': # Excluimos timestamps debido a ser un JSONB
+                # Transforma el timestamp a America/Lima (UTC-5) dentro del JSON
+                formatted_properties.append(
+                    f"'{f}', to_char(c.{f} AT TIME ZONE '{LIMA_TZ_STR}', 'YYYY-MM-DD\"T\"HH24:MI:SS-05:00')"
+                )
+            else:
+                formatted_properties.append(f"'{f}', c.{f}")
+
+        properties_sql = ", ".join(formatted_properties)
+
         # El JOIN a thresholds solo aplica cuando la tabla/expediente declara FK threshold_id (GFSClusterSnapshot).
         # GFSActiveCell no tiene dicho FK (usa threshold_names JSONField), por lo que la union se omite ahi.
         if 'threshold_id' in properties_fields:
@@ -61,8 +74,8 @@ class PostGISGeoJSONExtractor:
                 'metadata', json_build_object(
                     'request_code', %s,
                     'target_variable', %s,
-                    'run_start_utc', %s,
-                    'run_end_utc', %s,
+                    'run_start_local', to_char(%s::timestamptz AT TIME ZONE '{LIMA_TZ_STR}', 'YYYY-MM-DD"T"HH24:MI:SS-05:00'),
+                    'run_end_local', to_char(%s::timestamptz AT TIME ZONE '{LIMA_TZ_STR}', 'YYYY-MM-DD"T"HH24:MI:SS-05:00'),
                     'total_features', COUNT(c.id)
                 ),
                 'features', COALESCE(json_agg(
@@ -120,7 +133,18 @@ class PostGISGeoJSONExtractor:
         previous_request = completed_requests[1] if len(completed_requests) > 1 else None
 
         db_table = model_class._meta.db_table
-        properties_sql = ", ".join([f"'{f}', c.{f}" for f in properties_fields])
+
+        # Mapeo de propiedades con ajuste a UTC-5
+        formatted_properties = []
+        for f in properties_fields:
+            if ('timestamp' in f or 'date' in f) and f != 'timestamps': 
+                formatted_properties.append(
+                    f"'{f}', to_char(c.{f} AT TIME ZONE '{LIMA_TZ_STR}', 'YYYY-MM-DD\"T\"HH24:MI:SS-05:00')"
+                )
+            else:
+                formatted_properties.append(f"'{f}', c.{f}")
+
+        properties_sql = ", ".join(formatted_properties)
 
         # El JOIN a thresholds solo aplica cuando la tabla/expediente declara FK threshold_id (GFSClusterSnapshot).
         # GFSActiveCell no tiene dicho FK (usa threshold_names JSONField), por lo que la union se omite ahi.
@@ -156,6 +180,7 @@ class PostGISGeoJSONExtractor:
                     'latest_request_code', %s,
                     'previous_request_code', %s,
                     'window_duration_hours', 18,
+                    'timezone', '{LIMA_TZ_STR} (UTC-5)',
                     'total_features', COUNT(c.id)
                 ),
                 'features', COALESCE(json_agg(

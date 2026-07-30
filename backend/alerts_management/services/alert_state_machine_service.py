@@ -9,6 +9,8 @@ from alerts_management.models import (
     AlertResult, AlertNotification, NotificationChannel, NotificationType
 )
 
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,15 +38,15 @@ class AlertStateMachineService:
                 - `alert` (`Alert`): Instancia de la alerta que ejecutará la transición.
                 
                 - `status_name` (`str`): Nombre del estado objetivo
-                    - 'Predicho'
-                    - 'En Espera de Confirmación'
-                    - 'No Confirmado'
-                    - 'Confirmado'
+                    - 'PREDICHO'
+                    - 'EN ESPERA DE CONFIRMACIÓN'
+                    - 'NO CONFIRMADO'
+                    - 'CONFIRMADO'
                 
                 - `phase_name` (`Optional[str]`): Nombre de la fase objetivo
-                    - 'En Espera de Reporte'
-                    - 'En Proceso de Atención'
-                    - 'Atendido'
+                    - 'EN ESPERA DE REPORTE'
+                    - 'EN PROCESO DE ATENCIÓN'
+                    - 'ATENDIDO'
                 
                 - `user` (`Optional[User]`): Instancia del usuario autenticado que solicita la transición (None si es ejecutado por el sistema/Celery).
 
@@ -64,7 +66,7 @@ class AlertStateMachineService:
         """
         payload = payload or {}
 
-        if status_name == "Confirmado" and (not phase_name or phase_name == "Sin Fase"):
+        if status_name == "CONFIRMADO" and (not phase_name or phase_name == "SIN FASE"):
             phase_name = cls.DEFAULT_CONFIRMED_PHASE
             
         with transaction.atomic():
@@ -87,6 +89,27 @@ class AlertStateMachineService:
 
             # === Aplicar efectos secundarios por estado (Efectos de Dominio) ===
             cls._apply_state_side_effects(alert, status_name, phase_name, payload)
+
+            #  === Disparar la Notificación ===
+            notification_type = cls._resolve_notification_type(status_name)
+            
+            # == Registrar ==
+            notification_obj = AlertNotification.objects.create(
+                alert_history=new_history,
+                channel=NotificationChannel.TELEGRAM,
+                notification_type=notification_type,
+                is_sent=False,
+                notification_reason=f"Cambio de estado a {status_name} / Fase: {phase_name}"
+            )
+
+            # CONEXIÓN ASÍNCRONA: Se dispara al cerrar el commit en PostgreSQL
+            from alerts_management.tasks import send_telegram_notification_task
+            transaction.on_commit(
+                lambda: send_telegram_notification_task.apply_async(
+                    args=[notification_obj.id],
+                    countdown=1
+                )
+            )
 
             logger.info(f"✅ [StateMachine] Alerta #{alert.code} migró a Estado: '{status_name}' | Fase: '{phase_name}'")
             return new_history
@@ -137,20 +160,20 @@ class AlertStateMachineService:
         now = timezone.now()
 
         # === RESTRICCIÓN: De 'No Confirmado' a 'Confirmado' solo dentro de las 2 horas posteriores ===
-        if current_status == "No Confirmado" and target_status == "Confirmado":
+        if current_status == "NO CONFIRMADO" and target_status == "CONFIRMADO":
             time_in_no_confirmed = now - current_history.created_at
             if time_in_no_confirmed > timedelta(hours=2):
-                raise ValidationError("❌ Se superó la ventana de arrepentimiento de 2 horas para confirmar esta alerta.")
+                raise ValidationError("Se superó la ventana de arrepentimiento de 2 horas para confirmar esta alerta.")
 
         # === RESTRICCIÓN: Una vez en 'Confirmado', NO se puede volver a 'No Confirmado' ni 'Predicho' ===
-        if current_status == "Confirmado" and target_status in ["No Confirmado", "Predicho", "En Espera de Confirmación"]:
-            raise ValidationError("❌ Una alerta en estado Confirmado no puede regresar a estados previos de predicción.")
+        if current_status == "CONFIRMADO" and target_status in ["NO CONFIRMADO", "PREDICHO", "EN ESPERA DE CONFIRMACIÓN"]:
+            raise ValidationError("Una alerta en estado Confirmado no puede regresar a estados previos de predicción.")
 
         # === RESTRICCIÓN: Fase 'Atendido' es inmutable (Cierre definitivo) ===
-        if current_phase == "Atendido":
+        if current_phase == "ATENDIDO":
             time_since_attended = now - current_history.created_at
             if time_since_attended > timedelta(days=2):
-                raise ValidationError("❌ El ciclo de la alerta está Atendido y sellado. Se superó el plazo de 2 días para modificar reportes.")
+                raise ValidationError("El ciclo de la alerta está Atendido y sellado. Se superó el plazo de 2 días para modificar reportes.")
 
     @classmethod
     def _apply_state_side_effects(
@@ -178,7 +201,7 @@ class AlertStateMachineService:
         now = timezone.now()
 
         # === CASO: Entrada a Confirmado -> Instanciar o actualizar AlertResult ===
-        if status_name == "Confirmado":
+        if status_name == "CONFIRMADO":
             real_start_time = payload.get("real_start_time", now)
             
             # Ajustar la hora de inicio real en la Alerta Padre
@@ -195,17 +218,17 @@ class AlertStateMachineService:
                 damage_report = payload.get("damage_report", None)
 
                 if has_damage and not damage_report:
-                    raise ValidationError("❌ REQUISITO OBLIGATORIO: Si declara que existieron daños, debe incluir la descripción en el reporte.")
+                    raise ValidationError("REQUISITO OBLIGATORIO: Si declara que existieron daños, debe incluir la descripción en el reporte.")
 
                 result_obj.has_damage = has_damage
                 result_obj.damage_report = damage_report
                 result_obj.save()
         
         # === CASO: Fase 'Atendido' -> Cierre definitivo ===
-        if phase_name == "Atendido":
+        if phase_name == "ATENDIDO":
             actions_taken = payload.get("taken_actions")
             if not actions_taken:
-                raise ValidationError("❌ REQUISITO OBLIGATORIO: Debe registrar la descripción de las acciones tomadas para marcar como Atendido.")
+                raise ValidationError("REQUISITO OBLIGATORIO: Debe registrar la descripción de las acciones tomadas para marcar como Atendido.")
 
             result_obj, _ = AlertResult.objects.get_or_create(alert=alert)
             result_obj.taken_actions = actions_taken
@@ -214,3 +237,13 @@ class AlertStateMachineService:
             # === Marcar end_time_utc final en la Alerta ===
             alert.end_time_utc = now
             alert.save()
+    
+    @staticmethod
+    def _resolve_notification_type(status_name: str) -> str:
+        """Determina el tipo de notificación según el estado alcanzado."""
+        mapping = {
+            "PREDICH": NotificationType.NEW_ALERT,
+            "CONFIRMADO": NotificationType.CONFIRMED,
+            "NO CONFIRMADO": NotificationType.CANCELLED
+        }
+        return mapping.get(status_name, NotificationType.NEW_ALERT)
