@@ -6,10 +6,11 @@ from django.contrib.auth import get_user_model
 
 from alerts_management.models import (
     Alert, AlertHistory, AlertStatus, AlertPhase, AlertNotification, 
-    AlertResult, NotificationChannel, NotificationType
+    AlertResult, NotificationChannel, NotificationType, AlertClusters
 )
-from core_predictive.models import NaturalPhenomena, ThresholdsNaturalPhenomena, Threshold
+from core_predictive.models import NaturalPhenomena, ThresholdsNaturalPhenomena, Threshold, GFSClusterSnapshot
 from places.models import District
+from django.contrib.gis.geos import Point
 
 User = get_user_model()
 
@@ -44,27 +45,37 @@ class Command(BaseCommand):
             {
                 'threshold_name': 'EXTREMADAMENTE LLUVIOSO',
                 'status': 'CONFIRMADO',
-                'phase': 'EN PROCESO DE ATENCIÓN'
+                'phase': 'EN PROCESO DE ATENCIÓN',
+                'unit': 'Oxapampa',
+                'coords': (-75.4011, -10.5775) # (lon, lat)
             },
             {
                 'threshold_name': 'MUY LLUVIOSO',
                 'status': 'PREDICHO',
-                'phase': None
+                'phase': None,
+                'unit': 'Pichanaqui',
+                'coords': (-74.8731, -10.9253)
             },
             {
                 'threshold_name': 'LLUVIOSO',
                 'status': 'EN ESPERA DE CONFIRMACIÓN',
-                'phase': None
+                'phase': None,
+                'unit': 'Chanchamayo',
+                'coords': (-75.3283, -11.0544)
             },
             {
                 'threshold_name': 'MODERADAMENTE LLUVIOSO',
                 'status': 'NO CONFIRMADO',
-                'phase': None
+                'phase': None,
+                'unit': 'Satipo',
+                'coords': (-74.6386, -11.2522)
             },
             {
                 'threshold_name': 'EXTREMADAMENTE LLUVIOSO',
                 'status': 'CONFIRMADO',
-                'phase': 'EN ESPERA DE REPORTE'
+                'phase': 'EN ESPERA DE REPORTE',
+                'unit': 'San Ramón',
+                'coords': (-75.3614, -11.1242)
             }
         ]
 
@@ -138,4 +149,17 @@ class Command(BaseCommand):
                     taken_actions="Se envió cuadrilla para limpieza de la rejilla de captación."
                 )
 
-        self.stdout.write(self.style.SUCCESS("Se insertaron 5 alertas correctamente (incluyendo históricos, notificaciones y resultado para una de ellas)."))
+            # 6. Asignar un cluster aleatorio y punto representativo
+            random_cluster = GFSClusterSnapshot.objects.order_by('?').first()
+            if random_cluster:
+                point = Point(data['coords'][0], data['coords'][1], srid=4326)
+                AlertClusters.objects.create(
+                    alert=alert,
+                    cluster=random_cluster,
+                    representative_point=point,
+                    is_active_forecast=True
+                )
+            else:
+                self.stdout.write(self.style.WARNING("No se encontró ningún GFSClusterSnapshot para asociar a la alerta."))
+
+        self.stdout.write(self.style.SUCCESS("Se insertaron 5 alertas correctamente (incluyendo históricos, notificaciones, clusters y resultado para una de ellas)."))

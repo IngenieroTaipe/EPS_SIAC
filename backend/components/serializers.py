@@ -8,6 +8,9 @@ from components.models import (
     Component,
     ComponentCoord
 )
+from django.contrib.gis.geos import Point
+from django.db import transaction
+
 from places.serializers import DistrictLightSerializer
 from places.models import District
 from core_shared.mixins import PrepareDataMixin
@@ -36,7 +39,7 @@ class CriticalitySerializer(PrepareDataMixin, serializers.ModelSerializer):
         model = Criticality
         fields = ['id','name', 'description']
         read_only_fields = ['id']
-           
+
 class CriticalityLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     """
         Serializador para listar las criticidades de los componentes.
@@ -49,7 +52,7 @@ class CriticalityLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
         model = Criticality
         fields = ['id', 'name']
         read_only_fields = ['id']
-           
+
 # ==============================================================================
 # SERIALIZADORES DE TIPOS DE COMPONENTES
 # ==============================================================================
@@ -116,26 +119,175 @@ class PhysicalStatusLightSerializer(PrepareDataMixin, serializers.ModelSerialize
         fields = ['code', 'name']
         read_only_fields = ['code']
 
+   
+
 # ==============================================================================
-# SERIALIZADORES DE COMPONENTES
+# SERIALIZADORES DE COORDENADAS DE COMPONENTES
 # ==============================================================================
+    # ==============================================================================
+    # SERIALIZADOR LIGERO PARA LECTURA / REPRESENTACIÓN ESPACIAL
+    # ==============================================================================
 class ComponentCoordLightSerializer(serializers.ModelSerializer):
-    criticality = serializers.StringRelatedField()
+    """
+    Serializador de salida: Transforma la geometría PostGIS (EPSG:4326) 
+    a representaciones UTM Zona 18S y GeoJSON para el cliente WebGIS.
+    """
+    criticality = CriticalityLightSerializer(read_only=True)
+    utm_coords = serializers.SerializerMethodField()
+    geojson = serializers.SerializerMethodField()
 
     class Meta:
         model = ComponentCoord
-        fields = ['id', 'criticality', 'coords']
-        read_only_fields = ['id']
+        fields = ['id', 'criticality', 'coords', 'utm_coords', 'geojson']
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_utm_coords(self, obj) -> dict | None:
+        """ Usa el Helper para convertir WGS84 a UTM Zona 18S (Selva Central). """
+        if obj.coords:
+            return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=18)
+        return None
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_geojson(self, obj) -> dict | None:
+        """ Convierte la geometría PostGIS a formato GeoJSON nativo. """
+        if obj.coords:
+            return json.loads(obj.coords.geojson)
+        return None
+
+# ==============================================================================
+# SERIALIZADOR DE INGESTA ANIDADA (ESCRITURA)
+# ==============================================================================
+class ComponentCoordItemSerializer(serializers.ModelSerializer):
+    """
+    Serializador anidado de entrada: Valida e ingesta coordenadas UTM o WGS84.
+    """
+    criticality = serializers.PrimaryKeyRelatedField(
+        queryset=Criticality.objects.all(),
+        help_text="ID de la criticidad preexistente (ej. 1)"
+    )
+    easting = serializers.FloatField(write_only=True, required=False, help_text="Este en metros (UTM)")
+    northing = serializers.FloatField(write_only=True, required=False, help_text="Norte en metros (UTM)")
+    srid_origin = serializers.IntegerField(write_only=True, required=False, default=18, help_text="Zona UTM (Default: 18)")
+    latitude = serializers.FloatField(write_only=True, required=False, help_text="Latitud WGS84")
+    longitude = serializers.FloatField(write_only=True, required=False, help_text="Longitud WGS84")
+
+    class Meta:
+        model = ComponentCoord
+        fields = ['criticality', 'easting', 'northing', 'srid_origin', 'latitude', 'longitude']
+
+    def validate(self, attrs):
+        """
+        Geotransformación en Ingesta: Convierte UTM a WGS84 o instancia Point(lon, lat).
+        """
+        easting = attrs.pop('easting', None)
+        northing = attrs.pop('northing', None)
+        srid_origin = attrs.pop('srid_origin', 18)
+        latitude = attrs.pop('latitude', None)
+        longitude = attrs.pop('longitude', None)
+
+        if easting is not None and northing is not None:
+            attrs['coords'] = SpatialHelper.utm_to_wgs84(easting, northing, srid_origin)
+        elif latitude is not None and longitude is not None:
+            attrs['coords'] = Point(float(longitude), float(latitude), srid=4326)
+        else:
+            raise serializers.ValidationError(
+                "Se deben especificar las coordenadas UTM (easting+northing) o WGS84 (latitude+longitude)."
+            )
+        return attrs
+
+class ComponentCoordSerializer(serializers.ModelSerializer):
+    """
+    Serializador Maestro de Coordenada Individual:
+    Soporta operaciones CRUD sobre instancias de ComponentCoord.
+    Maneja ingesta en UTM (Zona 18S) / WGS84 y respuesta enriquecida en GeoJSON.
+    """
+    component = serializers.PrimaryKeyRelatedField(
+        queryset=Component.objects.all(),
+        help_text="ID del componente preexistente (ej. 12)"
+    )
+    criticality = serializers.PrimaryKeyRelatedField(
+        queryset=Criticality.objects.all(),
+        help_text="ID de la criticidad preexistente (ej. 1)"
+    )
+    
+    # Campos de Ingesta Proyectada / Geográfica (Write-Only)
+    easting = serializers.FloatField(write_only=True, required=False, help_text="Este UTM en metros")
+    northing = serializers.FloatField(write_only=True, required=False, help_text="Norte UTM en metros")
+    srid_origin = serializers.IntegerField(write_only=True, required=False, default=18, help_text="Zona UTM (17, 18 o 19)")
+    latitude = serializers.FloatField(write_only=True, required=False, help_text="Latitud WGS84")
+    longitude = serializers.FloatField(write_only=True, required=False, help_text="Longitud WGS84")
+
+    # Campos de Salida Espacial (Read-Only)
+    utm_coords = serializers.SerializerMethodField(read_only=True)
+    geojson = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = ComponentCoord
+        fields = [
+            'id',
+            'component',
+            'criticality',
+            'easting',
+            'northing',
+            'srid_origin',
+            'latitude',
+            'longitude',
+            'coords',
+            'utm_coords',
+            'geojson',
+        ]
+        read_only_fields = ['id', 'coords']
+
+    def validate(self, attrs):
+        """
+        Geotransformación en Ingesta: Convierte las entradas UTM/WGS84 
+        a la geometría Point (EPSG:4326) para persistencia en PostGIS.
+        """
+        easting = attrs.pop('easting', None)
+        northing = attrs.pop('northing', None)
+        srid_origin = attrs.pop('srid_origin', 18)
+        latitude = attrs.pop('latitude', None)
+        longitude = attrs.pop('longitude', None)
+
+        if easting is not None and northing is not None:
+            attrs['coords'] = SpatialHelper.utm_to_wgs84(easting, northing, srid_origin)
+        elif latitude is not None and longitude is not None:
+            attrs['coords'] = Point(float(longitude), float(latitude), srid=4326)
+        elif 'coords' not in attrs:
+            raise serializers.ValidationError(
+                "Se deben especificar las coordenadas UTM (easting/northing) o WGS84 (latitude/longitude)."
+            )
+        return attrs
 
     def to_representation(self, instance):
-        repr = super().to_representation(instance)
-        if instance.coords:
-            repr['coords'] = {
-                "type": "Point",
-                "coordinates": [instance.coords.x, instance.coords.y]
-            }
-        return repr
+        """
+        Transformación de Salida: Enriquece la respuesta HTTP reemplazando 
+        las claves numéricas por los objetos detallados de Componente y Criticidad.
+        """
+        representation = super().to_representation(instance)
+        if instance.component:
+            representation['component'] = ComponentLightSerializer(instance.component).data
+        if instance.criticality:
+            representation['criticality'] = CriticalityLightSerializer(instance.criticality).data
+        return representation
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_utm_coords(self, obj) -> dict | None:
+        """ Reproyecta la geometría PostGIS a UTM Zona 18S para la respuesta HTTP. """
+        if obj.coords:
+            return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=18)
+        return None
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_geojson(self, obj) -> dict | None:
+        """ Exporta la geometría PostGIS a formato GeoJSON estándar. """
+        if obj.coords:
+            return json.loads(obj.coords.geojson)
+        return None
+
+# ==============================================================================
+# SERIALIZADORES DE COMPONENTES
+# ==============================================================================
 class ComponentListSerializer(PrepareDataMixin, serializers.ModelSerializer):
     type = serializers.StringRelatedField()
     district = serializers.StringRelatedField()
@@ -183,7 +335,7 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         allow_null=True
     )
 
-    coords = ComponentCoordLightSerializer(many=True, read_only=True, source='coords_relation')
+    coords = ComponentCoordItemSerializer(many=True, write_only=True, source='coords_relation')
 
     class Meta: 
         model = Component
@@ -200,6 +352,28 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
     
+    @transaction.atomic
+    def create(self, validated_data):
+        coords_data = validated_data.pop('coords', [])
+        
+        # === Creación de la entidad principal Component ===
+        component = Component.objects.create(**validated_data)
+        
+        # === Inserción en lote de coordenadas ===
+        coords_instances = [
+            ComponentCoord(
+                component=component,
+                criticality=coord_item['criticality'],
+                coords=coord_item['coords']
+            )
+            for coord_item in coords_data
+        ]
+        
+        if coords_instances:
+            ComponentCoord.objects.bulk_create(coords_instances)
+
+        return component
+
     def to_representation(self, instance):
         """
             Reemplaza las relaciones con la demás tablas de las FK a la información detallada del objeto para responder las peticiones HTTP
@@ -217,6 +391,8 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         if instance.physical_status:
             representation['physical_status'] = PhysicalStatusLightSerializer(instance.physical_status).data
         
+        representation['coords'] = ComponentCoordLightSerializer(instance.coords_relation.all(), many=True).data
+
         return representation
 
 class ComponentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
@@ -259,118 +435,3 @@ class ComponentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
             representation['type'] = ComponentTypeLightSerializer(instance.type).data
         
         return representation
-        
-
-# ==============================================================================
-# SERIALIZADORES DE COORDENADAS DE COMPONENTES
-# ==============================================================================
-class ComponentCoordSerializer(serializers.ModelSerializer):
-    """
-        Serializador flexible para la ingesta de infraestructura sanitaria.
-        Permite el ingreso de coordenadas en WGS84 (Lat/Lon) o UTM (Easting/Northing + SRID).
-        Convierte y persiste automáticamente en PostGIS bajo EPSG:4326.
-    """
-
-    component = serializers.PrimaryKeyRelatedField(
-        queryset=Component.objects.all(),
-        help_text="ID del componente preexistente (ej: '12')"
-    )
-    criticality = serializers.PrimaryKeyRelatedField(
-        queryset=Criticality.objects.all(),
-        help_text="ID de la criticidad preexistente (ej: '12')"
-    )
-    
-    easting = serializers.FloatField(write_only=True, required=False, help_text="Coordenada Este en metros (UTM)")
-    northing = serializers.FloatField(write_only=True, required=False, help_text="Coordenada Norte en metros (UTM)")
-    srid_origin = serializers.IntegerField(
-        write_only=True,
-        required=False,
-        default=18,
-        help_text="Zona UTM de Origen (17, 18 o 19). Default: 18 (Selva Central / Junin)"
-    )
-
-    latitude = serializers.FloatField(write_only=True, required=False, help_text="Latitud WGS84 (-90 a 90)")
-    longitude = serializers.FloatField(write_only=True, required=False, help_text="Longitud WGS84 (-180 a 180)")
-
-    utm_coords = serializers.CharField(
-        write_only=True, 
-        required=False, 
-        help_text="Coordenadas en formato UTM (Easting, Northing, SRID)"
-    )
-    
-    geojson = serializers.SerializerMethodField(read_only=True)
-    
-    class Meta:
-        model = ComponentCoord
-        fields = [
-            'id',
-            'component',
-            'criticality',
-            'easting',
-            'northing',
-            'srid_origin',
-            'latitude',
-            'longitude',
-            'coords',    
-            'utm_coords',
-            'geojson',
-        ]
-        read_only_fields = ['id']
-
-        extra_kwargs = {
-            'coords' : {'required': False} # Establecemos el campo de coords para WGS84 como opcional
-        }
-    def to_representation(self, instance):
-        """
-            Transformación de salida: Reemplaza el UBIGEO numérico del departamento 
-            por el objeto detallado al responder peticiones HTTP.
-        """
-        representation = super().to_representation(instance)
-        if instance.component:
-            representation['component'] = ComponentLightSerializer(instance.component).data
-        
-        if instance.criticality:
-            representation['criticality'] = CriticalityLightSerializer(instance.criticality).data
-        
-        return representation
-
-
-    def validate(self, attrs):
-        easting = attrs.pop('easting', None)
-        northing = attrs.pop('northing', None)
-        srid_origin = attrs.pop('srid_origin', 18)
-        latitude = attrs.pop('latitude', None)
-        longitude = attrs.pop('longitude', None)
-        coords = attrs.get('coords', None)
-
-        if easting is not None and northing is not None:
-            attrs['coords'] = SpatialHelper.utm_to_wgs84(easting, northing, srid_origin)
-
-        elif latitude is not None and longitude is not None:
-            from django.contrib.gis.geos import Point
-            attrs['coords'] = Point(float(longitude), float(latitude), srid=4326)
-
-        elif coords is None:
-            raise ValidationError(
-                "Se deben especificar las coordenadas UTM (easting+northing+zone) o las Coordenadas WGS84 (latitude+longitude)."
-            )
-        
-        return attrs
-
-    @extend_schema_field(OpenApiTypes.OBJECT)
-    def get_utm_coords(self, obj):
-        """
-            Usa el Helper para convertir la geometría WGS84 de PostGIS a UTM Zona 18S para la respuesta HTTP.
-        """
-        if obj.coords:
-            return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=None)
-        return None
-
-    @extend_schema_field(OpenApiTypes.OBJECT)
-    def get_geojson(self, obj):
-        """
-            Convierte la geometría a formato GeoJSON.
-        """
-        if obj.coords:
-            return json.loads(obj.coords.geojson)
-        return None

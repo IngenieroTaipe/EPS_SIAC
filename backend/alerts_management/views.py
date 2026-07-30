@@ -154,11 +154,7 @@ class AlertStatusPhaseViewSet(viewsets.ModelViewSet):
             )
         ]
     ),
-    retrieve=extend_schema(tags=['Alerts / Alert'], summary="Obtener detalle de una Alerta"),
-    create=extend_schema(tags=['Alerts / Alert'], summary="Registrar una nueva Alerta"),
-    update=extend_schema(tags=['Alerts / Alert'], summary="Actualizar una Alerta"),
-    partial_update=extend_schema(tags=['Alerts / Alert'], summary="Actualizar parcialmente una Alerta"),
-    destroy=extend_schema(tags=['Alerts / Alert'], summary="Eliminar una Alerta")
+    retrieve=extend_schema(tags=['Alerts / Alert'], summary="Obtener detalle de una Alerta")
 )
 class AlertViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -305,6 +301,7 @@ class AlertResultViewSet(viewsets.ModelViewSet):
         - Permite la búsqueda en base a campos como: Nombre.
         - Permite el ordenamiento en base a campos como: Nombre    
     """
+    lookup_field = 'id'
     permission_classes = [IsAuthenticated]
     serializer_class = AlertResultSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]

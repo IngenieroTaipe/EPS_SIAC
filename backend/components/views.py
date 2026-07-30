@@ -1,6 +1,11 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
 
+from django.db import transaction
+from django.contrib.gis.geos import Point
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from components.models import (
     Criticality,
@@ -17,7 +22,8 @@ from components.serializers import (
     PhysicalStatusSerializer,
     ComponentSerializer,
     ComponentListSerializer,
-    ComponentCoordSerializer
+    ComponentCoordSerializer,
+    ComponentSerializer
 )
 
 @extend_schema_view(
@@ -142,8 +148,11 @@ class ComponentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Component.objects.select_related(
             'district',
+            'type',
             'operational_status',
             'physical_status'
+        ).prefetch_related(
+            'coords_relation__criticality'
         ).order_by('id')
 
     def get_serializer_class(self):
@@ -154,8 +163,6 @@ class ComponentViewSet(viewsets.ModelViewSet):
         # writables; de lo contrario los FK se persisten como NULL y se
         # produce un `IntegrityError` (500) en el INSERT.
         if self.action in ('create', 'update', 'partial_update'):
-            return ComponentSerializer
-        if self.action == 'retrieve':
             return ComponentSerializer
         return ComponentListSerializer
 
@@ -176,15 +183,51 @@ class ComponentCoordViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Componente, Tipo, Criticidad.
     """
     permission_classes = [IsAuthenticated]
-    
     serializer_class = ComponentCoordSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['component', 'type', 'criticality']
-    ordering_fields = ['component', 'type']
-
-    ordering = ['id'] # Default
-
+    search_fields = ['component__code', 'component__name', 'criticality__name']
+    ordering_fields = ['component', 'criticality']
+    ordering = ['id']
+    
     def get_queryset(self):
         return ComponentCoord.objects.select_related(
-            'component'
+            'component',
+            'criticality'
         ).order_by('id')
+
+    @extend_schema(
+        request=ComponentSerializer,
+        responses={201: ComponentCoordSerializer(many=True)},
+        summary="Carga masiva de coordenadas para un componente"
+    )
+    @action(detail=False, methods=['post'], url_path='bulk-upload')
+    def bulk_upload(self, request):
+        """
+            Acción de Carga Masiva Optimizada:
+            Valida e inserta N coordenadas en una sola instrucción SQL transaccional.
+        """
+        serializer = ComponentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        component = serializer.validated_data['component']
+        coordinates_data = serializer.validated_data['coordinates']
+
+        coords_to_create = []
+
+        # === Procesar datos (validación y geotransformación ya hechas en el serializador) ===
+        for coord_item in coordinates_data:
+            # La geotransformación (UTM->WGS84 o Point) se ejecuta dentro del 'CoordinateItemSerializer.validate()'
+            coords_to_create.append(
+                ComponentCoord(
+                    component=component,
+                    criticality=coord_item['criticality'],
+                    coords=coord_item['coords']
+                )
+            )
+
+        # === Inserción transaccional ===
+        with transaction.atomic():
+            created_instances = ComponentCoord.objects.bulk_create(coords_to_create)
+
+        response_serializer = self.get_serializer(created_instances, many=True)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)

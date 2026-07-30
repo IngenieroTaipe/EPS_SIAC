@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from django.utils import timezone
 from datetime import timedelta
@@ -272,6 +273,7 @@ class AlertDetailSerializer(serializers.ModelSerializer):
                     seen_components.add(comp.id)
         return components
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_clusters(self, obj):
         clusters = []
         for ac in obj.alerts_clusters_alerts.all():
