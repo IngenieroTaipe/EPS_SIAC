@@ -240,26 +240,21 @@ class AlertDetailSerializer(serializers.ModelSerializer):
     
     def get_status(self, obj) -> str:
         """
-        Extrae la Etapa (Estado) actual desde el último registro de la FSM (AlertHistory).
+            Extrae la Etapa (Estado) actual usando las relaciones precargadas en memoria.
         """
-        latest_history = obj.history.select_related(
-            'historic_status__name'
-        ).order_by('-created_at').first()
-        
-        if latest_history and latest_history.historic_status:
-            return latest_history.historic_status.name
+        # Se aprovecha el prefetch sin golpear la BD de nuevo
+        histories = sorted(obj.historic_alert.all(), key=lambda h: h.created_at, reverse=True)
+        if histories and histories[0].status:
+            return histories[0].status.name
         return "Desconocido"
 
     def get_phase(self, obj) -> str:
         """
-        Extrae la Fase actual desde el último registro de la FSM (AlertHistory).
+            Extrae la Fase actual usando las relaciones precargadas en memoria.
         """
-        latest_history = obj.history.select_related(
-            'historic_phase__name'
-        ).order_by('-created_at').first()
-        
-        if latest_history and latest_history.historic_phase:
-            return latest_history.historic_phase.name
+        histories = sorted(obj.historic_alert.all(), key=lambda h: h.created_at, reverse=True)
+        if histories and histories[0].phase:
+            return histories[0].phase.name
         return "Sin Fase"
 
     def get_alert_cluster_components(self, obj):

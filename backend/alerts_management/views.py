@@ -188,8 +188,8 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
             'natural_phenomena',
             'max_threshold'
         ).prefetch_related(
-            'alert_historic__historic_status',
-            'alert_historic__historic_phase',
+            'historic_alert__status',
+            'historic_alert__phase',
             'alerts_clusters_alerts__cluster__threshold',
             'alerts_clusters_alerts__alerts_clusters_components_alert_clusters__component'
         )
