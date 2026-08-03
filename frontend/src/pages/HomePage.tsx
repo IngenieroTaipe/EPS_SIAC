@@ -43,8 +43,8 @@ export function HomePage() {
   }
 
   return (
-    <div className="relative h-full w-full pt-1 pr-1 pl-2 z-0">
-      <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
+    <div className="relative h-full w-full">
+      <div className="relative h-full w-full">
         <BaseMap>
           <DistrictLayer />
           {selected.has('precipitaciones') && <PrecipitationLayer />}
