@@ -11,7 +11,7 @@ services:
     ports:
       - "5435:5432"
 
-  # =========== API (DJANGO) =========== 
+  # =========== API (DJANGO) ===========
   api:
     build:
       context: ./backend

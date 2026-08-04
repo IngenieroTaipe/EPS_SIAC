@@ -17,7 +17,7 @@ services:
     env_file:
       - ./backend/.env.prod
     volumes:
-      - ecmwf_media_data:/app/storage
+      - gfs_media_data:/app/storage
       
   # =========== CELERY () =========== 
   celery_worker:
@@ -27,7 +27,7 @@ services:
     container_name: eps_siac_celery_worker
     command: celery -A EPS_SelvaCentral worker --loglevel=info --concurrency=2
     volumes:
-      - ecmwf_media_data:/app/storage
+      - gfs_media_data:/app/storage
     depends_on:
       - redis
       - api
@@ -62,4 +62,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-  ecmwf_media_data:
+  gfs_media_data:

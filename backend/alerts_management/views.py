@@ -187,7 +187,6 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
             'historic_alert__status',
             'historic_alert__phase',
             'alerts_clusters_alerts__cluster__threshold',
-            'alerts_clusters_alerts__alerts_clusters_components_alert_clusters__component'
         )
 
         upcoming_only = self.request.query_params.get('upcoming_only', 'false').lower() == 'true'

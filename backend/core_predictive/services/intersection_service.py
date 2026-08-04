@@ -50,10 +50,11 @@ class GridIntersectionService:
         spatial_join_query = """
             SELECT 
                 c.id AS cell_id,
-                d.ubigeo AS district_id
+                array_agg(DISTINCT d.ubigeo) AS intersected_ubigeos
             FROM gfs_active_cells c
             INNER JOIN districts d ON ST_Intersects(c.geometry, d.geometry)
-            WHERE c.gfs_request_id = %s;
+            WHERE c.gfs_request_id = %s
+            GROUP BY c.id;
         """
 
         cell_district_pairs = []
@@ -82,21 +83,26 @@ class GridIntersectionService:
         updated_cells_list = []
 
         for cell in cells_to_update:
-            district_id = cell_to_district.get(cell.id)
-            district_rules = district_rules_map.get(district_id, []) if district_id else []
+            ubigeos = cell_to_district.get(cell.id, [])
+            
+            cell.district_ubigeos = ubigeos
 
-            names_series = []
+            combined_rules: List[ThresholdsNaturalPhenomena] = []
+            for ubigeo in ubigeos:
+                combined_rules.extend(district_rules_map.get(ubigeo, []))
 
-            # === Evaluamos cada paso horario [t1..t12] contra las reglas del distrito correspondiente ===
+            combined_rules.sort(key=lambda r: r.min_value if r.min_value is not None else 0.0, reverse=True)
+
+            names_series: List[str] = []
+
             for intensity in cell.intensity_series:
-                # === Identificamos el umbral al que pertenece la intensidad ===
-                for rule in district_rules:
+                matched_threshold = "-"
+                for rule in combined_rules:
                     if rule.min_value is not None and intensity >= rule.min_value:
-                        names_series.append(rule.threshold.name)
+                        matched_threshold = rule.threshold.name.upper()
                         break
-
-                else:
-                    names_series.append("-")
+                
+                names_series.append(matched_threshold)
 
             cell.threshold_names = names_series
 
@@ -105,7 +111,7 @@ class GridIntersectionService:
         # === Actualización Masiva en Lote (Batch Update) ===
         GFSActiveCell.objects.bulk_update(
             updated_cells_list, 
-            fields=['threshold_names'], 
+            fields=['district_ubigeos', 'threshold_names'], 
             batch_size=1000
         )
 

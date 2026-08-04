@@ -55,6 +55,7 @@ class GFSActiveCell(AuditCreateModel):
     intensity_series = models.JSONField(verbose_name="Serie Temporal Horaria [t1..t12]")
     timestamps = models.JSONField(null=True, blank=True, verbose_name="Marcas de Tiempo Horarias [t1..t12]")
     threshold_names = models.JSONField(null=True, blank=True, verbose_name="Nombres de Umbral [t1..t12]")
+    district_ubigeos = models.JSONField(default=list, verbose_name="Lista de UBIGEOS Afectados")
 
     geometry = models.PolygonField(srid=4326, spatial_index=True, verbose_name="Geometría Celda")
 

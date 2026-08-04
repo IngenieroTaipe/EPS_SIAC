@@ -30,6 +30,12 @@ FROM base as build-stage
 
 COPY . .
 
+# Asignamos la variable para optimizar la compilación
+ENV NODE_ENV=production
+
+# Aumentamos el límite de memoria asignado a Node en caso de proyectos grandes
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Compilamos los archivos y generamos la carpeta /app/dist
 RUN npm run build
 
@@ -49,4 +55,4 @@ EXPOSE 80
 EXPOSE 443
 
 # Ejecutamos Caddy sirviendo los archivos estáticos
-CMD ["caddy", "file_server", "--root", "/srv"]
+CMD ["caddy", "file-server", "--root", "/srv"]

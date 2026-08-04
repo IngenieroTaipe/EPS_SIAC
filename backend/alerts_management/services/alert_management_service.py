@@ -258,7 +258,7 @@ class AlertManagementService:
 
         matching_cluster = AlertClusters.objects.filter(
             alert__in=active_alerts,
-            alert__history__alert_status_phase__alert_status__name="Predicho",
+            alert__history__status__name="Predicho",
             is_active_forecast=True,
             alert__end_time_utc__gte=cutoff_start,
             cluster__geometry__intersects=geometry

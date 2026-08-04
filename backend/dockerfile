@@ -41,11 +41,30 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 FROM base as prod
 
 # Usuario no root (privilegios mínimos)
-RUN useradd -u 888 djangouser && chown -R djangouser:djangouser /app/
+RUN useradd \
+    --uid 888 \
+    --create-home \
+    --shell /bin/bash \
+    djangouser
 
+# Corregir permisos explícitamente sobre el HOME del usuario
+RUN chown -R djangouser:djangouser /home/djangouser
+
+# Copiamos el proyecto asignando los permisos al usuario
+COPY --chown=djangouser:djangouser . /app/
+
+# Aseguramos que el usuario tenga permisos sobre /app
+RUN chown -R djangouser:djangouser /app
+
+# Redirigir rutas de almacenamiento temporal y configuración de Herbie/Matplotlib
+ENV HERBIE_SAVE_DIR=/tmp/herbie_data
+ENV HERBIE_CONFIG_DIR=/tmp/.config/herbie
+ENV MPLCONFIGDIR=/tmp/matplotlib
+
+# Ejecutamos el contenedor como usuario no root
 USER djangouser
 
-COPY --chown=djangouser:djangouser . /app/
+WORKDIR /app
 
 EXPOSE 8000
 

@@ -43,7 +43,7 @@ class Command(BaseCommand):
                 defaults = {
                     'name': branch['name'].strip().upper(),
                     'acronym': branch['acronym'].strip().upper(),
-                    'district': branch['district'],
+                    'district_id': branch['district'],
                     'status': branch['status'],
                     'observations': branch['observations']
                 }

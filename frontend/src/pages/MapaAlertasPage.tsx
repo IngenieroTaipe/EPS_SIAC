@@ -57,14 +57,11 @@ export function MapaAlertasPage() {
 
   // Datos del backend
   const [backendItems, setBackendItems] = useState<BackendAlertListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
     apiAlerts.listAlerts()
       .then(setBackendItems)
-      .catch((err) => console.error('Error cargando alertas:', err))
-      .finally(() => setIsLoading(false));
+      .catch((err) => console.error('Error cargando alertas:', err));
   }, []);
 
   // Derivar las alertas para el panel (AlertaHistorica[]) y para el mapa (Alerta[])

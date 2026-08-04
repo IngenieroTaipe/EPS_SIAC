@@ -75,12 +75,11 @@ class ForecastRainRequestService:
             # === Ingesta Vectorial Directa a PostGIS === 
             total_active_cells = self._ingest_raster_data(file_path=file_path)
 
+            # === Spatial Join ST_Intersects y Clasificación de Umbrales === 
+            self._evaluate_spatial_intersections()
+
             # === Generación de Clústeres === 
             clusters = self._generate_clusters()
-            
-
-            # === Spatial Join ST_Intersects y Clasificación de Umbrales === 
-            # self._evaluate_spatial_intersections()
 
             # === Persistencia Transaccional Final y Transición a COMPLETED === 
             self._finalize_success_transaction(

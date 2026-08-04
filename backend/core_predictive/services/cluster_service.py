@@ -54,7 +54,7 @@ class SpatialClusteringService:
         thresholds = cls._get_thresholds(target_variable_id, natural_phenomena_id)
 
         # === Geoprocesamiento Espacial en PostGIS ===
-        raw_cluster_rows = cls._execute_spatial_local_getis_ord_query(gfs_request_id)
+        raw_cluster_rows = cls._execute_spatial_dbscan_query(gfs_request_id)
 
         # === Transformación de Dominio y Clasificación de Peligro ===
         cluster_objects = cls._build_and_classify_snapshots(gfs_request, raw_cluster_rows, thresholds)
@@ -110,25 +110,33 @@ class SpatialClusteringService:
                 SELECT 
                     c.id AS cell_id,
                     c.geometry,
+                    c.district_ubigeos,
                     c.timestamps->>(idx - 1) AS timestamp_utc,
                     (c.intensity_series->>(idx - 1))::float AS intensity,
+                    UPPER(c.threshold_names->>(idx - 1)) AS threshold_name,
                     idx AS time_step
                 FROM gfs_active_cells c,
                      generate_series(1, jsonb_array_length(c.intensity_series)) AS idx
                 WHERE c.gfs_request_id = %s
             ),
             filtered_cells AS (
-                SELECT * FROM numbered_cells WHERE intensity > 0.0
+                SELECT * 
+                FROM numbered_cells 
+                WHERE intensity > 0.0 
+                  AND threshold_name IS NOT NULL 
+                  AND threshold_name != '-'
             ),
             clustered AS (
                 SELECT 
                     cell_id,
                     geometry,
+                    district_ubigeos,
                     intensity,
                     timestamp_utc,
                     time_step,
+                    threshold_name,
                     ST_ClusterDBSCAN(geometry, eps := %s, minpoints := %s) OVER (
-                        PARTITION BY time_step ORDER BY cell_id
+                        PARTITION BY time_step, threshold_name ORDER BY cell_id
                     ) AS cluster_id
                 FROM filtered_cells
             ),
@@ -136,29 +144,46 @@ class SpatialClusteringService:
                 SELECT 
                     time_step,
                     timestamp_utc,
+                    threshold_name,
                     cluster_id,
                     COUNT(cell_id) AS total_cells,
                     ROUND(MAX(intensity)::numeric, 2) AS max_intensity,
                     ROUND(AVG(intensity)::numeric, 2) AS avg_intensity,
-                    ST_Multi(ST_Union(geometry)) AS geom
-                FROM clustered
-                WHERE cluster_id IS NOT NULL
-                GROUP BY time_step, timestamp_utc, cluster_id
+                    ST_Multi(ST_Union(geometry)) AS geom,
+                    COALESCE(
+                        array_agg(DISTINCT u.ubigeo_code), 
+                        ARRAY[]::text[]
+                    ) AS intersected_ubigeos
+                FROM clustered c
+                LEFT JOIN LATERAL jsonb_array_elements_text(
+                    CASE 
+                        WHEN jsonb_typeof(c.district_ubigeos) = 'array' THEN c.district_ubigeos 
+                        ELSE '[]'::jsonb 
+                    END
+                ) AS u(ubigeo_code) ON TRUE
+                WHERE c.cluster_id IS NOT NULL
+                GROUP BY 
+                    c.time_step, 
+                    c.timestamp_utc, 
+                    c.threshold_name, 
+                    c.cluster_id
             )
             -- Intersección con la tabla de distritos
             SELECT 
                 dc.time_step,
                 dc.timestamp_utc,
+                dc.threshold_name,
                 dc.cluster_id,
                 dc.total_cells,
                 dc.max_intensity,
                 dc.avg_intensity,
                 ST_AsText(dc.geom) AS wkt_geometry,
-                COALESCE(array_agg(DISTINCT d.ubigeo), ARRAY[]::varchar[]) AS intersected_ubigeos
+                dc.intersected_ubigeos
             FROM dissolved_clusters dc
-            LEFT JOIN districts d ON ST_Intersects(dc.geom, d.geometry)
-            GROUP BY dc.time_step, dc.timestamp_utc, dc.cluster_id, dc.total_cells, dc.max_intensity, dc.avg_intensity, dc.geom
-            ORDER BY dc.time_step, dc.cluster_id;
+            ORDER BY 
+                dc.time_step, 
+                dc.threshold_name, 
+                dc.cluster_id;
         """
 
         try:
@@ -744,7 +769,7 @@ class SpatialClusteringService:
         cluster_objects = []
 
         for row in raw_rows:
-            time_step, timestamp_utc, cluster_id, total_cells, max_intensity, avg_intensity, wkt_geom, intersected_ubigeos = row
+            time_step, timestamp_utc, threshold_names,cluster_id, total_cells, max_intensity, avg_intensity, geom, intersected_ubigeos = row
             max_intensity_val = float(max_intensity)
 
             # Evaluamiento usando los nombres reales del modelo Threshold
@@ -765,7 +790,7 @@ class SpatialClusteringService:
                     avg_intensity_mm_h=float(avg_intensity),    
                     threshold_id=threshold_id,            
                     affected_ubigeos=intersected_ubigeos,
-                    geometry=GEOSGeometry(wkt_geom, srid=4326)
+                    geometry=GEOSGeometry(geom, srid=4326)
                 )
             )
 

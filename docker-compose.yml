@@ -8,13 +8,13 @@ services:
     networks:
       - eps_siac_network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 15s
 
-  # =========== API (DJANGO) =========== 
+  # =========== API (DJANGO) ===========
   api:
     container_name: eps_siac_api
     networks:
@@ -24,7 +24,7 @@ services:
       db_postgis:
         condition: service_healthy
 
-  # =========== REDIS =========== 
+  # =========== REDIS ===========
   redis:
     image: redis:7-alpine
     container_name: eps_redis
@@ -33,14 +33,13 @@ services:
     networks:
       - eps_siac_network
 
-  # =========== FRONTEND (REACT) =========== 
+  # =========== FRONTEND (REACT) ===========
   frontend:
     container_name: eps_siac_frontend
-    networks: 
+    networks:
       - eps_siac_network
     depends_on:
       - api
-    
 
 volumes:
   eps_siac_data_db: # local por defecto
