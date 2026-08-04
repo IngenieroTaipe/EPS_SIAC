@@ -115,7 +115,7 @@ export function ComponenteDetailSheet({
 
       {/* Cuerpo scrolleable */}
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
-        {/* Badges de criticidad + estado (sólo criticidad lleva color) */}
+        {/* Badges de criticidad + estados (sólo criticidad lleva color) */}
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn(
@@ -126,7 +126,10 @@ export function ComponenteDetailSheet({
             Criticidad {CRITICIDAD_LABEL[c.criticidad]}
           </span>
           <span className="px-2 py-1 rounded-md outline outline-1 outline-offset-[-1px] outline-input-stroke-main text-xs font-sans font-bold text-text-primary">
-            Estado: {capitalize(c.estado)}
+            Estado Op.: {c.estadoOperacional ?? '—'}
+          </span>
+          <span className="px-2 py-1 rounded-md outline outline-1 outline-offset-[-1px] outline-input-stroke-main text-xs font-sans font-bold text-text-primary">
+            Estado Fís.: {c.estadoFisico ?? '—'}
           </span>
         </div>
 
@@ -278,9 +281,4 @@ function formatFecha(iso: string): string {
 /** Formatea UTM con separador de miles (sin decimales, los datos son 0.00). */
 function formatUtm(v: number): string {
   return Math.round(v).toLocaleString('es-PE');
-}
-
-function capitalize(s: string): string {
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }

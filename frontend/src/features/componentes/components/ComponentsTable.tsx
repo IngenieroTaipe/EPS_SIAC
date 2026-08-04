@@ -44,7 +44,8 @@ const HEADER_COLS = [
   { label: 'Especificación', width: 'w-56' },
   { label: 'Este UTM', width: 'w-32' },
   { label: 'Norte UTM', width: 'w-32' },
-  { label: 'Estado', width: 'w-28' },
+  { label: 'Estado Op.', width: 'w-32' },
+  { label: 'Estado Fís.', width: 'w-32' },
   { label: 'Criticidad', width: 'w-28' },
   { label: '', width: 'w-20' },
 ] as const;

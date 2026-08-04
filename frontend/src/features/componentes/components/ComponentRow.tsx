@@ -137,9 +137,19 @@ export function ComponentRow({
       <Cell minWidth="min-w-28" width="w-32" mono>
         {c.utmNorthing != null ? formatUtm(c.utmNorthing) : '—'}
       </Cell>
-      {/* 8. Estado (texto plano, sin badge) */}
-      <Cell minWidth="min-w-24" width="w-28">{capitalize(c.estado)}</Cell>
-      {/* 9. Criticidad (badge de color) */}
+      {/* 8. Estado Operacional (texto plano, sin badge) */}
+      <Cell minWidth="min-w-28" width="w-32">
+        <span className="truncate" title={c.estadoOperacional ?? ''}>
+          {c.estadoOperacional ?? '—'}
+        </span>
+      </Cell>
+      {/* 9. Estado Físico (texto plano, sin badge) */}
+      <Cell minWidth="min-w-28" width="w-32">
+        <span className="truncate" title={c.estadoFisico ?? ''}>
+          {c.estadoFisico ?? '—'}
+        </span>
+      </Cell>
+      {/* 10. Criticidad (badge de color) */}
       <div className={cn(
         'inline-flex justify-center items-center gap-2.5 px-3 py-2',
         fixedWidths ? 'w-28' : 'flex-1 min-w-28',
@@ -217,9 +227,4 @@ function Cell({
 function formatUtm(v: number): string {
   const rounded = Math.round(v);
   return rounded.toLocaleString('es-PE');
-}
-
-function capitalize(s: string): string {
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }

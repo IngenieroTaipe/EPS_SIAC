@@ -91,6 +91,19 @@ export interface Componente {
   nombre: string;
   /** Estado del componente: normal / alerta / critico. */
   estado: 'normal' | 'alerta' | 'critico';
+  /**
+   * Estado operacional (label legible del backend, ej. "Operativo").
+   * Opcional porque el `ComponentListSerializer` actual no lo expone;
+   * se mapea cuando el backend lo traiga. La tabla de gestión lo
+   * muestra como texto plano (sin badge de color, para no competir
+   * con Criticidad).
+   */
+  estadoOperacional?: string;
+  /**
+   * Estado físico (label legible del backend, ej. "Bueno", "Regular",
+   * "Malo"). Opcional por la misma razón que `estadoOperacional`.
+   */
+  estadoFisico?: string;
   /** Nivel de criticidad (para badges + filtros del histórico). */
   criticidad: CriticidadComponente;
   /** Unidad operativa a la que pertenece. */

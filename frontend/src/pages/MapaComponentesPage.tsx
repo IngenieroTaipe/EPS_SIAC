@@ -29,8 +29,10 @@ import type { Componente } from '@/features/mapa/types/componente';
  * menos ruido en el borde inferior del mapa).
  */
 export function MapaComponentesPage() {
+  // Capas por defecto activas: distritos y precipitaciones siempre on,
+  // más la capa propia de la vista (componentes).
   const [selected, setSelected] = useState<Set<LayerId>>(() =>
-    new Set(['componentes']),
+    new Set(['distritos', 'precipitaciones', 'componentes']),
   );
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(
     null,
@@ -53,7 +55,7 @@ export function MapaComponentesPage() {
     <div className="relative h-full w-full pt-1 pr-1 pl-2 z-0">
       <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
         <BaseMap>
-          <DistrictLayer />
+          {selected.has('distritos') && <DistrictLayer />}
           {selected.has('precipitaciones') && <PrecipitationLayer />}
           {selected.has('componentes') && (
             <ComponentLayer
