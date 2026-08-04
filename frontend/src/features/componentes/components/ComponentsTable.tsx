@@ -1,57 +1,62 @@
 import type { Componente } from '@/features/mapa/types/componente';
-import { ComponentRow } from './ComponentRow';
+import { ComponentRow, type ComponentRowVariant } from './ComponentRow';
 
 /**
- * ComponentsTable — tabla de componentes con header navy (`primary-extraLight`
- * con `text-primary-main` bold) según Figma.
+ * ComponentsTable — tabla minimalista de componentes (gestión).
  *
- * Columnas:
- *   Código | Tipo | Especificación | Unidad Operativa | Latitud | Longitud
- *   | Criticidad | (acciones)
+ * Diseño:
+ *   - Header **sólido navy** `bg-primary-main` con texto blanco, sin
+ *     outline grueso (más elegante). Separador entre header y filas
+ *     hairline `border-input-stroke-main`.
+ *   - Filas en blanco con hover sutil. Clic en la fila abre el sheet
+ *     (variante `gestion`).
+ *   - Borde redondeado `rounded-xl` (era `rounded-[10px]`).
  *
- * Usada tanto por el panel deslizable del mapa (`MapComponentsPanel`) como por
- * el histórico filtrable (`HistoricoComponentesPage`). El parámetro
- * `sortSelectedFirst` permite reordenar poniendo la fila seleccionada primero
- * (comportamiento requerido por el usuario).
+ * Columnas (en orden):
+ *   Código | Unidad Operativa | Nombre | Tipo | Especificación
+ *   | Este UTM | Norte UTM | Estado | Criticidad | Acciones
+ *
+ * Variantes:
+ *   - `gestion` (default): clic en fila abre sheet; solo botón Editar.
+ *   - `mapa` (legacy): toggle selección; sin apertura de sheet.
  */
 interface ComponentsTableProps {
   componentes: Componente[];
+  /** ID de la fila resaltada (seleccionada en el sheet). */
   selectedId: string | null;
-  onToggleSelect: (id: string) => void;
+  /** Toggle selección (variante `mapa`). */
+  onToggleSelect?: (id: string) => void;
+  /** Abrir el sheet al clic en fila (variante `gestion`). */
+  onOpenDetail?: (componente: Componente) => void;
   /** Si true (default), el row seleccionado se mueve al inicio. */
   sortSelectedFirst?: boolean;
-  /** Anchura fija de celdas (más útil en histórico con espacio extra). */
+  /** Anchura fija de celdas (recomendado en gestión con scroll x). */
   fixedWidths?: boolean;
-  /** Si true, muestra la columna "Nombre" (solo en gestión, no en mapa). */
-  showNombre?: boolean;
-  /**
-   * Si true (default), la fila seleccionada se pinta de amarillo. Útil en
-   * el panel del mapa; en el histórico se deja en false porque no hay
-   * sincronización con el mapa. Paridad con `AlertsTable.highlightSelected`.
-   */
-  highlightSelected?: boolean;
+  /** Variante. Default `gestion`. */
+  variant?: ComponentRowVariant;
 }
 
 const HEADER_COLS = [
-  { label: 'Código', minWidth: 'min-w-24' },
-  { label: 'Tipo', minWidth: 'min-w-36' },
-  { label: 'Especificación', minWidth: 'min-w-48' },
-  { label: 'Unidad Operativa', minWidth: 'min-w-40' },
-  { label: 'Latitud', minWidth: 'min-w-28' },
-  { label: 'Longitud', minWidth: 'min-w-28' },
-  { label: 'Criticidad', minWidth: 'min-w-24' },
-];
-
-const NOMBRE_COL = { label: 'Nombre', minWidth: 'min-w-32' };
+  { label: 'Código', width: 'w-28' },
+  { label: 'Unidad Operativa', width: 'w-40' },
+  { label: 'Nombre', width: 'w-56' },
+  { label: 'Tipo', width: 'w-48' },
+  { label: 'Especificación', width: 'w-56' },
+  { label: 'Este UTM', width: 'w-32' },
+  { label: 'Norte UTM', width: 'w-32' },
+  { label: 'Estado', width: 'w-28' },
+  { label: 'Criticidad', width: 'w-28' },
+  { label: '', width: 'w-20' },
+] as const;
 
 export function ComponentsTable({
   componentes,
   selectedId,
   onToggleSelect,
+  onOpenDetail,
   sortSelectedFirst = true,
-  fixedWidths = false,
-  showNombre = false,
-  highlightSelected = true,
+  fixedWidths = true,
+  variant = 'gestion',
 }: ComponentsTableProps) {
   // Ordenar: si hay seleccionado y sortSelectedFirst, ese va primero.
   const ordered = sortSelectedFirst && selectedId
@@ -62,36 +67,19 @@ export function ComponentsTable({
     : componentes;
 
   return (
-    <div className="self-stretch rounded-[10px] border border-input-stroke-main flex flex-col justify-start items-center gap-0.5 overflow-hidden">
-      {/* Header — texto blanco, text-sm */}
-      <div className="self-stretch h-12 bg-primary-extra-light rounded-tl-[10px] rounded-tr-[10px] outline outline-1 outline-primary-main inline-flex justify-between items-center">
-        {HEADER_COLS.map((col, i) => {
-          // Insertar columna "Nombre" después de "Código" (índice 0)
-          if (i === 1 && showNombre) {
-            return (
-              <div key={col.label} className="contents">
-                <div className={`flex-1 h-12 ${NOMBRE_COL.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}>
-                  <span className="text-text-invert-primary text-sm font-semibold font-sans">{NOMBRE_COL.label}</span>
-                </div>
-                <div className={`flex-1 h-12 ${col.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}>
-                  <span className="text-text-invert-primary text-sm font-semibold font-sans">{col.label}</span>
-                </div>
-              </div>
-            );
-          }
-          return (
-            <div
-              key={col.label}
-              className={`flex-1 h-12 ${col.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}
-            >
-              <span className="text-text-invert-primary text-sm font-semibold font-sans">
-                {col.label}
-              </span>
-            </div>
-          );
-        })}
-        {/* Columna acciones vacía */}
-        <div className="flex-1 min-w-24" />
+    <div className="self-stretch flex flex-col">
+      {/* Header sólido navy — sticky para que se mantenga al hacer scroll */}
+      <div className="inline-flex items-stretch bg-primary-main sticky top-0 z-10">
+        {HEADER_COLS.map((col) => (
+          <div
+            key={col.label || 'acciones'}
+            className={`${col.width} h-10 px-3 py-2 inline-flex items-center`}
+          >
+            <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">
+              {col.label}
+            </span>
+          </div>
+        ))}
       </div>
 
       {/* Filas */}
@@ -99,10 +87,11 @@ export function ComponentsTable({
         <ComponentRow
           key={c.id}
           componente={c}
-          selected={highlightSelected && selectedId === c.id}
+          selected={selectedId === c.id}
           onToggleSelect={onToggleSelect}
+          onOpenDetail={onOpenDetail}
           fixedWidths={fixedWidths}
-          showNombre={showNombre}
+          variant={variant}
         />
       ))}
     </div>

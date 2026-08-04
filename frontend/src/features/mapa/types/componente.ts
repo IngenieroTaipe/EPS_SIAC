@@ -108,6 +108,23 @@ export interface Componente {
    * Los puntos extremos coinciden con `lat`/`lng` del primer punto.
    */
   puntos?: Array<[number, number]>;
+  /**
+   * Coordenadas UTM (Este/Norte) del primer vértice. Para tipo línea
+   * corresponde al extremo inicial; los demás vértices viven en `puntos`
+   * y el sheet los puede expandir uno a uno (con su propio UTM derivado).
+   * Opcional: si el backend no lo trae, las columnas UTM de la tabla se
+   * muestran vacías.
+   */
+  utmEasting?: number;
+  utmNorthing?: number;
+  /** Zona UTM del primer vértice (ej. "18S") — informativa. */
+  utmZone?: string;
+  /**
+   * Vertices UTM completos cuando el componente es de línea (N puntos).
+   * Se rellena desde el adaptador con los `utm_coords` de cada coord.
+   * Para componentes puntuales se omite (o tiene un solo elemento).
+   */
+  verticesUtm?: Array<{ easting: number; northing: number; zone?: string }>;
 }
 
 /**
