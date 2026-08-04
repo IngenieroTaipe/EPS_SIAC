@@ -292,6 +292,8 @@ class ComponentListSerializer(PrepareDataMixin, serializers.ModelSerializer):
     type = serializers.StringRelatedField()
     district = serializers.StringRelatedField()
     coords = ComponentCoordLightSerializer(many=True, read_only=True, source='coords_relation')
+    operational_status = OperationalStatusLightSerializer(read_only=True)
+    physical_status = PhysicalStatusLightSerializer(read_only=True)
 
     class Meta: 
         model = Component
@@ -302,7 +304,9 @@ class ComponentListSerializer(PrepareDataMixin, serializers.ModelSerializer):
             'type', 
             'district', 
             'coords',
-            'specification'
+            'specification',
+            'operational_status',
+            'physical_status'
         ]
 
 class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):

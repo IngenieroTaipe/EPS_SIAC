@@ -60,6 +60,21 @@ export function adaptarComponentes(
 
     const esLinea = TIPO_LINEA.includes(tipo) && coordList.length >= 2;
 
+    // UTM del primer vértice (si el backend lo trae). Para línea, también
+    // armamos `verticesUtm` con todos los vértices para que el sheet de
+    // detalle pueda expandirlos. El adaptador actual del `ComponentListSerializer`
+    // expone `utm_coords: { easting, northing, srid, zone } | null` por coord.
+    function utmFromCoord(c: BackendComponentListCoord) {
+      const u = c.utm_coords;
+      return u
+        ? { easting: u.easting, northing: u.northing, zone: u.zone }
+        : undefined;
+    }
+    const primerUtm = utmFromCoord(coordList[0]);
+    const verticesUtm = coordList
+      .map(utmFromCoord)
+      .filter((u): u is { easting: number; northing: number; zone?: string } => Boolean(u));
+
     if (esLinea) {
       const puntos: Array<[number, number]> = coordList.map((c) => {
         const [lng, lat] = c.geojson!.coordinates;
@@ -78,6 +93,10 @@ export function adaptarComponentes(
         unidadOperativa: comp.district,
         especificacion: comp.specification ?? '',
         puntos,
+        utmEasting: primerUtm?.easting,
+        utmNorthing: primerUtm?.northing,
+        utmZone: primerUtm?.zone,
+        verticesUtm: verticesUtm.length > 0 ? verticesUtm : undefined,
       });
     } else {
       const [lng, lat] = coordList[0].geojson!.coordinates;
@@ -92,6 +111,9 @@ export function adaptarComponentes(
         criticidad: mapCriticidad(coordList[0].criticality?.name),
         unidadOperativa: comp.district,
         especificacion: comp.specification ?? '',
+        utmEasting: primerUtm?.easting,
+        utmNorthing: primerUtm?.northing,
+        utmZone: primerUtm?.zone,
       });
     }
   }

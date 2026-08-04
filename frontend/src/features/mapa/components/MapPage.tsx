@@ -35,8 +35,10 @@ interface MapPageProps {
 }
 
 export function MapPage({ defaultLayers = [] }: MapPageProps) {
+  // distritos y precipitaciones son capas por defecto siempre activas,
+  // se suman a las que indique la ruta via defaultLayers.
   const [selected, setSelected] = useState<Set<LayerId>>(
-    () => new Set(['distritos', ...defaultLayers]),
+    () => new Set(['distritos', 'precipitaciones', ...defaultLayers]),
   );
 
   const handleToggle = useCallback((id: LayerId) => {

@@ -91,6 +91,19 @@ export interface Componente {
   nombre: string;
   /** Estado del componente: normal / alerta / critico. */
   estado: 'normal' | 'alerta' | 'critico';
+  /**
+   * Estado operacional (label legible del backend, ej. "Operativo").
+   * Opcional porque el `ComponentListSerializer` actual no lo expone;
+   * se mapea cuando el backend lo traiga. La tabla de gestión lo
+   * muestra como texto plano (sin badge de color, para no competir
+   * con Criticidad).
+   */
+  estadoOperacional?: string;
+  /**
+   * Estado físico (label legible del backend, ej. "Bueno", "Regular",
+   * "Malo"). Opcional por la misma razón que `estadoOperacional`.
+   */
+  estadoFisico?: string;
   /** Nivel de criticidad (para badges + filtros del histórico). */
   criticidad: CriticidadComponente;
   /** Unidad operativa a la que pertenece. */
@@ -108,6 +121,23 @@ export interface Componente {
    * Los puntos extremos coinciden con `lat`/`lng` del primer punto.
    */
   puntos?: Array<[number, number]>;
+  /**
+   * Coordenadas UTM (Este/Norte) del primer vértice. Para tipo línea
+   * corresponde al extremo inicial; los demás vértices viven en `puntos`
+   * y el sheet los puede expandir uno a uno (con su propio UTM derivado).
+   * Opcional: si el backend no lo trae, las columnas UTM de la tabla se
+   * muestran vacías.
+   */
+  utmEasting?: number;
+  utmNorthing?: number;
+  /** Zona UTM del primer vértice (ej. "18S") — informativa. */
+  utmZone?: string;
+  /**
+   * Vertices UTM completos cuando el componente es de línea (N puntos).
+   * Se rellena desde el adaptador con los `utm_coords` de cada coord.
+   * Para componentes puntuales se omite (o tiene un solo elemento).
+   */
+  verticesUtm?: Array<{ easting: number; northing: number; zone?: string }>;
 }
 
 /**

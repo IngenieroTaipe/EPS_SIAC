@@ -350,9 +350,9 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
     <div className="h-full overflow-y-auto p-5 flex flex-col items-start gap-5">
       {/* ── Cuerpo: 40% izquierda (datos) + 60% derecha (mapa+vistaprevia) ── */}
       <div className="self-stretch flex justify-center items-stretch gap-6">
-        {/* Tarjeta izquierda — Datos del componente (40%) */}
-        <div className="w-[600px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-5 bg-background-main">
-          <h2 className="text-text-primary text-lg font-bold font-sans leading-7">
+        {/* Tarjeta izquierda — Datos del componente (columna comprimida) */}
+        <div className="w-[520px] p-5 rounded-2xl border border-input-stroke-main flex flex-col gap-4 bg-background-main">
+          <h2 className="text-text-primary text-base font-bold font-sans leading-6">
             Datos del componente
           </h2>
 
@@ -374,12 +374,12 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-text-primary text-sm font-medium font-sans">Ícono</label>
-              <div className="size-16 py-3.5 rounded-xl border border-button-stroke grid place-items-center bg-background-main">
+              <label className="text-text-primary text-xs font-medium font-sans">Ícono</label>
+              <div className="size-14 py-3 rounded-lg border border-button-stroke grid place-items-center bg-background-main">
                 <img
                   src={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl}
                   alt=""
-                  className="w-10 h-10"
+                  className="w-9 h-9"
                 />
               </div>
             </div>
@@ -392,7 +392,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
               placeholder="Ej. 008"
-              className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-3 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+              className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
             />
           </Field>
 
@@ -403,7 +403,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej. Captación Río Pichanaqui"
-              className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-3 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+              className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
             />
           </Field>
 
@@ -445,14 +445,14 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
               value={especificacionTruncada}
               onChange={(e) => setEspecificacion(e.target.value.slice(0, MAX))}
               placeholder="Ingrese una descripción u observaciones del componente..."
-              className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 pt-3 pb-3 text-text-primary text-sm font-sans resize-none min-h-24 focus:outline-2 focus:outline-primary-main"
+              className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 pt-2.5 pb-2.5 text-text-primary text-sm font-sans resize-none min-h-20 focus:outline-2 focus:outline-primary-main"
             />
             <span className="self-end text-text-secondary text-xs font-sans">
               {especificacionTruncada.length}/{MAX}
             </span>
           </Field>
 
-          {/* Coordenadas UTM (lista dinámica: N puntos para líneas, 1 para el resto) */}
+          {/* Coordenadas UTM — tabla compacta (una fila por vértice) */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
@@ -461,7 +461,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
                 </span>
                 {esLinea && (
                   <span className="px-2 py-0.5 rounded-full bg-primary-states-hover-main/30 text-text-secondary text-xs font-sans">
-                    {puntos.length} punto{puntos.length === 1 ? '' : 's'} · mínimo {minPuntos}
+                    {puntos.length} · mínimo {minPuntos}
                   </span>
                 )}
               </div>
@@ -481,84 +481,111 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
               {esLinea && ' Cada vértice del tramo lleva su propia criticidad.'}
             </span>
 
-            <div className="flex flex-col gap-3 pt-1">
-              {puntos.map((p, idx) => {
-                const geo = puntosGeo[idx];
-                const puedeQuitar = esLinea && puntos.length > minPuntos;
-                return (
-                  <div
-                    key={p.id ?? `new-${idx}`}
-                    className="rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke p-3 flex flex-col gap-2 bg-background-main"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-text-primary text-xs font-bold font-sans">
-                        {esLinea ? `Vértice ${idx + 1}` : 'Punto'}
-                      </span>
-                      {puedeQuitar && (
-                        <button
-                          type="button"
-                          onClick={() => quitarPunto(idx)}
-                          className="p-1 rounded-md text-secondary-main hover:bg-secondary-main/10 transition-colors"
-                          aria-label="Quitar vértice"
-                        >
-                          <Trash2 className="size-3.5" strokeWidth={2} aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
+            {/* Tabla compacta de vértices (header navy + scroll vertical) */}
+            <div className="rounded-lg border border-input-stroke-main overflow-hidden flex flex-col">
+              {/* Header navy sticky */}
+              <div className="inline-flex items-stretch bg-primary-main">
+                {esLinea && (
+                  <div className="w-10 h-8 px-2 py-1.5 inline-flex items-center">
+                    <span className="text-text-invert-primary text-xs font-bold font-sans">#</span>
+                  </div>
+                )}
+                <div className="w-32 h-8 px-2 py-1.5 inline-flex items-center">
+                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Este</span>
+                </div>
+                <div className="w-32 h-8 px-2 py-1.5 inline-flex items-center">
+                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Norte</span>
+                </div>
+                <div className="w-36 h-8 px-2 py-1.5 inline-flex items-center">
+                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Criticidad</span>
+                </div>
+                <div className="w-28 h-8 px-2 py-1.5 inline-flex items-center">
+                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Lat</span>
+                </div>
+                <div className="w-28 h-8 px-2 py-1.5 inline-flex items-center">
+                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Lon</span>
+                </div>
+                {esLinea && <div className="w-10 h-8 px-2 py-1.5 inline-flex items-center" />}
+              </div>
 
-                    <div className="flex gap-3 items-end">
-                      <Field label="Este (X)" inline>
+              {/* Filas (scroll vertical interno si hay muchos vértices) */}
+              <div className={cn('bg-background-main', esLinea && puntos.length > 6 ? 'max-h-72 overflow-y-auto' : '')}>
+                {puntos.map((p, idx) => {
+                  const geo = puntosGeo[idx];
+                  const puedeQuitar = esLinea && puntos.length > minPuntos;
+                  return (
+                    <div
+                      key={p.id ?? `new-${idx}`}
+                      className="inline-flex items-stretch border-b border-input-stroke-main last:border-b-0 hover:bg-primary-states-hover-main/10 transition-colors"
+                    >
+                      {esLinea && (
+                        <div className="w-10 h-9 px-2 py-1.5 inline-flex items-center justify-center">
+                          <span className="size-5 inline-flex items-center justify-center rounded-full bg-primary-main text-text-invert-primary text-xs font-bold">
+                            {idx + 1}
+                          </span>
+                        </div>
+                      )}
+                      <div className="w-32 h-9 px-1.5 py-1 inline-flex items-center">
                         <input
                           type="number"
                           value={p.east}
                           onChange={(e) => actualizarPunto(idx, { east: e.target.value })}
-                          placeholder="Ej. 463529.00"
-                          className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+                          placeholder="463529.00"
+                          className="w-full bg-background-main rounded-md outline outline-1 outline-offset-[-1px] outline-button-stroke px-2 py-1 text-text-primary text-sm font-mono tabular-nums font-sans focus:outline-2 focus:outline-primary-main"
                         />
-                      </Field>
-                      <div className="w-3" />
-                      <Field label="Norte (Y)" inline>
+                      </div>
+                      <div className="w-32 h-9 px-1.5 py-1 inline-flex items-center">
                         <input
                           type="number"
                           value={p.north}
                           onChange={(e) => actualizarPunto(idx, { north: e.target.value })}
-                          placeholder="Ej. 8777285.00"
-                          className="w-full bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke px-4 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+                          placeholder="8777285.00"
+                          className="w-full bg-background-main rounded-md outline outline-1 outline-offset-[-1px] outline-button-stroke px-2 py-1 text-text-primary text-sm font-mono tabular-nums font-sans focus:outline-2 focus:outline-primary-main"
                         />
-                      </Field>
+                      </div>
+                      <div className="w-36 h-9 px-1.5 py-1 inline-flex items-center">
+                        <SelectInput
+                          value={p.criticalityId}
+                          onChange={(v) => actualizarPunto(idx, { criticalityId: v })}
+                          options={criticidadesOptions}
+                          placeholder="—"
+                          compact
+                        />
+                      </div>
+                      <div className="w-28 h-9 px-2 py-1 inline-flex items-center">
+                        <span className="text-text-secondary text-xs font-mono tabular-nums truncate">
+                          {geo?.valido ? geo.lat.toFixed(6) : '—'}
+                        </span>
+                      </div>
+                      <div className="w-28 h-9 px-2 py-1 inline-flex items-center">
+                        <span className="text-text-secondary text-xs font-mono tabular-nums truncate">
+                          {geo?.valido ? geo.lon.toFixed(6) : '—'}
+                        </span>
+                      </div>
+                      {esLinea && (
+                        <div className="w-10 h-9 px-2 py-1.5 inline-flex items-center justify-center">
+                          {puedeQuitar && (
+                            <button
+                              type="button"
+                              onClick={() => quitarPunto(idx)}
+                              className="p-1 rounded-md text-secondary-main hover:bg-secondary-main/10 transition-colors"
+                              aria-label="Quitar vértice"
+                            >
+                              <Trash2 className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-text-primary text-sm font-medium font-sans">
-                        Criticidad
-                      </label>
-                      <SelectInput
-                        value={p.criticalityId}
-                        onChange={(v) => actualizarPunto(idx, { criticalityId: v })}
-                        options={criticidadesOptions}
-                        placeholder="Seleccionar criticidad"
-                      />
-                    </div>
-
-                    <div className="flex gap-3">
-                      <ReadonlyField
-                        label="Latitud"
-                        value={(geo?.lat ?? 0).toString()}
-                      />
-                      <ReadonlyField
-                        label="Longitud"
-                        value={(geo?.lon ?? 0).toString()}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Tarjeta derecha — Mapa referencial (más grande) + vista previa (60%) */}
-        <div className="flex-1 flex flex-col gap-6">
+        {/* Tarjeta derecha — Mapa referencial + vista previa */}
+        <div className="flex-1 flex flex-col gap-5">
           <MapaReferencial
             puntos={puntosGeo}
             esLinea={esLinea}
@@ -655,25 +682,19 @@ function Field({
   );
 }
 
-function ReadonlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex-1 px-4 py-3 bg-text-status-placeholder/30 rounded-xl flex flex-col gap-1">
-      <span className="text-text-secondary text-xs font-sans">{label}</span>
-      <span className="text-text-primary text-sm font-medium font-sans">{value}</span>
-    </div>
-  );
-}
-
 function SelectInput({
   value,
   onChange,
   options,
   placeholder,
+  compact = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: Array<{ value: string; label: string }>;
   placeholder: string;
+  /** Si true, reduce paddings/radios para uso dentro de tablas compactas. */
+  compact?: boolean;
 }) {
   const showPlaceholder = !value;
   return (
@@ -682,8 +703,11 @@ function SelectInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          'w-full px-4 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke appearance-none pr-10',
-          'text-sm font-sans bg-background-main',
+          compact
+            ? 'w-full px-2 py-1 pr-7 rounded-md text-xs'
+            : 'w-full px-4 py-2.5 pr-10 rounded-xl text-sm',
+          'outline outline-1 outline-offset-[-1px] outline-button-stroke appearance-none',
+          'font-sans bg-background-main',
           showPlaceholder ? 'text-text-secondary' : 'text-text-primary',
           'focus:outline-2 focus:outline-primary-main',
         )}
@@ -700,7 +724,10 @@ function SelectInput({
         ))}
       </select>
       <ChevronDown
-        className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-icon-main pointer-events-none"
+        className={cn(
+          'absolute top-1/2 -translate-y-1/2 size-4 text-icon-main pointer-events-none',
+          compact ? 'right-2' : 'right-3',
+        )}
         strokeWidth={2}
         aria-hidden="true"
       />
@@ -733,12 +760,12 @@ function MapaReferencial({
   const lat = primero?.lat ?? 0;
   const lon = primero?.lon ?? 0;
   return (
-    <div className="flex-1 min-h-[500px] p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main flex flex-col gap-4 bg-background-main relative isolate">
+    <div className="flex-1 min-h-[400px] p-5 rounded-2xl border border-input-stroke-main flex flex-col gap-3 bg-background-main relative isolate">
       <div className="flex items-center gap-2">
-        <h3 className="text-text-primary text-lg font-bold font-sans">
+        <h3 className="text-text-primary text-base font-bold font-sans">
           {esLinea ? 'Recorrido de la línea' : 'Ubicación del componente'}
         </h3>
-        <span className="px-2.5 py-1 bg-primary-states-hover-main/30 rounded-full text-text-secondary text-xs font-medium font-sans">
+        <span className="px-2 py-0.5 bg-primary-states-hover-main/30 rounded-full text-text-secondary text-xs font-medium font-sans">
           Vista referencial
         </span>
       </div>
@@ -794,11 +821,11 @@ function VistaPrevia({
     criticidadesOptions.find((c) => c.value === primero?.criticalityId)?.label ?? '';
 
   return (
-    <div className="self-stretch p-6 rounded-2xl outline outline-1 outline-offset-[-1px] outline-text-status-placeholder flex flex-col gap-4 bg-background-main">
-      <h3 className="text-text-primary text-lg font-bold font-sans">
+    <div className="self-stretch p-5 rounded-2xl border border-input-stroke-main flex flex-col gap-3 bg-background-main">
+      <h3 className="text-text-primary text-base font-bold font-sans">
         Vista previa del componente
       </h3>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         <Fila label="Tipo:" value={tipo} />
         {!esLinea ? (
           <>
@@ -958,7 +985,7 @@ function MiniMapa({
   const path: [number, number][] = puntos.map((p) => [p.lat, p.lon]);
 
   return (
-    <div className="flex-1 rounded-2xl overflow-hidden border border-input-stroke-main min-h-[400px]">
+    <div className="flex-1 rounded-xl overflow-hidden border border-input-stroke-main min-h-[360px]">
       <MapContainerAny
         key={mapKey}
         center={center}

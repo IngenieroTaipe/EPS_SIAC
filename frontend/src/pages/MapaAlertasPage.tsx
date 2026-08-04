@@ -50,8 +50,11 @@ function deriveMapAlertas(items: BackendAlertListItem[]): Alerta[] {
  * lugares con fondo amarillo (tabla) o icono más grande/contraste (mapa).
  */
 export function MapaAlertasPage() {
-  // Capa por defecto activa.
-  const [selected, setSelected] = useState<Set<LayerId>>(() => new Set(['alertas']));
+  // Capas por defecto activas: distritos y precipitaciones siempre on,
+  // más la capa propia de la vista (alertas).
+  const [selected, setSelected] = useState<Set<LayerId>>(() =>
+    new Set(['distritos', 'precipitaciones', 'alertas']),
+  );
   // ID de alerta seleccionada (single-selection). Null si ninguna.
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
@@ -76,7 +79,7 @@ export function MapaAlertasPage() {
   <div className="relative h-full w-full pt-1 pr-1 pl-2 z-0">
     <div className="relative h-full w-full rounded-2xl border border-neutral-300 overflow-hidden">
       <BaseMap>
-        <DistrictLayer />
+        {selected.has('distritos') && <DistrictLayer />}
         {selected.has('precipitaciones') && <PrecipitationLayer />}
         {selected.has('componentes')     && <ComponentLayer />}
         {selected.has('alertas') && (
