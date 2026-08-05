@@ -43,7 +43,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full z-0">
       <div className="relative h-full w-full">
         <BaseMap>
           <DistrictLayer />

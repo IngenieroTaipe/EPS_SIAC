@@ -79,6 +79,8 @@ export interface BackendComponentListItem {
   district: string;
   coords: BackendComponentListCoord[];
   specification?: string | null;
+  operational_status?: { code: string; name: string } | null;
+  physical_status?: { code: string; name: string } | null;
 }
 
 /**
