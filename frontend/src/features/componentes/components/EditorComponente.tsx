@@ -18,7 +18,7 @@ import {
   ZONA_UTM_DEFAULT,
 } from '../utm-utils';
 import { apiComponentes } from '@/services/apiComponentes';
-import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
+import { apiOrganization } from '@/services/apiOrganization';
 import { mapTipo } from '@/services/adaptadores';
 import { FilterableSelect } from '@/shared/components/FilterableSelect';
 import type { BackendComponentListCoord } from '@/services/apiComponentes';
@@ -166,25 +166,38 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
   // ── Opciones dinámicas desde el backend ────────────────────────────
   const [tiposOptions, setTiposOptions] = useState<OpcionSelect[]>([]);
-  const [distritosOptions, setDistritosOptions] = useState<BackendDistrict[]>([]);
   const [estadosOpOptions, setEstadosOpOptions] = useState<OpcionSelect[]>([]);
   const [estadosFisOptions, setEstadosFisOptions] = useState<OpcionSelect[]>([]);
   const [criticidadesOptions, setCriticidadesOptions] = useState<OpcionSelect[]>([]);
+  /** Unidades operativas: branches activas con su district.ubigeo + nombre. */
+  const [branchesOptions, setBranchesOptions] = useState<
+    Array<{ ubigeo: string; name: string }>
+  >([]);
 
   useEffect(() => {
     Promise.all([
       apiComponentes.listTipos(),
-      apiPlaces.listDistrictsLight(),
       apiComponentes.listEstadosOperacionales(),
       apiComponentes.listEstadosFisicos(),
       apiComponentes.listCriticidades(),
+      apiOrganization.listBranches({ status: true }),
     ])
-      .then(([tipos, dists, ops, fis, crits]) => {
+      .then(([tipos, ops, fis, crits, branches]) => {
         setTiposOptions(tipos.map((t) => ({ value: String(t.id), label: t.name })));
-        setDistritosOptions(dists);
         setEstadosOpOptions(ops.map((o) => ({ value: o.code, label: o.name })));
         setEstadosFisOptions(fis.map((f) => ({ value: f.code, label: f.name })));
         setCriticidadesOptions(crits.map((c) => ({ value: String(c.id), label: c.name })));
+
+        // Filtrar branches con district válido y mapear a {ubigeo, name}.
+        const opts = branches
+          .map((b) => {
+            const d = typeof b.district === 'string' ? null : b.district;
+            if (!d || !d.ubigeo || !d.name) return null;
+            return { ubigeo: d.ubigeo, name: b.name }; // label = branch name
+          })
+          .filter((x): x is { ubigeo: string; name: string } => x !== null)
+          .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        setBranchesOptions(opts);
 
         // Criticidad de cada punto: el backend trae solo el *nombre* de la
         // criticidad (StringRelatedField en la coord embebida), no el id.
@@ -528,7 +541,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
               <FilterableSelect
                 value={distritoUbigeo}
                 onChange={setDistritoUbigeo}
-                options={distritosOptions.map((d) => ({ value: d.ubigeo, label: d.name }))}
+                options={branchesOptions.map((d) => ({ value: d.ubigeo, label: d.name }))}
                 placeholder="Buscar distrito…"
                 emptyLabel="— Seleccionar distrito —"
                 dropdownMinWidth="min-w-[380px]"

@@ -15,6 +15,7 @@ import ArchivoIcon from '@/assets/icons/archivo.svg?react';
 import FlechaIcon from '@/assets/icons/flecha.svg?react';
 import { useClickOutside } from '@/shared/hooks/useClickOutside';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
+import { CargarDatosModal } from '@/features/componentes/components/CargarDatosModal';
 import {
   UNIDADES_OPERATIVAS,
   UNIDAD_TODAS,
@@ -152,6 +153,8 @@ export function StatsWidget({
 // Opciones: Manual / Excel / Csv. El dropdown se abre con hover+click.
 export function LoadDataButton() {
   const [open, setOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalFormat, setModalFormat] = useState<'Csv' | 'GeoJson' | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   useClickOutside(containerRef, () => setOpen(false), open);
@@ -162,8 +165,12 @@ export function LoadDataButton() {
       navigate('/componentes/nuevo');
       return;
     }
-    // TODO: disparar acción de carga según el formato elegido (Excel / Csv).
-    console.log('Cargar Datos →', label);
+    if (label === 'Csv' || label === 'GeoJson') {
+      setModalFormat(label);
+      setModalOpen(true);
+      return;
+    }
+    console.warn('Cargar Datos → formato no soportado:', label);
   };
 
   return (
@@ -210,6 +217,19 @@ export function LoadDataButton() {
           ))}
         </div>
       )}
+
+      {/* Modal de carga masiva (Csv / GeoJson). El refetch lo gestiona el
+          padre al desmontar/remontar, pero aquí exponemos un callback
+          opcional: illustra al usuario que la lista se actualizó. No
+          pasamos onImported porque la página de gestión hace su propio
+          fetch al montar; el modal se abrió desde el topbar que es
+          persistente, así que dejamos que el usuario cierre el modal y
+          recargue la página manualmente si está en /componentes/gestion. */}
+      <CargarDatosModal
+        open={modalOpen}
+        initialFormat={modalFormat}
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }

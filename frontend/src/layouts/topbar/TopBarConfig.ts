@@ -74,8 +74,8 @@ export const UNIDAD_OPERATIVA_OPTIONS: string[] = [
  */
 export const CARGAR_DATOS_OPTIONS: string[] = [
   'Manual',
-  'Excel',
   'Csv',
+  'GeoJson',
 ];
 
 /**

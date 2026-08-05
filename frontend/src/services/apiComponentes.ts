@@ -250,4 +250,69 @@ export const apiComponentes = {
     const res = await httpClient.get('/components/physical-statuses/');
     return unwrap<BackendPhysicalStatus>(res.data);
   },
+
+  /**
+   * Importa componentes desde un archivo CSV. El backend parsea,
+   * valida FKs y devuelve preview o confirmación según `dryRun`.
+   * Respuesta: { created, errors[], dry_run, preview_count }.
+   *
+   * Estrategia de validación = backend dry_run (recomendada):
+   *   1. dryRun=true  → preview sin persistir (muestra al usuario
+   *      qué se cargaría y si hay errores).
+   *   2. dryRun=false → persiste transaccional. Si hay duplicados
+   *      o errores de FK, aborta todo (rollback) y reporta en errors.
+   *
+   * El archivo CSV debe tener como columnas obligatorias:
+   *   code,name,type,district_ubigeo,criticality,easting,northing
+   * Y opcionales:
+   *   operational_status,physical_status,specification
+   *
+   * Para líneas (conducción/aducción): N filas con MISMO `code` y
+   * distintos easting/northing. Cada fila = 1 vértice.
+   */
+  async importCsv(file: File, dryRun = false): Promise<ImportResult> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await httpClient.post(
+      `/components/components/import-csv/?dry_run=${dryRun ? 'true' : 'false'}`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return res.data;
+  },
+
+  /**
+   * Importa componentes desde un archivo GeoJSON (FeatureCollection).
+   * Cada Feature.Properties debe tener:
+   *   code, name, type, district_ubigeo, criticality
+   * Y opcionales: operational_status, physical_status, specification.
+   * La geometry: Point (1 componente puntual) o LineString/MultiPoint
+   * (N vértices para líneas de conducción/aducción). Coords WGS84 [lng, lat].
+   *
+   * Misma estrategia dry_run que `importCsv`.
+   */
+  async importGeojson(file: File, dryRun = false): Promise<ImportResult> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await httpClient.post(
+      `/components/components/import-geojson/?dry_run=${dryRun ? 'true' : 'false'}`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return res.data;
+  },
 };
+
+/** Resultado de importación (CSV o GeoJSON). */
+export interface ImportError {
+  row: number | null;
+  code: string | null;
+  message: string;
+}
+
+export interface ImportResult {
+  created: number;
+  errors: ImportError[];
+  dry_run?: boolean;
+  preview_count?: number;
+}

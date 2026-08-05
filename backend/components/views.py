@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.db import transaction
 from django.contrib.gis.geos import Point
@@ -24,6 +25,12 @@ from components.serializers import (
     ComponentListSerializer,
     ComponentCoordSerializer,
     ComponentSerializer
+)
+from components.importer import (
+    parse_csv,
+    parse_geojson,
+    persist_components,
+    ImportError as ImportFileError,
 )
 
 @extend_schema_view(
@@ -165,6 +172,77 @@ class ComponentViewSet(viewsets.ModelViewSet):
         if self.action in ('create', 'update', 'partial_update', 'retrieve'):
             return ComponentSerializer
         return ComponentListSerializer
+
+    # ── Carga masiva desde CSV / GeoJSON ─────────────────────────────
+    # Acciones custom. Reciben multipart/form-data con `file` (archivo
+    # subido) y un query param `dry_run=true|false`. Cuando dry_run=true
+    # sólo se parsea y se valida (no persiste) — útil para preview. Si
+    # dry_run=false (default) persiste transaccional. En caso de error
+    # (duplicado, FK inexistente, etc.) aborta todo y NO persiste nada.
+    #
+    # Estrategia: ver `components/importer.py` para los detalles de
+    # parseo/validación. Respuesta JSON:
+    #   { created: int, errors: [{row, code, message}, ...] }
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(
+        tags=['Components / Component'],
+        summary="Importar componentes desde CSV (dry_run para preview)",
+        request=None,  # multipart con campo 'file'
+    )
+    @action(detail=False, methods=['post'], url_path='import-csv')
+    def import_csv(self, request):
+        return self._handle_import(request, parse_csv)
+
+    @extend_schema(
+        tags=['Components / Component'],
+        summary="Importar componentes desde GeoJSON (dry_run para preview)",
+        request=None,  # multipart con campo 'file'
+    )
+    @action(detail=False, methods=['post'], url_path='import-geojson')
+    def import_geojson(self, request):
+        return self._handle_import(request, parse_geojson)
+
+    def _handle_import(self, request, parser_fn):
+        """
+            Helper común para `import_csv` e `import_geojson`. Lee el
+            archivo del multipart, lo parsea con parser_fn y (según
+            `dry_run`) persiste o sólo valida.
+        """
+        file = request.FILES.get('file')
+        if not file:
+            return Response(
+                {"error": "Falta el parámetro 'file' (multipart)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        file_bytes = file.read()
+        dry_run = request.query_params.get('dry_run', 'false').lower() in ('true', '1', 'yes')
+
+        componentes, parse_errors = parser_fn(file_bytes)
+        if parse_errors:
+            # Errores de parseo (header mal, FK inexistente, etc.) — NO
+            # se persiste NADA; reportamos. No usamos dry_run porque ya
+            # son inválidos.
+            return Response(
+                {
+                    "created": 0,
+                    "errors": [e.__dict__ for e in parse_errors],
+                },
+                status=status.HTTP_200_OK,  # 200 para que el frontend lo procese
+            )
+
+        # Si el parseo sale OK, validar duplicados y (si dry_run false)
+        # persistir transaccionalmente.
+        creados, persist_errors = persist_components(componentes, dry_run=dry_run)
+        return Response(
+            {
+                "created": creados,
+                "errors": [e.__dict__ for e in persist_errors],
+                "dry_run": dry_run,
+                "preview_count": len(componentes),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 @extend_schema_view(
     list=extend_schema(tags=['Components / Coord'], summary="Listar coordenadas"),
