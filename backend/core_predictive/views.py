@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from datetime import datetime
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.cache import cache
+from django.db import transaction
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes
 
 from core_shared.permissions import IsAdminUserOrReadOnly
@@ -422,3 +423,152 @@ class ThresholdsNaturalPhenomenaViewSet(viewsets.ModelViewSet):
         return ThresholdsNaturalPhenomena.objects.select_related(
             'natural_phenomena', 'variable', 'district', 'threshold'
         )
+
+    @extend_schema(
+        tags=['Predictive / Thresholds of Natural Phenomena'],
+        summary="Guardar la escalera completa de umbrales de un (distrito + fenómeno + variable)",
+        request=OpenApiTypes.OBJECT,
+        responses={200: ThresholdNaturalPhenomenaSerializer(many=True)},
+    )
+    @action(detail=False, methods=['post', 'patch'], url_path='bulk')
+    def bulk(self, request):
+        """
+            Reescribe ATÓMICAMENTE la escalera completa de umbrales para un
+            (district, natural_phenomena, variable).
+
+            Body:
+              {
+                "natural_phenomena": <id>,
+                "variable": <id>,
+                "district": <ubigeo>,
+                "force": <bool, opcional — si true salta la validación del
+                          estado previo y simplemente reescribe>,
+                "items": [
+                  {"id": <int|null>, "threshold": <id>,
+                   "min_value": <number|null>, "max_value": <number|null>},
+                  ...
+                ]
+              }
+
+            Semántica:
+              - Los items con `id` se actualizan (PATCH) en su fila existente.
+              - Los items sin `id` se CREAN (POST).
+              - Las filas existentes en (district, np, var) cuyos ids NO
+                figuren en `items` se ELIMINAN (DELETE).
+              - Toda la operación se hace dentro de transaction.atomic().
+              - Se valida la escalera resultante (continuidad estricta). Si
+                `force=true` sólo se salta la verificación del estado previo,
+                NO la coherencia del resultado final.
+        """
+        np_id = request.data.get('natural_phenomena')
+        var_id = request.data.get('variable')
+        dist_ubigeo = request.data.get('district')
+        items = request.data.get('items')
+        force = bool(request.data.get('force', False))
+
+        if np_id is None or var_id is None or dist_ubigeo is None:
+            raise ValidationError(
+                "Debe indicar natural_phenomena, variable y district (ubigeo)."
+            )
+        if not isinstance(items, list) or not items:
+            raise ValidationError("'items' debe ser una lista no vacía.")
+
+        # Resolver el distrito por ubigeo (PK string) — fallar temprano si no existe.
+        from places.models import District
+        try:
+            district = District.objects.get(ubigeo=dist_ubigeo)
+        except District.DoesNotExist:
+            raise ValidationError(f"No existe el distrito con ubigeo '{dist_ubigeo}'.")
+
+        # Validar unicidad de threshold por item (no pueden repetirse categorías).
+        seen_thresholds = set()
+        for it in items:
+            tid = it.get('threshold')
+            if tid in seen_thresholds:
+                raise ValidationError(
+                    f"La categoría (threshold) {tid} aparece más de una vez en 'items'."
+                )
+            seen_thresholds.add(tid)
+
+        # Resolver MTM relacionados una vez (fail-fast si alguno no existe).
+        try:
+            np_obj = NaturalPhenomena.objects.get(pk=np_id)
+            var_obj = Variable.objects.get(pk=var_id)
+            thresholds_map = {t.pk: t for t in Threshold.objects.filter(pk__in=seen_thresholds)}
+            if len(thresholds_map) != len(seen_thresholds):
+                missing = set(seen_thresholds) - set(thresholds_map.keys())
+                raise ValidationError(f"Threshold(s) inexistente(s): {sorted(missing)}.")
+        except (NaturalPhenomena.DoesNotExist, Variable.DoesNotExist) as e:
+            raise ValidationError(str(e))
+
+        with transaction.atomic():
+            qs = ThresholdsNaturalPhenomena.objects.filter(
+                natural_phenomena_id=np_obj.pk,
+                variable_id=var_obj.pk,
+                district_id=district.pk,
+            )
+            sent_ids = {it.get('id') for it in items if it.get('id') is not None}
+            if not force:
+                existentes_ids = set(qs.values_list('id', flat=True))
+                huérfanos_ids = existentes_ids - sent_ids
+                if huérfanos_ids:
+                    raise ValidationError(
+                        "El estado previo de la escalera no coincide con el enviado "
+                        f"(ids no presentes: {sorted(huérfanos_ids)}). Use force=true "
+                        "para sobrescribir de todos modos."
+                    )
+
+            # Eliminar huérfanos.
+            qs.exclude(id__in=sent_ids).delete()
+
+            filas = []
+            for it in items:
+                tid = it['threshold']
+                thr = thresholds_map[tid]
+                mn = it.get('min_value')
+                mx = it.get('max_value')
+                if mn is None and mx is None:
+                    raise ValidationError(
+                        f"El umbral '{thr.name}' no define ni mínimo ni máximo; "
+                        "al menos uno debe estar presente."
+                    )
+                if mn is not None and mx is not None and float(mn) > float(mx):
+                    raise ValidationError(
+                        f"El umbral '{thr.name}' tiene min ({mn}) > max ({mx})."
+                    )
+
+                if it.get('id') is not None:
+                    try:
+                        inst = qs.get(pk=it['id'])
+                    except ThresholdsNaturalPhenomena.DoesNotExist:
+                        raise ValidationError(
+                            f"No existe el umbral con id {it['id']} para este "
+                            "(district, natural_phenomena, variable)."
+                        )
+                    inst.threshold = thr
+                    inst.min_value = mn
+                    inst.max_value = mx
+                    inst.save(update_fields=['threshold', 'min_value', 'max_value'])
+                    filas.append(inst)
+                else:
+                    inst = ThresholdsNaturalPhenomena.objects.create(
+                        natural_phenomena=np_obj,
+                        variable=var_obj,
+                        district=district,
+                        threshold=thr,
+                        min_value=mn,
+                        max_value=mx,
+                    )
+                    filas.append(inst)
+
+            # Validar la escalera resultante en memoria.
+            from core_predictive.serializers import _validar_escalera
+            errores = _validar_escalera(list(qs))
+            if errores:
+                # transaction.atomic() propagará el rollback al salir del with.
+                raise ValidationError(errores)
+
+        srl = ThresholdNaturalPhenomenaSerializer(
+            filas, many=True, context={'request': request, 'force': True}
+        )
+        return Response(srl.data, status=status.HTTP_200_OK)
