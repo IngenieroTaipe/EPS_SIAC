@@ -198,7 +198,25 @@ class Command(BaseCommand):
             )
 
         # ──────────────────────────────────────────────────────────────
-        # 5. Reporte final
+        # 5. Invalidar caché del GeoJSON (igual que tasks.py)
+        # ──────────────────────────────────────────────────────────────
+        # Sin esto, el backend seguiría sirviendo la response "congelada"
+        # por hasta 6h (TTL del GISCacheManager). Invalidamos las 3 keys
+        # para que el próximo request al endpoint reconstruya el JSON
+        # desde PostGIS con la corrida nueva ya persistida.
+        from django.core.cache import cache
+        GFS_CACHE_KEYS = [
+            "gfs_window_18h_clusters_geojson",
+            "gfs_latest_clusters_geojson",
+            "gfs_latest_cells_geojson",
+        ]
+        for key in GFS_CACHE_KEYS:
+            cache.delete(key)
+
+        self.stdout.write("  ✓ Caché del GeoJSON invalidado (3 keys).")
+
+        # ──────────────────────────────────────────────────────────────
+        # 6. Reporte final
         # ──────────────────────────────────────────────────────────────
         self.stdout.write(
             self.style.SUCCESS(

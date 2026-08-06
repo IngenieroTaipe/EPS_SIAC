@@ -14,6 +14,29 @@ from core_predictive.constants import GFS_TOTAL_HOURS_FORECAST
 logger = logging.getLogger(__name__)
 LOCK_EXPIRE_SECONDS = 60 * 60 * 2 # 2 horas TTL
 
+# === Cache keys del GeoJSON builder (sincronizadas con views.py) ===
+# Estas son las keys que el backend guarda en LocMem/Redis con TTL de 6h.
+# Se invalidan automáticamente cuando una corrida nueva queda COMPLETED,
+# para que el frontend vea data fresca en el próximo polling (5 min) sin
+# necesidad de reiniciar la API manualmente.
+GFS_CACHE_KEYS = [
+    "gfs_window_18h_clusters_geojson",   # /window-18h/  (timeline)
+    "gfs_latest_clusters_geojson",       # /latest/     (clusters)
+    "gfs_latest_cells_geojson",          # /latest/      (celdas)
+]
+
+
+def _invalidate_gfs_cache():
+    """
+        Borra todas las keys de caché del GeoJSON de GFS.
+        Se invoca después de que una corrida queda COMPLETED exitosamente,
+        para que el próximo request al endpoint sirva data fresca en vez
+        de la respuesta "congelada" por 6h (TTL del GISCacheManager).
+    """
+    for key in GFS_CACHE_KEYS:
+        cache.delete(key)
+    logger.info(f"[Cache] Invalidadas {len(GFS_CACHE_KEYS)} keys de GeoJSON GFS.")
+
 
 @shared_task(
     name="core_predictive.tasks.run_scheduled_gfs_download",
@@ -63,7 +86,17 @@ def run_scheduled_gfs_download(self):
             natural_phenomena_id=phenom_id
         )
         
-        return orchestrator.process_request(total_hours=GFS_TOTAL_HOURS_FORECAST)
+        result = orchestrator.process_request(total_hours=GFS_TOTAL_HOURS_FORECAST)
+
+        # === FIX: Invalidar caché del GeoJSON tras una corrida exitosa ===
+        # Sin esto, el backend seguiría sirviendo la response "congelada" por
+        # hasta 6h (TTL del GISCacheManager), y el frontend no vería la nueva
+        # corrida aunque su polling de 5 min dispare un refetch. Con esta
+        # invalidación, el próximo request al endpoint reconstruye el JSON
+        # desde PostGIS con la corrida nueva ya persistida.
+        _invalidate_gfs_cache()
+
+        return result
 
     except Exception as exc:
         # === FIX === Distingue el caso "NOAA aún no publicó" para log más legible.
