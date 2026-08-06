@@ -85,7 +85,19 @@ function DropdownItem({
 }
 
 // ── "Actualizado hace / X min" — render en 2 líneas ───────────────────
-export function UpdatedAtWidget({ text }: { text?: string }) {
+// Widget reactivo: consume el timestamp del último GFSRequest COMPLETED
+// desde el contexto de la timeline (PrecipitationTimelineContext) y calcula
+// el texto relativo con el hook `useLatestGfsUpdate`.
+//
+// Si la ruta actual no tiene timeline montada (ej: /alertas/gestion), el
+// contexto será null y el widget mostrará "Sin datos todavía". Esto es
+// aceptable: el usuario refresca al volver al mapa y ve el dato real.
+import { usePrecipitationTimeline } from '@/features/mapa/timeline/usePrecipitationTimeline';
+import { useLatestGfsUpdate } from '@/features/mapa/timeline/useLatestGfsUpdate';
+
+export function UpdatedAtWidget() {
+  const ctx = usePrecipitationTimeline();
+  const { label } = useLatestGfsUpdate(ctx?.latestCompletedAt ?? null);
   return (
     <div className="flex justify-start items-center gap-2.5 pr-5">
       <RestartIcon
@@ -97,7 +109,7 @@ export function UpdatedAtWidget({ text }: { text?: string }) {
           {UPDATED_LABEL_PREFIX}
         </span>
         <span className="text-text-invert-primary text-sm font-semibold font-sans">
-          {text ?? UPDATED_VALUE}
+          {label}
         </span>
       </div>
     </div>

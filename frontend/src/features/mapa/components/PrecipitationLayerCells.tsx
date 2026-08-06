@@ -39,8 +39,15 @@ export function PrecipitationLayerCells() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geoJsonRef = useRef<any>(null);
 
-  // frameIndex del contexto compartido; clampado a la escala de las celdas.
-  const { frameIndex } = usePrecipitationTimeline();
+  // frameIndex/activeFrame del contexto compartido.
+  // FIX: mapear hourIndex desde `activeFrame.time_step` (1-indexed) →
+  // `intensity_series` (0-indexed). Antes se usaba `frameIndex` directo, lo
+  // que rompía cuando el timeline pasó de 5 slots reales a 18 teóricos:
+  // slots ≥12 colisionaban con el clamp a `hoursCount-1` (celdas "estáticas")
+  // y slots 0-5 (HISTORIC) dibujaban data del FORECAST real. Ahora HISTORIC
+  // → hourIndex -1 → intensityAt() devuelve 0 → no se dibuja nada (regla:
+  // "si no hay dato en esa hora, no se muestra nada").
+  const { activeFrame } = usePrecipitationTimeline();
 
   useEffect(() => {
     if (map) map.options.preferCanvas = true;
@@ -88,7 +95,16 @@ export function PrecipitationLayerCells() {
     }
     return 0;
   })();
-  const hourIndex = hoursCount > 0 ? Math.min(frameIndex, hoursCount - 1) : 0;
+
+  // Mapear el frame activo al índice de `intensity_series` de las celdas.
+  //   HISTORIC     → hourIndex -1 → no hay data (las celdas solo cubren la
+  //                  corrida latest, no la previous). intensityAt(-1) = 0.
+  //   FORECAST     → time_step - 1 (1-indexed → 0-indexed).
+  // Defensive: clampar a [0, hoursCount-1] por si hoursCount difiere de 12.
+  const hourIndex =
+    hoursCount > 0 && activeFrame?.temporal_status === 'FORECAST'
+      ? Math.max(0, Math.min((activeFrame.time_step - 1), hoursCount - 1))
+      : -1;
 
   // Recolorea todas las celdas al mover el timeline (sin reconstruir la capa).
   useEffect(() => {
@@ -110,6 +126,8 @@ export function PrecipitationLayerCells() {
         return;
       }
       l.unbindTooltip?.();
+      // HISTORIC o slot sin data → no tooltip (regla: "nada que mostrar").
+      if (hourIndex < 0) return;
       const mmh = intensityAt(f, hourIndex);
       const cat = getThreshold(mmh);
       if (cat === '-') return;

@@ -24,9 +24,10 @@ if [ "$CONTAINER_ROLE" = "api" ]; then
     python manage.py seed_core_predictive
     python manage.py seed_alerts_management
     python manage.py seed_alerts
-    python manage.py shell -c "from core_predictive.tasks import run_scheduled_gfs_download; result = run_scheduled_gfs_download(); print(result)"
 
-    # python manage.py shell -c "from alerts_management.tasks import dispatch_hourly_alerts_task; dispatch_hourly_alerts_task();"
+    python manage.py shell -c "from core_predictive.tasks import run_scheduled_gfs_download; run_scheduled_gfs_download.delay()" || echo "[Aviso] No se pudo encolar la descarga GFS inicial (el worker la ejecutará según el schedule de beat)."
+
+    # python manage.py shell -c "from alerts_management.tasks import dispatch_hourly_alerts_task; dispatch_hourly_alerts_task.delay()" || true
 
     echo "=== [ROLE: API] Inicialización de Base de Datos Completada ==="
 else

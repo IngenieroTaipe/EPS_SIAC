@@ -104,6 +104,16 @@ export interface GfsWindowMetadata {
   previous_request_code?: string;
   window_duration_hours?: number;
   total_features?: number;
+  /**
+   * Timestamp ISO (wall-clock PET con offset `-05:00` literal) del momento en
+   * que el `GFSRequest` más reciente pasó a `COMPLETED`. Proviene del campo
+   * `updated_at` (AuditCompleteModel) y se formatea en el builder backend.
+   * Ej: `"2026-08-05T14:03:21-05:00"`.
+   *
+   * Usado por `useLatestGfsUpdate` para calcular "Actualizado hace X min" en
+   * el TopBar. Puede faltar si la DB no tiene corridas aún (cold-start).
+   */
+  latest_completed_at_local?: string;
 }
 
 export interface GfsClusterFeatureCollection {

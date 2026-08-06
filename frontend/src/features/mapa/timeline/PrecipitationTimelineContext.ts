@@ -17,6 +17,14 @@ export interface PrecipitationTimelineContextValue {
   setFrameIndex: (i: number) => void;
   activeFrame: GfsFrame | undefined;
 
+  /**
+   * Timestamp ISO (PET `-05:00`) del momento en que el último `GFSRequest`
+   * pasó a COMPLETED en el backend. Proviene de `metadata.latest_completed_at_local`.
+   * `null` si la DB no tiene corridas (cold-start). Consumido por el
+   * `UpdatedAtWidget` del TopBar vía `useLatestGfsUpdate`.
+   */
+  latestCompletedAt: string | null;
+
   /** Props listas para pasar a <TimelineBar />. */
   timelineProps: Pick<
     TimelineBarProps,

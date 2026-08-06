@@ -241,14 +241,19 @@ CELERY_BEAT_SCHEDULE = {
     'descarga-automatica-gfs-diaria': {
         # === Nombre de la tarea a ejecutar ===
         'task': 'core_predictive.tasks.run_scheduled_gfs_download',
-        
+
         # === Programación de ejecución (08:15 y 20:15 UTC todos los días) ===
         # Los valores se establecen en base a las horas de ejecución del modelo, solo que 1 hora después para evitar problemas y garantizar la descarga.
         # 00/24 UTC + 1:00 (periodo adicional) => 1:00 UTC (20:00 -> Perú)
         # 06 UTC + 1:00 (periodo adicional) => 7:00 UTC (02:00 -> Perú)
         # 12 UTC + 1:00 (periodo adicional) => 13:00 UTC (08:00 -> Perú)
         # 18 UTC + 1:00 (periodo adicional) => 19:00 UTC (14:00 -> Perú)
-        'schedule': crontab(hour='1,7,13,19'),
+        #
+        # === FIX ===
+        # Sin `minute=0` explícito, Celery interpreta `minute='*'` (default) y dispara
+        # 60 tareas por hora en vez de 1. Eso producía el spam de "Skip Task" en el log.
+        # Ver https://docs.celeryq.dev/en/stable/userguide/periodic-tasks.html#crontab-schedules
+        'schedule': crontab(hour='1,7,13,19', minute=0),
     },
 
     'despacho-horario-alertas-telegram': {

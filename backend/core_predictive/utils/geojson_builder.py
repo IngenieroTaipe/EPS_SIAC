@@ -20,6 +20,25 @@ class PostGISGeoJSONExtractor:
         devolviendo estructuras GeoJSON (RFC 7946) puras.
     """
 
+    @staticmethod
+    def _format_pet_iso(dt) -> str:
+        """
+            Formatea un datetime (Django, UTC o aware) a ISO 8601 con offset
+            literal `-05:00` en hora de Perú (PET fijo = UTC-5, sin DST).
+            Ej: `datetime(2026,8,5,22,2,57, tzinfo=UTC)` → `2026-08-05T17:02:57-05:00`.
+            Usado para `latest_completed_at_local` en el metadata del JSON de
+            `/window-18h/`, leído por el hook `useLatestGfsUpdate` del TopBar.
+        """
+        from datetime import timedelta
+        if dt is None:
+            return None
+        # Quitar tz info (si aware) — el campo es UTC en Django.
+        if dt.tzinfo is not None:
+            dt = dt.replace(tzinfo=None)
+        # Restar 5h para convertir a PET naive (UTC-5 fijo, sin DST).
+        pet_dt = dt - timedelta(hours=5)
+        return f"{pet_dt.strftime('%Y-%m-%dT%H:%M:%S')}-05:00"
+
     @classmethod
     def extract_latest_feature_collection(
         cls,
@@ -158,13 +177,21 @@ class PostGISGeoJSONExtractor:
         # === Consulta SQL: Une las 6h de la corrida anterior + 12h de la corrida actual ===
         raw_query = f"""
             WITH previous_slice AS (
-                -- Trae los pasos 1 al 6 de la corrida previa (Pasado)
+                -- Trae los pasos 1 al 6 de la corrida previa (Pasado / HISTORIC).
+                -- === TODO / FUTURE-PROOFING: Ampliar a 22h ventana ===
+                -- Este slice SIEMPRE son 6h (iría a 7-8h solo si existiera un run cada 4h en NOAA,
+                -- lo cual no ocurre). NO tocar este rango aunque `GFS_TOTAL_HOURS_FORECAST` cambie.
                 SELECT c.*, 'HISTORIC' AS temporal_status
                 FROM {db_table} c
                 WHERE c.gfs_request_id = %s AND c.time_step BETWEEN 1 AND 6
             ),
             latest_slice AS (
-                -- Trae los pasos 1 al 12 de la corrida actual (Presente/Futuro)
+                -- Trae los pasos 1 al 12 de la corrida actual (Presente/Futuro / FORECAST).
+                -- === TODO / FUTURE-PROOFING: Ampliar horizonte futuro ===
+                -- Si `GFS_TOTAL_HOURS_FORECAST` se sube a 16 (ventana total 22h), este
+                -- `BETWEEN 1 AND 12` debe pasar a `BETWEEN 1 AND 16`. Sincronizar con
+                -- `backend/core_predictive/constants.py` y actualizar el metadata
+                -- `'window_duration_hours': 18` → `22` unas líneas más abajo.
                 SELECT c.*, 'FORECAST' AS temporal_status
                 FROM {db_table} c
                 WHERE c.gfs_request_id = %s AND c.time_step BETWEEN 1 AND 12
@@ -179,6 +206,10 @@ class PostGISGeoJSONExtractor:
                 'metadata', json_build_object(
                     'latest_request_code', %s,
                     'previous_request_code', %s,
+                    'latest_completed_at_local', %s,  -- PET ISO con offset -05:00 (de GFSRequest.updated_at via AuditCompleteModel)
+                    -- === TODO / FUTURE-PROOFING (comentario SQL) ===
+                    -- Sincronizar con `GFS_TOTAL_HOURS_FORECAST` + 6 (HISTORIC slice).
+                    -- Hoy: 12 + 6 = 18. Con forecast=16: 16 + 6 = 22.
                     'window_duration_hours', 18,
                     'timezone', '{LIMA_TZ_STR} (UTC-5)',
                     'total_features', COUNT(c.id)
@@ -203,12 +234,17 @@ class PostGISGeoJSONExtractor:
         prev_id = previous_request.id if previous_request else latest_request.id
         prev_code = previous_request.request_code if previous_request else latest_request.request_code
 
+        # `latest_request.updated_at` se setea automáticamente (auto_now=True) cada vez
+        # que el GFSRequest pasa a COMPLETED. Formateado como ISO PET (-05:00 literal).
+        latest_completed_at_local = PostGISGeoJSONExtractor._format_pet_iso(latest_request.updated_at)
+
         with connection.cursor() as cursor:
             cursor.execute(raw_query, [
                 prev_id,
                 latest_request.id,
                 latest_request.request_code,
-                prev_code
+                prev_code,
+                latest_completed_at_local
             ])
             return cursor.fetchone()[0]
 

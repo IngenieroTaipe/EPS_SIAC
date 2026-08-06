@@ -20,7 +20,7 @@ import { cn } from '@/shared/lib/cn';
 export function renderWidget(widget: TopBarWidget) {
   switch (widget.kind) {
     case 'updatedAt':
-      return <UpdatedAtWidget text={widget.text} key="updatedAt" />;
+      return <UpdatedAtWidget key="updatedAt" />;
     case 'alertBadge':
       return <AlertBadgeWidget text={widget.text} key="alertBadge" />;
     case 'stats':

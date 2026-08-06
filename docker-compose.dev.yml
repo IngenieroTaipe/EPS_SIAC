@@ -42,12 +42,12 @@ services:
       - eps_siac_network
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
       db_postgis:
         condition: service_healthy
       redis:
         condition: service_started
-     
+    
   celery_beat:
     build:
       context: ./backend
@@ -64,7 +64,7 @@ services:
       - eps_siac_network
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
       db_postgis:
         condition: service_healthy
       redis:

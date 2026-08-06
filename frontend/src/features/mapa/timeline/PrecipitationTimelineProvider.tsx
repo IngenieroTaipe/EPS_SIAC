@@ -9,13 +9,10 @@ import {
 } from 'react';
 import { useGfsForecast } from '@/services/useGfsForecast';
 import {
-  extractHHmm,
   type GfsClusterFeature,
   type GfsClusterFeatureCollection,
-  type GfsTemporalStatus,
 } from '@/features/mapa/types/gfs';
 import {
-  parsePetTimestamp,
   peruNow,
   peruStartOfDay,
 } from '@/features/mapa/timeline/peruTime';
@@ -28,17 +25,42 @@ import {
 
 const MS_PER_HOUR = 1000 * 60 * 60;
 
+/**
+ * Parsea un `request_code` (ej. `AUTO_20260805_18Z`) a un `Date` naive en
+ * wall-clock PET (UTC-5). El run NOAA arranca a la hora Z (UTC), así que
+ * restamos 5h para obtener el instante en hora de Perú.
+ *
+ * Returns `null` si el código no matching el formato esperado.
+ */
+function parseRunCodeToPetDate(requestCode?: string | null): Date | null {
+  if (!requestCode) return null;
+  const m = requestCode.match(/^AUTO_(\d{4})(\d{2})(\d{2})_(\d{2})Z$/);
+  if (!m) return null;
+  const [, y, mo, d, hh] = m;
+  // Construye "run-start" en UTC naive y resta 5h para PET naive.
+  const runUtc = new Date(
+    Number(y),
+    Number(mo) - 1,
+    Number(d),
+    Number(hh),
+    0,
+    0,
+    0,
+  );
+  return new Date(runUtc.getTime() - 5 * MS_PER_HOUR);
+}
+
+/** Formatea un `Date` naive PET a "HH:mm". */
+function formatHHmm(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function addHours(d: Date, hours: number): Date {
   return new Date(d.getTime() + hours * MS_PER_HOUR);
 }
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
-}
-
-/** Orden cronológico de la ventana 18h: HISTORIC = vuelta previa > FORECAST. */
-function temporalStatusPriority(s: GfsTemporalStatus | undefined): number {
-  return s === 'HISTORIC' ? 0 : 1;
 }
 
 const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -117,48 +139,88 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
     };
   }, [refetch]);
 
-  // ── Frames ordenados cronológicamente (HISTORIC → FORECAST) ──────────
+  // ── Frames teóricos — siempre 18 slots (6 HISTORIC + 12 FORECAST) ────
+  // Construidos desde `metadata.latest_request_code` y `previous_request_code`
+  // para garantizar un eje continuo sin saltos aunque NOAA no detecte lluvia
+  // en algunas horas. Las capas (PrecipitationLayer, Cells) filtran features
+  // por (temporal_status, time_step); si no hay features para un slot, el
+  // mapa simplemente no muestra nada en ese frame (= "no llovió esa hora").
+  //
+  // === Cold-start (solo una corrida COMPLETED en DB) ===
+  // Si `previous_request_code == latest_request_code`, el backend recicla
+  // la misma corrida para el slice HISTORIC (`geojson_builder.py:203-204`).
+  // Aquí construimos los 6 slots HISTORIC teóricos como `latestPet - 6h`,
+  // lo que produce etiquetas 08:00..13:00 PET. **Estas etiquetas son
+  // teóricas, no reales** — los features HISTORIC del backend tienen
+  // timestamps reales de la latest+0..+6h, no de "hace 6h". Esto duplica
+  // visualmente los slots (HISTORIC 08-13 y FORECAST 14-19 muestran los
+  // mismos datos). Cuando entre una segunda corrida real (previous ≠ latest),
+  // el HISTORIC pasa a usar `previousPet` real y los slots ya no duplican.
+  //
+  //  -> ¿Por qué lo dejamos así en cold-start? Porque la regla de UX es
+  //     "siempre 18 slots, sin saltos". El usuario ve el eje completo aunque
+  //     las primeras 6h sean teóricas. Cuando arrastra el thumb a HISTORIC
+  //     y no encuentra clusters reales, el mapa queda limpio — mismo
+  //     comportamiento que un slot FORECAST sin precipitación.
+  //
+  //  -> Las capas que mapean por `activeFrame.time_step` (clusters, celdas)
+  //     dibujan features del slice HISTORIC del backend, que en cold-start
+  //     son los mismos que el FORECAST. Por eso en los HISTORIC verás
+  //     clusters reales (no simulados). Es "duplicado" pero es lo que el
+  //     backend sirve. Aceptable en cold-start; auto-corregido al entrar
+  //     la segunda corrida.
+  //
+  // Fallbacks:
+  //   - Sin metadata → 0 frames (timeline oculta, igual que antes).
+  //   - `previous_request_code` ausente o == latest → HISTORIC baseado en
+  //     `latest - 6h` (réplica del comportamiento del backend cuando recicla
+  //     la única corrida como previous). Los timestamps coincidirán con los
+  //     features HISTORIC reales (si los hay) porque el backend usa la misma
+  //     corrida para ambos slices.
+  //   - Si la corrida previa tiene `GFS_TOTAL_HOURS_FORECAST` distinto de 12
+  //     en el futuro (16), el primer tramo pasa a ser 6h igual — son slots
+  //     teóricos, no dependencies del tamaño del forecast. Ver TODO en
+  //     `constants.py` y `geojson_builder.py` para ampliar el segundo tramo
+  //     de `BETWEEN 1 AND 12` a `BETWEEN 1 AND 16`.
   const frames = useMemo<GfsFrame[]>(() => {
-    const feats = (data as GfsClusterFeatureCollection | null)?.features ?? [];
-    const byKey = new Map<string, GfsFrame>();
-    const seenTimestamps = new Set<number>();
-    for (const f of feats) {
-      const p = f.properties ?? null;
-      if (!p) continue;
-      const step = typeof p.time_step === 'number' ? p.time_step : null;
-      const status = (p.temporal_status ?? 'FORECAST') as GfsTemporalStatus;
-      if (step === null) continue;
-      const key = `${status}-${step}`;
-      const timestampDate =
-        parsePetTimestamp(p.timestamp_utc) ?? peruNow();
-      // Tapón defensivo contra duplicados: si el backend sirve dos frames
-      // con el MISMO timestamp (p.ej. cuando solo existe una corrida
-      // COMPLETED y previous_slice reutiliza la misma tabla), el eje
-      // duplicaría etiquetas (19 19 20 20…). Nos quedamos con el primero
-      // que llegue —por convención (status, step) asc—, que es el HISTORIC,
-      // y descartamos el/los siguientes con igual instante. Cuando llegue
-      // la 2da corrida real, los timestamps ya no colisionarán y se verán
-      // los 18 slots distintos.
-      const tsKey = timestampDate.getTime();
-      if (seenTimestamps.has(tsKey)) continue;
-      seenTimestamps.add(tsKey);
-      if (!byKey.has(key)) {
-        byKey.set(key, {
-          temporal_status: status,
-          time_step: step,
-          label: extractHHmm(p.timestamp_utc),
-          timestampDate,
-        });
-      }
+    const meta = data?.metadata;
+    if (!meta) return [];
+
+    const latestPet = parseRunCodeToPetDate(meta.latest_request_code);
+    if (!latestPet) return [];
+
+    // Base del HISTORIC: previous real si existe, si no latest - 6h.
+    let previousPet = parseRunCodeToPetDate(meta.previous_request_code);
+    if (!previousPet || meta.previous_request_code === meta.latest_request_code) {
+      previousPet = new Date(latestPet.getTime() - 6 * MS_PER_HOUR);
     }
-    const arr = Array.from(byKey.values());
-    arr.sort(
-      (a, b) =>
-        a.timestampDate.getTime() - b.timestampDate.getTime() ||
-        temporalStatusPriority(a.temporal_status) -
-          temporalStatusPriority(b.temporal_status) ||
-        a.time_step - b.time_step,
-    );
+
+    const arr: GfsFrame[] = [];
+    // HISTORIC: 6 slots, step 1..6, timestamp = previousPet + step horas.
+    for (let step = 1; step <= 6; step++) {
+      const ts = new Date(previousPet.getTime() + step * MS_PER_HOUR);
+      arr.push({
+        temporal_status: 'HISTORIC',
+        time_step: step,
+        label: formatHHmm(ts),
+        timestampDate: ts,
+      });
+    }
+    // FORECAST: 12 slots, step 1..12, timestamp = latestPet + step horas.
+    // === TODO / FUTURE-PROOFING: cuando `GFS_TOTAL_HOURS_FORECAST` suba a 16,
+    // cambiar este loop a `step <= 16`. Sincronizar con
+    // `backend/.../constants.py` y `geojson_builder.py` (slice `BETWEEN 1 AND 16`).
+    for (let step = 1; step <= 12; step++) {
+      const ts = new Date(latestPet.getTime() + step * MS_PER_HOUR);
+      arr.push({
+        temporal_status: 'FORECAST',
+        time_step: step,
+        label: formatHHmm(ts),
+        timestampDate: ts,
+      });
+    }
+    // Ya están en orden cronológico (HISTORIC 1..6 → FORECAST 1..12) por
+    // construcción, no hace falta sort.
     return arr;
   }, [data]);
 
@@ -327,6 +389,7 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
     frameIndex: clampedFrameIndex,
     setFrameIndex,
     activeFrame: frames[clampedFrameIndex],
+    latestCompletedAt: data?.metadata?.latest_completed_at_local ?? null,
     timelineProps: {
       days,
       slotHours,
