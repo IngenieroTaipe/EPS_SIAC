@@ -39,8 +39,10 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+import re
+
 from django.contrib.gis.geos import Point
-from rest_framework.exceptions import ErrorDetail, ValidationError
+from rest_framework.exceptions import ValidationError
 
 from components.models import (
     Component,
@@ -57,6 +59,27 @@ __all__ = [
     "parse_geojson",
     "persist_components",
 ]
+
+
+# ── Regex de validación de código (alineados con components/validators.py) ──
+# `component_code_validator` exige `^\d{4}$` (4 dígitos numéricos).
+# `operational_status_code_validator` exige `^\d{3}$` (3 dígitos).
+# `physical_status_code_validator` exige `^[A-Z]{1}$` (1 letra mayúscula).
+# Validamos en el importer ANTES de tocar la DB para que el usuario reciba
+# un error claro por fila ("code 'CPT-001' debe ser 4 dígitos") en vez del
+# genérico "value too long for type character varying(4)" que escupe
+# PostgreSQL al violar max_length.
+CODE_RE = re.compile(r'^\d{4}$')
+OP_STATUS_RE = re.compile(r'^\d{3}$')
+FIS_STATUS_RE = re.compile(r'^[A-Z]{1}$')
+
+# Rangos UTM de Perú (alineados con SpatialHelper.utm_to_wgs84). Si una
+# coordenada está fuera de rango, el parser lo reporta por fila en vez
+# de esperar a que SpatialHelper reviente durante el persist.
+UTM_EASTING_MIN = 100000.0
+UTM_EASTING_MAX = 900000.0
+UTM_NORTHING_MIN = 0.0
+UTM_NORTHING_MAX = 10000000.0
 
 
 # ── Tipos_linea definidos en el frontend como TipoComponente; en backend
@@ -89,6 +112,93 @@ class ParsedComponent:
     physical_status_code: str | None
     specification: str | None
     coords: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _validate_utm_range(
+    easting: float,
+    northing: float,
+    row: int | None,
+    vertice_idx: int | None = None,
+) -> list[ImportError]:
+    """
+        Valida que un par UTM (easting, northing) caiga dentro del rango
+        métrico válido para Perú ( SpatialHelper.utm_to_wgs84 ). Retorna
+        lista con el ImportError si está fuera de rango, lista vacía si OK.
+        `vertice_idx` (1-based) opcional para mensaje más claro en líneas.
+    """
+    errs: list[ImportError] = []
+    v_label = f" vértice {vertice_idx}" if vertice_idx else ""
+    if not (UTM_EASTING_MIN <= easting <= UTM_EASTING_MAX):
+        errs.append(ImportError(
+            row=row, code=None,
+            message=(
+                f"Fila{(' ' + str(row)) if row else ''}{v_label}: "
+                f"easting='{easting}' fuera de rango UTM válido "
+                f"[{int(UTM_EASTING_MIN)}, {int(UTM_EASTING_MAX)}]. "
+                f"Verificá que el Este sea correcto (¿lo confundiste con el Norte?)."
+            ),
+        ))
+    if not (UTM_NORTHING_MIN <= northing <= UTM_NORTHING_MAX):
+        errs.append(ImportError(
+            row=row, code=None,
+            message=(
+                f"Fila{(' ' + str(row)) if row else ''}{v_label}: "
+                f"northing='{northing}' fuera de rango UTM válido "
+                f"[{int(UTM_NORTHING_MIN)}, {int(UTM_NORTHING_MAX)}]."
+            ),
+        ))
+    return errs
+
+
+def _validate_component_fields(
+    code: str,
+    name: str,
+    op_status_code: str | None,
+    fis_status_code: str | None,
+    row: int | None,
+) -> list[ImportError]:
+    """
+        Validaciones de esquema ALINEADAS con `components/validators.py`:
+          - `code`: debe matchear `^\\d{4}$` (4 dígitos numéricos).
+          - `name`: no vacío.
+          - `operational_status` (opcional): si presente, `^\\d{3}$`.
+          - `physical_status` (opcional): si presente, `^[A-Z]{1}$`.
+
+        Retorna lista de ImportError (vacía si todo OK). Al validar acá
+        evitamos el error genérico "value too long for type character
+        varying(4)" de PostgreSQL y reportamos al usuario la fila exacta.
+    """
+    errs: list[ImportError] = []
+    if not CODE_RE.match(code):
+        errs.append(ImportError(
+            row=row, code=code,
+            message=(
+                f"code='{code}' debe ser exactamente 4 dígitos numéricos "
+                f"(ej: '0001'). Tu código tiene {len(code)} carácter(es)."
+            ),
+        ))
+    if not name or not name.strip():
+        errs.append(ImportError(
+            row=row, code=code,
+            message="campo 'name' vacío u obligatorio.",
+        ))
+    if op_status_code and not OP_STATUS_RE.match(op_status_code):
+        errs.append(ImportError(
+            row=row, code=code,
+            message=(
+                f"operational_status='{op_status_code}' debe ser 3 dígitos "
+                f"numéricos (ej: '001')."
+            ),
+        ))
+    if fis_status_code and not FIS_STATUS_RE.match(fis_status_code):
+        errs.append(ImportError(
+            row=row, code=code,
+            message=(
+                f"physical_status='{fis_status_code}' debe ser 1 letra "
+                f"mayúscula A-Z (ej: 'A')."
+            ),
+        ))
+    return errs
 
 
 def _resolve_fk(model, label: str, **lookup) -> int | str | None:
@@ -255,6 +365,18 @@ def parse_csv(
                 # Invalidamos todo el componente si un vértice falla
                 coords = []
                 break
+            # Validar rangos UTM válidos para Perú. SpatialHelper.utm_to_wgs84
+            # los valida igual pero recién durante el persist; aquí lo
+            # hacemos con fila + vértice para que el usuario vea qué
+            # fila/easting/northing está mal.
+            range_errors = _validate_utm_range(
+                easting, northing, row=ridx,
+                vertice_idx=(len(coords) + 1) if len(rows) > 1 else None,
+            )
+            if range_errors:
+                errors.extend(range_errors)
+                coords = []
+                break
             # Criticidad por vértice (puede variar entre filas del mismo code)
             try:
                 v_crit_id = _resolve_criticality(r["criticality"])
@@ -276,6 +398,20 @@ def parse_csv(
         op_status_code = first.get("operational_status") or None
         fis_status_code = first.get("physical_status") or None
         spec = first.get("specification") or None
+
+        # Validaciones de esquema (code/name/estados) — reporta errores
+        # claros por fila en vez de que PostgreSQL reviente con
+        # "value too long".
+        val_errors = _validate_component_fields(
+            code=code,
+            name=first.get("name", ""),
+            op_status_code=op_status_code,
+            fis_status_code=fis_status_code,
+            row=first_idx,
+        )
+        if val_errors:
+            errors.extend(val_errors)
+            continue
 
         componentes.append(ParsedComponent(
             code=code,
@@ -443,6 +579,13 @@ def parse_geojson(
                         ))
                         coords = []
                         break
+                    range_errors = _validate_utm_range(
+                        e, n, row=fidx, vertice_idx=(v_i + 1),
+                    )
+                    if range_errors:
+                        errors.extend(range_errors)
+                        coords = []
+                        break
                     coords.append({
                         "criticality": crit_id,
                         "easting": e,
@@ -524,6 +667,20 @@ def parse_geojson(
         op_status_code = props.get("operational_status") or None
         fis_status_code = props.get("physical_status") or None
         spec = props.get("specification") or None
+
+        # Validaciones de esquema (code/name/estados) — reporta errores
+        # claros por feature en vez de que PostgreSQL reviente con
+        # "value too long".
+        val_errors = _validate_component_fields(
+            code=code,
+            name=props.get("name", ""),
+            op_status_code=op_status_code,
+            fis_status_code=fis_status_code,
+            row=first_idx,
+        )
+        if val_errors:
+            errors.extend(val_errors)
+            continue
 
         componentes.append(ParsedComponent(
             code=code,
@@ -648,9 +805,27 @@ def persist_components(
                 if coord_instances:
                     ComponentCoord.objects.bulk_create(coord_instances)
     except Exception as e:
-        return 0, [ImportError(
-            row=None, code=None,
-            message=f"Error al persistir: {e}",
-        )]
+        # Si es ValidationError de DRF, `e` puede venir con ErrorDetail
+        # (objeto cuyo __repr__ es `ErrorDetail(string='...', code='...')`).
+        # Lo aplanamos a un mensaje legible para el usuario final.
+        msg: str
+        if isinstance(e, ValidationError):
+            # ValidationError.detail puede ser list / dict / str.
+            detail = getattr(e, 'detail', None)
+            if isinstance(detail, list):
+                msg = "; ".join(str(item) for item in detail)
+            elif isinstance(detail, dict):
+                parts = []
+                for k, v in detail.items():
+                    if isinstance(v, list):
+                        parts.append(f"{k}: " + "; ".join(str(x) for x in v))
+                    else:
+                        parts.append(f"{k}: {v}")
+                msg = "; ".join(parts) if parts else str(e)
+            else:
+                msg = str(detail) if detail else str(e)
+        else:
+            msg = str(e)
+        return 0, [ImportError(row=None, code=None, message=f"Error al persistir: {msg}")]
 
     return len(componentes), []

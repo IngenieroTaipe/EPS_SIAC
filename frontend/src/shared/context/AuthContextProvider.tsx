@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AuthContext, type AuthUser } from './AuthContext';
 import { apiAuth } from '@/services/apiAuth';
 import { hasAccessToken, setAccessToken } from '@/services/httpClient';
@@ -18,6 +18,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+
+  // ── Bootstrap: si al montar la app hay un token en localStorage (p. ej.
+  //    tras un F5 o reabrir la pestaña) pero todavía no sabemos quién es el
+  //    usuario (`user === null`), pedimos el perfil a `/auth/user/` para
+  //    reconstruir `is_staff`/`is_superuser`/`groups`. Sin esto, el sidebar
+  //    no muestra la sección "Administración" tras un refresh y el guard
+  //    `RequireAdmin` redirige a `/alertas` aunque el usuario sea admin.
+  //    Si el token está expirado o es inválido, el backend responde 401 y
+  //    cerramos sesión local (limpiando `isAuthenticated` y `user`).
+  useEffect(() => {
+    if (!hasAccessToken() || user) return;
+    let cancelled = false;
+    // Secuencia de bootstrap canónica (fetch → setUser / setError). Patrón
+    // idéntico al de los providers de datos de la app.
+    apiAuth
+      .getProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        if (profile) {
+          setUser(profile as AuthUser);
+          setIsAuthenticated(true);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Token inválido/expirado: el interceptor de axios ya removió el
+        // access token del localStorage; sincronizamos el contexto para
+        // que el usuario vea la UI pública.
+        setAccessToken(null);
+        setIsAuthenticated(false);
+        setUser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Solo en el mount: depends on [] intencional — no re-fetchear al
+    // cambiar `user` para evitar bucles tras el login (que ya settea user).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const value = useMemo(
     () => ({
