@@ -26,7 +26,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [logoutHover, setLogoutHover] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const { logout } = useAuth();
+  const { logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const LogoutIcon = logoutConfig.icon;
 
@@ -76,7 +76,9 @@ export function Sidebar() {
 
       {/* ── Cuerpo scrollable de navegación ──────────────────────── */}
       <div className="self-stretch flex-1 py-2.5 flex flex-col justify-start items-start gap-2 overflow-y-auto overflow-x-visible">
-        {navConfig.map((group, index) => (
+        {navConfig
+          .filter((group) => !group.adminOnly || isAdmin)
+          .map((group, index) => (
           <div
             key={group.label}
             className="self-stretch flex flex-col justify-start items-start gap-2"

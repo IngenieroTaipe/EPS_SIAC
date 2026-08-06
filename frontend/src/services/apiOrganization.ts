@@ -28,10 +28,10 @@ export interface BackendBranch {
 
 export const apiOrganization = {
   /**
-   * Lista TODAS las sucursales (unidades operativas). Opcionalmente filtra
-   * por `status` (true = sólo operativas). Sin paginación server-side: se
-   * recorre `next` hasta agotar resultados.
-   */
+    * Lista TODAS las sucursales (unidades operativas). Opcionalmente filtra
+    * por `status` (true = sólo operativas). Sin paginación server-side: se
+    * recorre `next` hasta agotar resultados.
+    */
   async listBranches(params?: { status?: boolean }): Promise<BackendBranch[]> {
     const all: BackendBranch[] = [];
     let page = 1;
@@ -46,5 +46,37 @@ export const apiOrganization = {
       page += 1;
     } while (next);
     return all;
+  },
+
+  // === Administración (solo admin) ===
+  async createBranch(payload: {
+    district: string;
+    code: string;
+    name: string;
+    acronym: string;
+    status?: boolean;
+    observations?: string;
+  }): Promise<BackendBranch> {
+    const res = await httpClient.post('/organization/branches/', payload);
+    return res.data;
+  },
+
+  async updateBranch(
+    id: number,
+    payload: Partial<{
+      district: string;
+      code: string;
+      name: string;
+      acronym: string;
+      status: boolean;
+      observations: string;
+    }>,
+  ): Promise<BackendBranch> {
+    const res = await httpClient.patch(`/organization/branches/${id}/`, payload);
+    return res.data;
+  },
+
+  async deleteBranch(id: number): Promise<void> {
+    await httpClient.delete(`/organization/branches/${id}/`);
   },
 };

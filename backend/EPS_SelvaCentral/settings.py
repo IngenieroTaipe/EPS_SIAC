@@ -223,6 +223,10 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_HTTPONLY': False,  # Desactiva la restricción de cookies HttpOnly
     'JWT_AUTH_HEADER_PREFIX': 'Bearer',
+    # Serializer del perfil del propio usuario (GET/PATCH /auth/user/).
+    # Se extiende para incluir `is_staff`/`is_superuser` y permitir al
+    # frontend decidir qué mostrar según el rol del usuario autenticado.
+    'USER_DETAILS_SERIALIZER': 'authentication.serializers.UserDetailsSerializer',
 }
 
 # Configuración del Broker y Resultados (Redis)

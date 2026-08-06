@@ -3,6 +3,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
+from core_shared.permissions import IsAdminUserOrReadOnly
+
 from organization.serializers import (
     BranchSerializer,
     OrganicUnitSerializer,
@@ -37,6 +39,7 @@ class BranchViewSet(viewsets.ModelViewSet):
         - Permite el ordenamiento en base a campos como: Código, Nombre, Acrónimo, Estatus.    
     """
     serializer_class = BranchSerializer
+    permission_classes = [IsAdminUserOrReadOnly]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,

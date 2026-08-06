@@ -25,16 +25,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isLoggingIn,
       loginError,
+      /** True si el usuario logueado es admin (is_staff o is_superuser). */
+      isAdmin: !!user && (!!user.is_staff || !!user.is_superuser),
       async login(username: string, password: string) {
         setIsLoggingIn(true);
         setLoginError(null);
         try {
           const res = await apiAuth.login(username, password);
+          setAccessToken(res.access);
           setIsAuthenticated(true);
-          if (res.user) setUser(res.user as AuthUser);
+          if (res.user) {
+            setUser(res.user as AuthUser);
+          } else {
+            // dj-rest-auth con JWT no siempre devuelve el usuario en el
+            // login; lo pedimos vía /auth/user/ para conocer el rol.
+            try {
+              const profile = await apiAuth.getProfile();
+              if (profile) setUser(profile as AuthUser);
+            } catch {
+              // No es crítico: el token ya quedó guardado.
+            }
+          }
         } catch (err: unknown) {
           setAccessToken(null);
           setIsAuthenticated(false);
+          setUser(null);
           const e = err as { response?: { data?: { detail?: string } } };
           const msg =
             e?.response?.data?.detail ??

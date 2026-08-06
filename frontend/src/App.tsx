@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { GuestLayout } from '@/layouts/GuestLayout';
 import { AppLayout } from '@/layouts/AppLayout';
 import { PrecipitationTimelineProvider } from '@/features/mapa/timeline/PrecipitationTimelineProvider';
+import { RequireAdmin } from '@/shared/components/RequireAdmin';
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MapaAlertasPage } from '@/pages/MapaAlertasPage';
@@ -12,6 +13,8 @@ import { GestionAlertasPage } from '@/pages/GestionAlertasPage';
 import { HistoricoComponentesPage } from '@/pages/HistoricoComponentesPage';
 import { EditorComponentePage } from '@/pages/EditorComponentePage';
 import { GestionUmbralesPage } from '@/pages/GestionUmbralesPage';
+import { GestionUnidadesOperativasPage } from '@/pages/admin/GestionUnidadesOperativasPage';
+import { GestionUsuariosPage } from '@/pages/admin/GestionUsuariosPage';
 
 /**
  * Punto de entrada de la SPA.
@@ -57,6 +60,12 @@ function App() {
           <Route path="/componentes/nuevo" element={<EditorComponentePage />} />
           <Route path="/alertas/gestion" element={<HistoricoAlertasPage />} />
           <Route path="/alertas/:id/editar" element={<GestionAlertasPage />} />
+
+          {/* ── Administración (solo admin) ─────────────────────────── */}
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin/unidades-operativas" element={<GestionUnidadesOperativasPage />} />
+            <Route path="/admin/usuarios" element={<GestionUsuariosPage />} />
+          </Route>
         </Route>
 
         {/* ── Fallback ────────────────────────────────────────────────── */}

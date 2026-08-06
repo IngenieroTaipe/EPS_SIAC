@@ -146,6 +146,16 @@ export const topBarConfig: TopBarPageConfig[] = [
       { kind: 'updatedAt' },
     ],
   },
+  {
+    route: '/admin/unidades-operativas',
+    title: 'Gestión de Unidades Operativas',
+    widgets: [],
+  },
+  {
+    route: '/admin/usuarios',
+    title: 'Gestión de Usuarios',
+    widgets: [],
+  },
 ];
 
 /** Config por defecto si la ruta no coincide con ninguna en `topBarConfig`. */
@@ -168,4 +178,6 @@ export const HIDE_UNIDAD_OPERATIVA_ROUTES: string[] = [
   '/alertas/gestion',
   '/componentes/nuevo',
   '/umbrales/gestion',
+  '/admin/unidades-operativas',
+  '/admin/usuarios',
 ];
