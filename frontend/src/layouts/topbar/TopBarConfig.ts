@@ -93,7 +93,7 @@ export const topBarConfig: TopBarPageConfig[] = [
     route: '/',
     title: 'Sistema de Alertas Climáticas',
     subtitleWeight: 'semibold',
-    widgets: [{ kind: 'loginButton' }],
+    widgets: [],
   },
   {
     route: '/alertas/gestion',

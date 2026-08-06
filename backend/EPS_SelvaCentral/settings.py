@@ -240,6 +240,18 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC' # El schedule usará la zona horario global UTC
 CELERY_ENABLE_UTC = True
 
+# === Caché y Locks (Redis compartido entre procesos) ===
+# Por defecto Django usa LocMemCache (caché en memoria POR PROCESO), lo que impide:
+#   1) Que un worker de Celery invalide la caché de la API (el timeline no se refrescaba).
+#   2) Que el lock Redis (`cache.add`) funcione entre workers (doble descarga al mismo .nc).
+# Usamos Redis DB 1 para no chocar con el broker/result backend de Celery (DB 0).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.getenv('CACHE_URL', 'redis://redis:6379/1'),
+    }
+}
+
 # === Planificador Periódico (Celery Beat) ===
 CELERY_BEAT_SCHEDULE = {
     'descarga-automatica-gfs-diaria': {
