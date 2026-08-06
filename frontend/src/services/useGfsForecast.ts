@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiGFS } from './apiGFS';
+import { invalidateCache } from './requestCache';
 import type { GfsClusterFeatureCollection } from '@/features/mapa/types/gfs';
 import { smoothGeometry } from '@/features/mapa/utils/smoothGeometry';
 
@@ -90,6 +91,10 @@ export function useGfsForecast(): UseGfsForecastResult {
   }, [tick]);
 
   function refetch() {
+    // Invalida la caché (memoria + localStorage) para que el refetch SIEMPRE
+    // consulte al backend. Sin esto, `cachedGet` devolvía el valor cacheado
+    // con TTL de 10 min y el polling de 5 min nunca veía corridas nuevas.
+    invalidateCache('gfs:window-18h');
     setLoading(true);
     setTick((t) => t + 1);
   }

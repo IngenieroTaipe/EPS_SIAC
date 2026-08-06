@@ -25,6 +25,7 @@
 
 import type { MultiPolygon, Polygon } from 'geojson';
 import type { LayerId } from '@/features/mapa/components/LayerControl';
+import { parsePetTimestamp } from '@/features/mapa/timeline/peruTime';
 
 /** Categoría de umbral o '-' (sin lluvia significativa). */
 export type GfsCategory =
@@ -226,6 +227,14 @@ export function classifyCluster(p: GfsClusterFeatureProperties): GfsCategory {
  */
 export function extractHHmm(timestampStr?: string | null): string {
   if (typeof timestampStr !== 'string' || !timestampStr) return '—';
+  // El backend emite timestamps en UTC ("...T22:00:00Z"). parsePetTimestamp
+  // lo convierte al wall-clock PET (UTC-5), alineado con el eje del timeline.
+  const pet = parsePetTimestamp(timestampStr);
+  if (pet && !Number.isNaN(pet.getTime())) {
+    const hh = String(pet.getHours()).padStart(2, '0');
+    const mm = String(pet.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
   const m = timestampStr.match(/(\d{2}:\d{2})/);
   return m ? m[1] : '—';
 }
