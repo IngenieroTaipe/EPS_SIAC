@@ -41,4 +41,20 @@ export const apiGFS = {
     );
     return res.data as GfsCellFeatureCollection;
   },
+
+  /**
+   * Trae las celdas individuales de la ventana 18h (T-6h .. T+12h).
+   * Une la corrida previa (HISTORIC, ~12 000 celdas) + la corrida actual
+   * (FORECAST, ~12 000 celdas). Cada celda trae `temporal_status`,
+   * `threshold_names` y `district_ubigeos` para que el frontend clasifique
+   * con los umbrales del backend (no los hardcodeados de Pichanaqui).
+   *
+   * Sin caché localStorage (payload ~14 MB excede el límite de 5-10 MB).
+   */
+  async getWindow18hCells(): Promise<GfsCellFeatureCollection> {
+    const res = await httpClient.get(
+      '/core_predictive/gfs-active-cells/window-18h/',
+    );
+    return res.data as GfsCellFeatureCollection;
+  },
 };

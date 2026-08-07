@@ -2,10 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { GeoJSON as GeoJSONComponent, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
-import {
-  UNIDADES_OPERATIVAS,
-  UNIDAD_TODAS,
-} from '@/shared/context/UnidadOperativaContext';
+import { UNIDAD_TODAS } from '@/shared/context/UnidadOperativaContext';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const GeoJSONAny = GeoJSONComponent as any;
@@ -13,51 +10,62 @@ const GeoJSONAny = GeoJSONComponent as any;
 const Lany = L as any;
 
 /**
- * DistrictLayer — dibuja los contornos de los 5 distritos operativos
- * y hace zoom al seleccionado. Permite click en un contorno para seleccionarlo.
+ * DistrictLayer — dibuja los contornos de los distritos asociados a las
+ * unidades operativas activas (branches) y hace zoom al seleccionado.
+ * Permite click en un contorno para seleccionarlo.
  *
  * Se coloca dentro de <BaseMap>.
  */
 export function DistrictLayer() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const map = useMap() as any;
-  const { districts, selectedNombre, setSelectedNombre, loading } =
+  const { districts, branches, selectedNombre, setSelectedNombre, loading } =
     useUnidadOperativa();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geoJsonLayerRef = useRef<any>(null);
 
-  // Los 5 distritos que tienen geojson.
+  // Mapa ubigeo → nombre del branch (label amigable para tooltip/selección).
+  const ubigeoToBranchName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of branches) {
+      const ub = typeof b.district === 'string' ? b.district : b.district?.ubigeo;
+      if (ub) m.set(ub, b.name);
+    }
+    return m;
+  }, [branches]);
+
+  // Distritos (con geojson) que pertenecen a un branch activo.
   const targetDistricts = useMemo(() => {
     return districts.filter((d) => {
       if (!d.geojson) return false;
-      return UNIDADES_OPERATIVAS.some((u) => u.ubigeo === d.ubigeo);
+      return ubigeoToBranchName.has(d.ubigeo);
     });
-  }, [districts]);
+  }, [districts, ubigeoToBranchName]);
 
-  // FeatureCollection con los 5 distritos.
+  // FeatureCollection de los distritos operativos.
   const featureCollection = useMemo(() => {
     if (targetDistricts.length === 0) return null;
     const features = targetDistricts.map((d) => {
-      const unidad = UNIDADES_OPERATIVAS.find((u) => u.ubigeo === d.ubigeo);
+      const label = ubigeoToBranchName.get(d.ubigeo) ?? d.name;
       return {
         type: 'Feature' as const,
         properties: {
           ubigeo: d.ubigeo,
           name: d.name,
-          label: unidad?.nombre ?? d.name,
+          label,
         },
         geometry: d.geojson,
       };
     });
     return { type: 'FeatureCollection' as const, features };
-  }, [targetDistricts]);
+  }, [targetDistricts, ubigeoToBranchName]);
 
   // Auto-zoom cuando cambia la selección.
   useEffect(() => {
     if (!map || targetDistricts.length === 0) return;
 
     if (selectedNombre === UNIDAD_TODAS || !selectedNombre) {
-      // "Todas" → encuadrar los 5 distritos.
+      // "Todas" → encuadrar los distritos operativos.
       try {
         const bounds = Lany.latLngBounds([]);
         targetDistricts.forEach((d) => {
@@ -75,10 +83,12 @@ export function DistrictLayer() {
       return;
     }
 
-    // Buscar el distrito seleccionado por nombre amigable.
-    const unidad = UNIDADES_OPERATIVAS.find((u) => u.nombre === selectedNombre);
-    const selectedDist = unidad
-      ? targetDistricts.find((d) => d.ubigeo === unidad.ubigeo)
+    // Buscar el distrito seleccionado por nombre de branch.
+    const selectedUb = Array.from(ubigeoToBranchName.entries()).find(
+      ([, name]) => name === selectedNombre,
+    )?.[0];
+    const selectedDist = selectedUb
+      ? targetDistricts.find((d) => d.ubigeo === selectedUb)
       : undefined;
 
     if (selectedDist && selectedDist.geojson) {
@@ -92,7 +102,7 @@ export function DistrictLayer() {
         // ignore
       }
     }
-  }, [selectedNombre, targetDistricts, map]);
+  }, [selectedNombre, targetDistricts, ubigeoToBranchName, map]);
 
   if (loading || !featureCollection) return null;
 

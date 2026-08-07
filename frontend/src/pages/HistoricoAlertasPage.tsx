@@ -6,10 +6,7 @@ import { apiAlerts } from '@/services/apiAlerts';
 import { mapAlertListToFrontend } from '@/features/alertas/alertAdapters';
 import { cn } from '@/shared/lib/cn';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
-import {
-  UNIDADES_OPERATIVAS,
-  UNIDAD_TODAS,
-} from '@/shared/context/UnidadOperativaContext';
+import { UNIDAD_TODAS } from '@/shared/context/UnidadOperativaContext';
 
 /**
  * Compara una unidad del mock (p.ej. "Pichanaqui") con el nombre del
@@ -64,7 +61,7 @@ export function HistoricoAlertasPage() {
   const [searchParams] = useSearchParams();
   const preselectId = searchParams.get('id');
 
-  const { selectedNombre, setSelectedNombre } = useUnidadOperativa();
+  const { selectedNombre, setSelectedNombre, branches } = useUnidadOperativa();
 
   const [alertas, setAlertas] = useState<AlertaHistorica[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,10 +112,10 @@ export function HistoricoAlertasPage() {
     });
   }, [alertas, selectedNombre, estadosSeleccionados, desde, hasta]);
 
-  // Opciones del filtro: "Todas" + unidades operativas del contexto.
+  // Opciones del filtro: "Todas" + branches activos del contexto.
   const unidadOptions = useMemo(
-    () => [UNIDAD_TODAS, ...UNIDADES_OPERATIVAS.map((u) => u.nombre)],
-    [],
+    () => [UNIDAD_TODAS, ...branches.map((b) => b.name)],
+    [branches],
   );
 
   return (

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { FilterableSelect } from '@/shared/components/FilterableSelect';
-import { UNIDADES_OPERATIVAS } from '@/shared/context/UnidadOperativaContext';
+import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
 import { apiUmbrales, type UmbralFenomeno } from '@/services/apiUmbrales';
 import { apiGFS } from '@/services/apiGFS';
 import type { GfsClusterFeatureCollection } from '@/features/mapa/types/gfs';
@@ -32,6 +32,7 @@ import { EditorUmbral } from './EditorUmbral';
  *      eliminar un registro existente).
  */
 export function GestionUmbrales() {
+  const { branches } = useUnidadOperativa();
   const [todosUmbrales, setTodosUmbrales] = useState<UmbralFenomeno[]>([]);
   const [clusters, setClusters] = useState<GfsClusterFeatureCollection | null>(null);
   const [loadingUmbrales, setLoadingUmbrales] = useState(true);
@@ -75,22 +76,24 @@ export function GestionUmbrales() {
   }, []);
 
   // 3. Distritos con umbrales registrados (lista única ordenada) + nombre
-  //    legible (mapeando ubigeo → UNIDADES_OPERATIVAS.nombre).
+  //    legible (mapeando ubigeo → nombre del branch asociado).
   const distritosConUmbrales = useMemo(() => {
     const map = new Map<string, string>(); // ubigeo → nombre legible
     for (const u of todosUmbrales) {
       const ub = u.district.ubigeo;
       if (!map.has(ub)) {
-        const nombreAmigable =
-          UNIDADES_OPERATIVAS.find((x) => x.ubigeo === ub)?.nombre ??
-          u.district.name;
+        const branch = branches.find((b) => {
+          const bUb = typeof b.district === 'string' ? b.district : b.district?.ubigeo;
+          return bUb === ub;
+        });
+        const nombreAmigable = branch?.name ?? u.district.name;
         map.set(ub, nombreAmigable);
       }
     }
     return Array.from(map.entries())
       .map(([ubigeo, nombre]) => ({ ubigeo, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [todosUmbrales]);
+  }, [todosUmbrales, branches]);
 
   // 4. Máximo umbral registrado por distrito (GFS Clusters) — para
   //    pre-seleccionar el distrito con el mayor valor pico al cargar.

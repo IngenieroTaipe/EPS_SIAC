@@ -1,9 +1,16 @@
 import { createContext } from 'react';
 import type { BackendDistrict } from '@/services/apiPlaces';
+import type { BackendBranch } from '@/services/apiOrganization';
 
 /**
  * UnidadOperativaContext — contexto compartido para la selección de
- * Unidad Operativa (distrito) entre el TopBar y las páginas de mapa.
+ * Unidad Operativa (Branch) entre el TopBar y las páginas de mapa.
+ *
+ * Antes la lista de unidades era un array fijo (`UNIDADES_OPERATIVAS`)
+ * mapeado a ubigeos hardcoded. Ahora se carga dinámicamente desde el
+ * endpoint `GET /organization/branches/?status=true`; cada branch trae
+ * su `district.ubigeo` que se usa para resolver el GeoJSON del distrito
+ * (vía `GET /places/districts/{ubigeo}/`).
  */
 
 export type GeoJSONGeometry = {
@@ -12,66 +19,24 @@ export type GeoJSONGeometry = {
 };
 
 export interface UnidadOperativaContextValue {
-  /** Nombre amigable seleccionado (ej. "La Merced") o "Todas". */
+  /** Etiqueta seleccionada (branch.name, ej. "LA MERCED - CHANCHAMAYO") o "Todas". */
   selectedNombre: string;
-  /** Setter por nombre amigable. */
+  /** Setter por nombre de branch. */
   setSelectedNombre: (nombre: string) => void;
-  /** Ubigeo del distrito seleccionado, o null si "Todas". */
+  /** Ubigeo del distrito asociado al branch seleccionado, o null si "Todas". */
   ubigeo: string | null;
-  /** Polígono GeoJSON del distrito seleccionado. null si "Todas". */
+  /** Polígono GeoJSON del distrito seleccionado. null si "Todas" o sin geojson. */
   geojson: GeoJSONGeometry | null;
-  /** Lista de los 5 distritos operativos con su geojson. */
+  /** Lista completa de branches activos desde el backend. */
+  branches: BackendBranch[];
+  /** Distritos (con geojson) resueltos a partir de los branches activos. */
   districts: BackendDistrict[];
-  /** True mientras se cargan los distritos. */
+  /** True mientras se cargan branches + geojsons. */
   loading: boolean;
 }
 
 export const UnidadOperativaContext =
   createContext<UnidadOperativaContextValue | null>(null);
 
-/**
- * Opciones fijas de Unidad Operativa (5 distritos del ámbito de la EPS).
- * Mapeadas a ubigeo del backend. "Todas" = null (sin filtro).
- */
-export const UNIDADES_OPERATIVAS: Array<{
-  ubigeo: string;
-  nombre: string;
-}> = [
-  { ubigeo: '120301', nombre: 'La Merced' },
-  { ubigeo: '120303', nombre: 'Pichanaqui-Sangani' },
-  { ubigeo: '120305', nombre: 'San Ramón' },
-  { ubigeo: '120601', nombre: 'Satipo' },
-  { ubigeo: '190301', nombre: 'Oxapampa' },
-];
-
-/** Opción "Todas" (sin filtro de distrito). */
+/** Opción "Todas" (sin filtro de unidad operativa). */
 export const UNIDAD_TODAS = 'Todas';
-
-/**
- * Mapea el nombre amigable de la unidad al ubigeo del backend.
- * "La Merced" → "120301" (Chanchamayo)
- */
-export function nombreToUbigeo(nombre: string): string | null {
-  if (nombre === UNIDAD_TODAS || !nombre) return null;
-  const u = UNIDADES_OPERATIVAS.find((x) => x.nombre === nombre);
-  return u?.ubigeo ?? null;
-}
-
-/**
- * Mapea el ubigeo al nombre amigable.
- */
-export function ubigeoToNombre(ubigeo: string | null): string {
-  if (!ubigeo) return UNIDAD_TODAS;
-  const u = UNIDADES_OPERATIVAS.find((x) => x.ubigeo === ubigeo);
-  return u?.nombre ?? UNIDAD_TODAS;
-}
-
-/**
- * Mapea el nombre del backend (ej. "CHANCHAMAYO") al nombre amigable
- * (ej. "La Merced") usando el ubigeo.
- */
-export function backendNameToNombre(backendName: string, ubigeo: string): string {
-  const u = UNIDADES_OPERATIVAS.find((x) => x.ubigeo === ubigeo);
-  if (u) return u.nombre;
-  return backendName;
-}

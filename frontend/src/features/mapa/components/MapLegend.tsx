@@ -233,20 +233,24 @@ interface MapLegendProps {
   initialVariant?: LegendVariant;
   /** Si la leyenda arranca minimizada. Default true (colapsada en botón circular). */
   initialMinimized?: boolean;
+  /** Variantes disponibles para rotación. Default: todas. Útil para HomePage (sin componentes). */
+  variants?: LegendVariant[];
 }
 
 export function MapLegend({
   initialVariant = 'alertas',
   initialMinimized = true,
+  variants,
 }: MapLegendProps) {
+  const availableVariants = variants ?? VARIANTS;
   const [current, setCurrent] = useState<LegendVariant>(initialVariant);
   const [minimized, setMinimized] = useState(initialMinimized);
   // Si el usuario navega manualmente (dots o flechas), pausamos el auto-rotate
   // hasta que pasen 2 ciclos del intervalo. Esto evita saltos bruscos.
   const pauseAutoRotateRef = useRef(false);
 
-  const nextIndex = (idx: number) => (idx + 1) % VARIANTS.length;
-  const prevIndex = (idx: number) => (idx - 1 + VARIANTS.length) % VARIANTS.length;
+  const nextIndex = (idx: number) => (idx + 1) % availableVariants.length;
+  const prevIndex = (idx: number) => (idx - 1 + availableVariants.length) % availableVariants.length;
 
   const goTo = useCallback((v: LegendVariant) => {
     setCurrent(v);
@@ -259,8 +263,8 @@ export function MapLegend({
 
   const goNext = useCallback(() => {
     setCurrent((c) => {
-      const idx = VARIANTS.indexOf(c);
-      return VARIANTS[nextIndex(idx)];
+      const idx = availableVariants.indexOf(c);
+      return availableVariants[nextIndex(idx)];
     });
     pauseAutoRotateRef.current = true;
     setTimeout(() => {
@@ -270,8 +274,8 @@ export function MapLegend({
 
   const goPrev = useCallback(() => {
     setCurrent((c) => {
-      const idx = VARIANTS.indexOf(c);
-      return VARIANTS[prevIndex(idx)];
+      const idx = availableVariants.indexOf(c);
+      return availableVariants[prevIndex(idx)];
     });
     pauseAutoRotateRef.current = true;
     setTimeout(() => {
@@ -284,12 +288,12 @@ export function MapLegend({
     if (minimized) return;
     const id = setInterval(() => {
       if (pauseAutoRotateRef.current) return;
-      setCurrent((c) => VARIANTS[nextIndex(VARIANTS.indexOf(c))]);
+      setCurrent((c) => availableVariants[nextIndex(availableVariants.indexOf(c))]);
     }, AUTO_ROTATE_INTERVAL_MS);
     return () => clearInterval(id);
   }, [minimized]);
 
-  const currentIndex = VARIANTS.indexOf(current);
+  const currentIndex = availableVariants.indexOf(current);
   const items = LEGEND_ITEMS[current];
 
   // Estado minimizado: colapsa a un único botón circular con el icono `mapa.svg`.
@@ -374,7 +378,7 @@ export function MapLegend({
         <div className="self-stretch pt-1 inline-flex justify-between items-center">
           {/* Dots: posición actual + acceso directo */}
           <div className="flex justify-start items-center gap-1">
-            {VARIANTS.map((v, idx) => (
+            {availableVariants.map((v, idx) => (
               <button
                 key={v}
                 type="button"

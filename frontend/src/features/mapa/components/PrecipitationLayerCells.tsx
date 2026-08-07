@@ -6,29 +6,36 @@ import { usePrecipitationTimeline } from '@/features/mapa/timeline/usePrecipitat
 import {
   GFS_COLOR_MAP,
   GFS_LABEL,
+  classifyCell,
   extractHHmm,
-  getThreshold,
   intensityAt,
   type GfsCategory,
   type GfsCellFeature,
   type GfsCellFeatureCollection,
 } from '@/features/mapa/types/gfs';
+import type { GfsFrame } from '@/features/mapa/timeline/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const GeoJSONAny = GeoJSONComponent as any;
 
+/** Opacidad de relleno para celdas con lluvia. */
+const FILL_OPACITY = 0.6;
+
 /**
  * PrecipitationLayerCells — V2 TEMPORAL para comparación visual con clusters.
  *
- * Consume `/gfs-active-cells/latest/` (~12 000 celdas individuales GFS, ~7 MB)
- * y recolorea por índice del timeline (vía `frameIndex` del contexto) usando
- * `intensity_series[hourIndex]` sobre la capa `L.GeoJSON` existente.
+ * Consume `/gfs-active-cells/window-18h/` que integra:
+ *   - Celdas de la corrida previa  (temporal_status='HISTORIC', ~12 000)
+ *   - Celdas de la corrida actual   (temporal_status='FORECAST',  ~12 000)
  *
- * Estado de la timeline vive en `PrecipitationTimelineProvider`; aquí solo
- * leemos `frameIndex`/`setFrameIndex` y mapeamos al rango propio de celdas
- * (clampado a `hours.length-1` si escalas difieren).
+ * Cada celda trae `threshold_names` (12 valores, clasificación por distrito
+ * hecha en el backend) y `temporal_status`. El timeline selecciona el frame
+ * activo (temporal_status + time_step); las celdas de la otra mitad quedan
+ * invisibles (opacity 0) pero siguen en el DOM para evitar re-mounts.
  *
- * === BORRAR al cerrar la comparación con `PrecipitationLayer` (clusters) ===
+ * Comportamiento por frame:
+ *   HISTORIC step 1..6 → hourIndex 0..5 en celdas HISTORIC
+ *   FORECAST step 1..12 → hourIndex 0..11 en celdas FORECAST
  */
 export function PrecipitationLayerCells() {
   const [data, setData] = useState<GfsCellFeatureCollection | null>(null);
@@ -39,30 +46,22 @@ export function PrecipitationLayerCells() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geoJsonRef = useRef<any>(null);
 
-  // frameIndex/activeFrame del contexto compartido.
-  // FIX: mapear hourIndex desde `activeFrame.time_step` (1-indexed) →
-  // `intensity_series` (0-indexed). Antes se usaba `frameIndex` directo, lo
-  // que rompía cuando el timeline pasó de 5 slots reales a 18 teóricos:
-  // slots ≥12 colisionaban con el clamp a `hoursCount-1` (celdas "estáticas")
-  // y slots 0-5 (HISTORIC) dibujaban data del FORECAST real. Ahora HISTORIC
-  // → hourIndex -1 → intensityAt() devuelve 0 → no se dibuja nada (regla:
-  // "si no hay dato en esa hora, no se muestra nada").
   const { activeFrame } = usePrecipitationTimeline();
 
   useEffect(() => {
     if (map) map.options.preferCanvas = true;
   }, [map]);
 
-  // Fetch del pesado endpoint de celdas (una sola vez al montar).
+  // Fetch del endpoint window-18h de celdas (una sola vez al montar).
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     apiGFS
-      .getLatestCells()
+      .getWindow18hCells()
       .then((geojson: GfsCellFeatureCollection) => {
         if (cancelled) return;
-        // Las celdas individuales forman una grilla continua (~12 000 celdas).
-        // NO se suavizan celda por celda para evitar abrir grietas entre celdas
-        // contiguas del mismo umbral. Mantenemos `geometry` intacta.
+        // Las celdas individuales forman una grilla continua. NO se suavizan
+        // celda por celda para evitar abrir grietas entre celdas contiguas.
         const smoothedFeatures = geojson.features.map((f: GfsCellFeature) => ({
           ...f,
           properties: {
@@ -86,9 +85,9 @@ export function PrecipitationLayerCells() {
     };
   }, []);
 
-  /** Etiquetas "HH:mm" extraídas del primer feature con `timestamps` válido. */
+  // Longitud de la serie temporal (debería ser 12 en ambas corridas).
   const hoursCount = (() => {
-    const feats = (data as GfsCellFeatureCollection | null)?.features ?? [];
+    const feats = data?.features ?? [];
     for (const f of feats) {
       const ts = f.properties?.timestamps;
       if (Array.isArray(ts) && ts.length > 0) return ts.length;
@@ -96,40 +95,54 @@ export function PrecipitationLayerCells() {
     return 0;
   })();
 
-  // Mapear el frame activo al índice de `intensity_series` de las celdas.
-  //   HISTORIC     → hourIndex -1 → no hay data (las celdas solo cubren la
-  //                  corrida latest, no la previous). intensityAt(-1) = 0.
-  //   FORECAST     → time_step - 1 (1-indexed → 0-indexed).
-  // Defensive: clampar a [0, hoursCount-1] por si hoursCount difiere de 12.
-  const hourIndex =
-    hoursCount > 0 && activeFrame?.temporal_status === 'FORECAST'
-      ? Math.max(0, Math.min((activeFrame.time_step - 1), hoursCount - 1))
-      : -1;
+  // Mapear el frame activo al índice de intensity_series.
+  //   HISTORIC → time_step - 1 (1-indexed → 0-indexed, rango 0..5)
+  //   FORECAST → time_step - 1 (rango 0..11)
+  // Sin activeFrame → -1 (no se dibuja nada).
+  const hourIndex = activeFrame
+    ? Math.max(0, Math.min(activeFrame.time_step - 1, Math.max(0, hoursCount - 1)))
+    : -1;
 
-  // Recolorea todas las celdas al mover el timeline (sin reconstruir la capa).
+  // Recolorea + gestiona interactividad al mover el timeline.
   useEffect(() => {
     const layer = geoJsonRef.current;
     if (!layer) return;
-    layer.setStyle((feature: GfsCellFeature) => styleFor(feature, hourIndex));
-  }, [hourIndex, data]);
-
-  // Re-bindea los tooltips por hora activa: muestra el umbral + intensidad
-  // del frame seleccionado (no el máximo de las 12h como antes).
-  useEffect(() => {
-    const layer = geoJsonRef.current;
-    if (!layer) return;
+    layer.setStyle((feature: GfsCellFeature) =>
+      styleFor(feature, hourIndex, activeFrame),
+    );
+    // Alternar interactividad: solo las celdas del frame activo capturan hover.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     layer.eachLayer((l: any) => {
       const f = l.feature as GfsCellFeature | undefined;
       if (!f) {
-        l.unbindTooltip?.();
+        l.options.interactive = false;
         return;
       }
+      const featureStatus = f.properties?.temporal_status ?? 'FORECAST';
+      const activeStatus = activeFrame?.temporal_status ?? 'FORECAST';
+      const interactive =
+        featureStatus === activeStatus &&
+        hourIndex >= 0 &&
+        classifyCell(f, hourIndex) !== '-';
+      l.options.interactive = interactive;
+    });
+  }, [hourIndex, data, activeFrame]);
+
+  // Re-bindea los tooltips por hora activa.
+  useEffect(() => {
+    const layer = geoJsonRef.current;
+    if (!layer || !activeFrame) return;
+    const activeStatus = activeFrame.temporal_status;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    layer.eachLayer((l: any) => {
+      const f = l.feature as GfsCellFeature | undefined;
       l.unbindTooltip?.();
-      // HISTORIC o slot sin data → no tooltip (regla: "nada que mostrar").
+      if (!f) return;
+      const featureStatus = f.properties?.temporal_status ?? 'FORECAST';
+      if (featureStatus !== activeStatus) return;
       if (hourIndex < 0) return;
       const mmh = intensityAt(f, hourIndex);
-      const cat = getThreshold(mmh);
+      const cat = classifyCell(f, hourIndex);
       if (cat === '-') return;
       const ts = f.properties?.timestamps?.[hourIndex];
       const hhmm = extractHHmm(ts);
@@ -141,15 +154,23 @@ export function PrecipitationLayerCells() {
         { sticky: true, direction: 'top', offset: [0, -5] },
       );
     });
-  }, [hourIndex, data]);
+  }, [hourIndex, data, activeFrame]);
 
-  function styleFor(feature: GfsCellFeature, idx: number) {
+  function styleFor(
+    feature: GfsCellFeature,
+    idx: number,
+    active: GfsFrame | undefined,
+  ) {
+    if (!active) return { fillOpacity: 0, stroke: false };
+    const featureStatus = feature.properties?.temporal_status ?? 'FORECAST';
+    if (featureStatus !== active.temporal_status)
+      return { fillOpacity: 0, stroke: false };
     const mmh = intensityAt(feature, idx);
-    const cat: GfsCategory = getThreshold(mmh);
+    const cat: GfsCategory = classifyCell(feature, idx);
     if (cat === '-') return { fillOpacity: 0, stroke: false };
     return {
       fillColor: GFS_COLOR_MAP[cat],
-      fillOpacity: 0.6,
+      fillOpacity: FILL_OPACITY,
       stroke: false,
     };
   }
@@ -192,7 +213,7 @@ export function PrecipitationLayerCells() {
               boxShadow: '0 5px 5px rgba(0,0,0,0.25)',
             }}
           >
-            {error ? `Error celdas: ${error.message}` : 'Cargando celdas (~7 MB)…'}
+            {error ? `Error celdas: ${error.message}` : 'Cargando celdas 18h (~14 MB)…'}
           </div>,
           portalTarget,
         )
@@ -202,13 +223,13 @@ export function PrecipitationLayerCells() {
   return (
     <>
       <GeoJSONAny
-        key={`cells-${renderData.metadata?.request_code ?? ''}`}
+        key={`cells-${renderData.metadata?.latest_request_code ?? ''}-${renderData.metadata?.previous_request_code ?? ''}`}
         data={renderData}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ref={(layer: any) => {
           geoJsonRef.current = layer;
         }}
-        style={(feature: GfsCellFeature) => styleFor(feature, hourIndex)}
+        style={(feature: GfsCellFeature) => styleFor(feature, hourIndex, activeFrame)}
         onEachFeature={onEachFeature}
       />
     </>

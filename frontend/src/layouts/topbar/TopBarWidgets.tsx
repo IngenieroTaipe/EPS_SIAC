@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
 
@@ -16,10 +16,7 @@ import FlechaIcon from '@/assets/icons/flecha.svg?react';
 import { useClickOutside } from '@/shared/hooks/useClickOutside';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
 import { CargarDatosModal } from '@/features/componentes/components/CargarDatosModal';
-import {
-  UNIDADES_OPERATIVAS,
-  UNIDAD_TODAS,
-} from '@/shared/context/UnidadOperativaContext';
+import { UNIDAD_TODAS } from '@/shared/context/UnidadOperativaContext';
 import {
   UPDATED_LABEL_PREFIX,
   UPDATED_VALUE,
@@ -282,12 +279,15 @@ export function LoginButton() {
 // componente (vía `useClickOutside`).
 export function UnidadOperativaSelector() {
   const [open, setOpen] = useState(false);
-  const { selectedNombre, setSelectedNombre } = useUnidadOperativa();
+  const { selectedNombre, setSelectedNombre, branches } = useUnidadOperativa();
   const containerRef = useRef<HTMLDivElement>(null);
   useClickOutside(containerRef, () => setOpen(false), open);
 
-  // Opciones: "Todas" + los 5 distritos operativos.
-  const opciones = [UNIDAD_TODAS, ...UNIDADES_OPERATIVAS.map((u) => u.nombre)];
+  // Opciones: "Todas" + branches activos cargados desde el backend.
+  const opciones = useMemo(
+    () => [UNIDAD_TODAS, ...branches.map((b) => b.name)],
+    [branches],
+  );
 
   return (
     <div

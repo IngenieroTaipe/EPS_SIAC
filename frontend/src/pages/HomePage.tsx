@@ -70,7 +70,7 @@ export function HomePage() {
             })
           }
         />
-        <MapLegend initialVariant="alertas" />
+        <MapLegend initialVariant="alertas" variants={['alertas', 'precipitaciones']} />
       </div>
     </div>
   );

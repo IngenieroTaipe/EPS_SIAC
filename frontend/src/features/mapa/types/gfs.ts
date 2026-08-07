@@ -221,6 +221,27 @@ export function classifyCluster(p: GfsClusterFeatureProperties): GfsCategory {
 }
 
 /**
+ * Clasifica una celda en una hora específica, prefiriendo el
+ * `threshold_names[hourIndex]` del backend y cayendo a `getThreshold`
+ * cuando el backend entrega "-" o null.
+ */
+export function classifyCell(
+  feature: GfsCellFeature | undefined | null,
+  hourIndex: number,
+): GfsCategory {
+  const thresholdNames = feature?.properties?.threshold_names;
+  if (
+    Array.isArray(thresholdNames) &&
+    hourIndex >= 0 &&
+    hourIndex < thresholdNames.length
+  ) {
+    const name = normalizeThresholdName(thresholdNames[hourIndex]);
+    if (name) return name;
+  }
+  return getThreshold(intensityAt(feature, hourIndex));
+}
+
+/**
  * Extrae "HH:mm" de un `timestamp_utc` (ISO con offset, ej.
  * "2026-07-30T20:00:00-05:00"). Defensivo: si el string no parsea,
  * devuelve '—'.
@@ -257,6 +278,12 @@ export interface GfsCellProperties {
   timestamps?: string[] | null;
   /** 12 valores mm/h en el mismo orden que `timestamps`. */
   intensity_series?: number[] | null;
+  /** 12 nombres de umbral en MAYÚSCULAS (ej. "LLUVIOSO", "-"). */
+  threshold_names?: string[] | null;
+  /** UBIGEOS de los distritos intersectados por esta celda. */
+  district_ubigeos?: string[] | null;
+  /** Origen temporal: HISTORIC (corrida previa) o FORECAST (actual). */
+  temporal_status?: GfsTemporalStatus;
 }
 
 /** Una feature del GeoJSON de celdas individuales (Polygon grilla ~10km). */

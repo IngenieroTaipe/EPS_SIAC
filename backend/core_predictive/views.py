@@ -115,6 +115,22 @@ class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
             cache_key="gfs_latest_cells_geojson"
         )
 
+    @extend_schema(
+        tags=['Predictive / GFS Active Cells'],
+        summary="Obtener las celdas activas de la ventana extendida de 18 horas de GFS (T-6h a T+12h)",
+        responses={200: GFSActiveCellGeoJSONSerializer(many=True)}
+    )
+    @action(detail=False, methods=['get'], url_path='window-18h')
+    def get_18h_window_cells(self, request):
+        return GeoJSONResponseService.build_18h_window_cells_response(
+            model_class=GFSActiveCell,
+            properties_fields=[
+                'gfs_request_id', 'max_intensity_mm_h', 'timestamps',
+                'intensity_series', 'threshold_names', 'district_ubigeos'
+            ],
+            cache_key="gfs_window_18h_cells_geojson"
+        )
+
 @extend_schema_view(
     list=extend_schema(tags=['Predictive / GFS Clusters'], summary="Listar Clústeres Espacio-Temporales Disueltos de GFS"),
     retrieve=extend_schema(tags=['Predictive / GFS Clusters'], summary="Obtener detalle de un Clúster Espacio-Temporal Disuelto de GFS"),

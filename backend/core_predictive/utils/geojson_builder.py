@@ -248,6 +248,117 @@ class PostGISGeoJSONExtractor:
             ])
             return cursor.fetchone()[0]
 
+    @classmethod
+    def extract_18h_window_cells_feature_collection(
+        cls,
+        model_class: Type[models.Model],
+        properties_fields: List[str],
+        geometry_field_name: str = "geometry"
+    ) -> Dict[str, Any]:
+        """
+        Extrae una colección GeoJSON de celdas activas que integra:
+        - TODAS las celdas de la corrida previa (temporal_status='HISTORIC').
+        - TODAS las celdas de la corrida actual (temporal_status='FORECAST').
+
+        A diferencia de los clústeres, las celdas no tienen columna `time_step`;
+        cada celda ya porta su serie de 12 valores en `intensity_series`.
+        El decide el índice horario según `temporal_status` + `time_step`
+        del frame activo en el timeline.
+        """
+        completed_requests = list(
+            GFSRequest.objects.filter(status='COMPLETED')
+            .order_by('-date_range_start', '-created_at')[:2]
+        )
+
+        if not completed_requests:
+            return {
+                "type": "FeatureCollection",
+                "metadata": {"total_features": 0, "message": "No hay ejecuciones completadas."},
+                "features": []
+            }
+
+        latest_request = completed_requests[0]
+        previous_request = completed_requests[1] if len(completed_requests) > 1 else None
+
+        db_table = model_class._meta.db_table
+
+        # Mapeo de propiedades con ajuste a UTC-5 (reutiliza la misma lógica)
+        formatted_properties = []
+        for f in properties_fields:
+            if ('timestamp' in f or 'date' in f) and f != 'timestamps':
+                formatted_properties.append(
+                    f"'{f}', to_char(c.{f} AT TIME ZONE '{LIMA_TZ_STR}', 'YYYY-MM-DD\"T\"HH24:MI:SS-05:00')"
+                )
+            else:
+                formatted_properties.append(f"'{f}', c.{f}")
+
+        properties_sql = ", ".join(formatted_properties)
+
+        # Las celdas no tienen FK threshold_id (usan threshold_names JSONB)
+        if 'threshold_id' in properties_fields:
+            threshold_name_sql = ", 'threshold_name', COALESCE(t.name, 'Normal / Sin Alerta')"
+            join_sql = "LEFT JOIN thresholds t ON c.threshold_id = t.id"
+        else:
+            threshold_name_sql = ""
+            join_sql = ""
+
+        raw_query = f"""
+            WITH previous_slice AS (
+                SELECT c.*, 'HISTORIC' AS temporal_status
+                FROM {db_table} c
+                WHERE c.gfs_request_id = %s
+            ),
+            latest_slice AS (
+                SELECT c.*, 'FORECAST' AS temporal_status
+                FROM {db_table} c
+                WHERE c.gfs_request_id = %s
+            ),
+            combined_window AS (
+                SELECT * FROM previous_slice
+                UNION ALL
+                SELECT * FROM latest_slice
+            )
+            SELECT json_build_object(
+                'type', 'FeatureCollection',
+                'metadata', json_build_object(
+                    'latest_request_code', %s,
+                    'previous_request_code', %s,
+                    'latest_completed_at_local', %s,
+                    'window_duration_hours', 18,
+                    'timezone', '{LIMA_TZ_STR} (UTC-5)',
+                    'total_features', COUNT(c.id)
+                ),
+                'features', COALESCE(json_agg(
+                    json_build_object(
+                        'type', 'Feature',
+                        'id', c.id,
+                        'geometry', ST_AsGeoJSON(c.{geometry_field_name})::json,
+                        'properties', json_build_object(
+                            {properties_sql}{threshold_name_sql},
+                            'temporal_status', c.temporal_status
+                        )
+                    )
+                ), '[]'::json)
+            )
+            FROM combined_window c
+            {join_sql};
+        """
+
+        prev_id = previous_request.id if previous_request else latest_request.id
+        prev_code = previous_request.request_code if previous_request else latest_request.request_code
+
+        latest_completed_at_local = PostGISGeoJSONExtractor._format_pet_iso(latest_request.updated_at)
+
+        with connection.cursor() as cursor:
+            cursor.execute(raw_query, [
+                prev_id,
+                latest_request.id,
+                latest_request.request_code,
+                prev_code,
+                latest_completed_at_local
+            ])
+            return cursor.fetchone()[0]
+
 class GISCacheManager:
     """
         La clase nos permite la gestión de datos en Caché.
@@ -331,5 +442,33 @@ class GeoJSONResponseService:
         # === Escribir en caché para futuras consultas ===
         GISCacheManager.set(cache_key, geojson_data, timeout_seconds=cache_timeout_seconds)
         logger.info(f"✅ [GeoJSON Service] Cache MISS 18h Window. Guardado en Redis: '{cache_key}'")
+
+        return Response(geojson_data, status=status.HTTP_200_OK)
+
+    @classmethod
+    def build_18h_window_cells_response(
+        cls,
+        model_class: Type[models.Model],
+        properties_fields: List[str],
+        cache_key: str,
+        geometry_field_name: str = "geometry",
+        cache_timeout_seconds: int = 21600
+    ) -> Response:
+        """
+        Orquesta la respuesta HTTP para la ventana 18h de celdas individuales.
+        """
+        cached_geojson = GISCacheManager.get(cache_key)
+        if cached_geojson:
+            logger.info(f"[GeoJSON Service] Cache HIT 18h Window Cells: '{cache_key}'")
+            return Response(cached_geojson, status=status.HTTP_200_OK)
+
+        geojson_data = PostGISGeoJSONExtractor.extract_18h_window_cells_feature_collection(
+            model_class=model_class,
+            properties_fields=properties_fields,
+            geometry_field_name=geometry_field_name
+        )
+
+        GISCacheManager.set(cache_key, geojson_data, timeout_seconds=cache_timeout_seconds)
+        logger.info(f"✅ [GeoJSON Service] Cache MISS 18h Window Cells. Guardado en Redis: '{cache_key}'")
 
         return Response(geojson_data, status=status.HTTP_200_OK) 
