@@ -40,6 +40,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import re
+import csv
+import io
+import json
+from dataclasses import dataclass, field
+from typing import Any
 
 from django.contrib.gis.geos import Point
 from rest_framework.exceptions import ValidationError
@@ -48,6 +53,8 @@ from components.models import (
     Component,
     ComponentType,
     Criticality,
+    OperationalStatus,
+    PhysicalStatus,
 )
 from places.models import District
 from core_shared.helpers import SpatialHelper
@@ -57,7 +64,9 @@ __all__ = [
     "ParsedComponent",
     "parse_csv",
     "parse_geojson",
+    "parse_xlsx",
     "persist_components",
+    "build_xlsx_template",
 ]
 
 
@@ -268,18 +277,14 @@ def parse_csv(
     """
     Parsea un archivo CSV y retorna (componentes, errores).
 
-    Filas con mismo `code` se agrupan en un solo componente; el `type`
+    Filas con mismo (code, district, type) se agrupan en un solo
+    componente (clave unique_together del backend); el `type`
     asociado determina si es válido tener múltiples vértices (debe ser
     línea de conducción/aducción).
-
-    Cualquier error (header faltante, FK inexistente, coords no
-    numéricas, tipo no-línea con múltiples filas) se reporta en
-    `errores` y esa fila/feature se omite del resultado.
     """
     text = file_bytes.decode("utf-8-sig", errors="replace")
     reader = csv.DictReader(io.StringIO(text), delimiter=",", skipinitialspace=True)
 
-    # Validar headers
     if reader.fieldnames is None:
         return [], [ImportError(row=1, code=None, message="CSV vacío.")]
     headers_lower = {h.strip().lower(): h for h in reader.fieldnames}
@@ -292,33 +297,68 @@ def parse_csv(
                     f"Headers esperados: {', '.join(CSV_REQUIRED_HEADERS)}.",
         )]
 
-    # Agrupar filas por `code` (mismo código → mismo componente).
-    # Conservamos el orden del CSV.
-    grouped: dict[str, list[dict]] = {}
-    order: list[str] = []
-    errors: list[ImportError] = []
+    # Convertir cada row del reader en (row_idx, norm_dict). Las filas con
+    # alguno de los campos obligatorios vacíos generan ImportError acá
+    # mismo para no propagarlos al builder.
+    rows: list[tuple[int, dict]] = []
+    errors_pre: list[ImportError] = []
+    for idx, row in enumerate(reader, start=2):
+        norm = {k.strip().lower(): (str(v or "")).strip() for k, v in row.items() if k}
+        rows.append((idx, norm))
 
-    for idx, row in enumerate(reader, start=2):  # 1=header, base 2
-        # Normalizar claves a lowercase
-        norm = {k.strip().lower(): (v or "").strip() for k, v in row.items() if k}
+    return _build_components_from_rows(rows, errors_pre)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Builder compartido (lo usan CSV y XLSX)
+# ──────────────────────────────────────────────────────────────────────
+
+def _build_components_from_rows(
+    rows: list[tuple[int, dict]],
+    pre_errors: list[ImportError] | None = None,
+) -> tuple[list[ParsedComponent], list[ImportError]]:
+    """
+        Construye `ParsedComponent` a partir de rows ya normalizados
+        (idx 1-based, dict lowercase keys).
+
+        Estrategia:
+          1. Saltear filas con `code` vacío o `code`='ELIMINAR' (marcador
+             de plantilla XLSX).
+          2. Agrupar por (code, district_ubigeo, type) — la clave natural
+             unique_together del modelo Component. Vértices del mismo
+             componente (línea) comparten esos 3 valores; dos
+             componentes distintos con mismo code pero distinto type
+             son dos grupos separados.
+          3. Por grupo: resolver FKs, validar consistencia entre filas,
+             validar tipo línea-vs-puntual, validar UTM+rangos, validar
+             code/name/estados con regex, y armar el ParsedComponent.
+    """
+    grouped: dict[tuple, list[tuple[int, dict]]] = {}
+    order: list[tuple] = []
+    errors: list[ImportError] = list(pre_errors or [])
+
+    for idx, norm in rows:
         code = norm.get("code", "")
         if not code:
             errors.append(ImportError(
                 row=idx, code=None, message="Campo 'code' vacío."
             ))
             continue
-        if code not in grouped:
-            grouped[code] = []
-            order.append(code)
-        grouped[code].append((idx, norm))
+        # Saltear filas marcadas como "ELIMINAR" en plantillas XLSX.
+        if code.upper().strip() == "ELIMINAR":
+            continue
+        group_key = (code, norm.get("district_ubigeo", ""), norm.get("type", ""))
+        if group_key not in grouped:
+            grouped[group_key] = []
+            order.append(group_key)
+        grouped[group_key].append((idx, norm))
 
     # Convertir cada grupo en un ParsedComponent
     componentes: list[ParsedComponent] = []
-    for code in order:
-        rows = grouped[code]
-        # Datos del componente (de la primera fila; el resto asume
-        # mismos name/type/district; si hay inconsistencia se reporta)
-        first_idx, first = rows[0]
+    for group_key in order:
+        code, district_key, type_key = group_key
+        rows_grupo = grouped[group_key]
+        first_idx, first = rows_grupo[0]
         try:
             type_name = first["type"]
             type_id = _resolve_type(type_name)
@@ -330,7 +370,7 @@ def parse_csv(
 
         # Verificar consistencia entre filas del mismo grupo
         inconsistent = None
-        for ridx, r in rows[1:]:
+        for ridx, r in rows_grupo[1:]:
             if r["type"].upper() != first["type"].upper():
                 inconsistent = f"Fila {ridx}: 'type'='{r['type']}' difiere de la primera fila ('{first['type']}')."
                 break
@@ -343,41 +383,35 @@ def parse_csv(
 
         # Si hay varias filas, el tipo debe ser línea
         es_linea_prep = first["type"].upper() in LINEA_TYPE_NAMES
-        if len(rows) > 1 and not es_linea_prep:
+        if len(rows_grupo) > 1 and not es_linea_prep:
             errors.append(ImportError(
                 row=first_idx,
                 code=code,
                 message=(
                     f"Tipo '{first['type']}' no admite múltiples vértices "
-                    f"({len(rows)} filas). Sólo líneas de conducción/aducción."
+                    f"({len(rows_grupo)} filas). Sólo líneas de conducción/aducción."
                 ),
             ))
             continue
 
         # Build coords
         coords: list[dict[str, Any]] = []
-        for ridx, r in rows:
+        for ridx, r in rows_grupo:
             try:
                 easting = _parse_float(r["easting"], "easting", ridx)
                 northing = _parse_float(r["northing"], "northing", ridx)
             except ValueError as e:
                 errors.append(ImportError(row=ridx, code=code, message=str(e)))
-                # Invalidamos todo el componente si un vértice falla
                 coords = []
                 break
-            # Validar rangos UTM válidos para Perú. SpatialHelper.utm_to_wgs84
-            # los valida igual pero recién durante el persist; aquí lo
-            # hacemos con fila + vértice para que el usuario vea qué
-            # fila/easting/northing está mal.
             range_errors = _validate_utm_range(
                 easting, northing, row=ridx,
-                vertice_idx=(len(coords) + 1) if len(rows) > 1 else None,
+                vertice_idx=(len(coords) + 1) if len(rows_grupo) > 1 else None,
             )
             if range_errors:
                 errors.extend(range_errors)
                 coords = []
                 break
-            # Criticidad por vértice (puede variar entre filas del mismo code)
             try:
                 v_crit_id = _resolve_criticality(r["criticality"])
             except ValueError as e:
@@ -394,14 +428,10 @@ def parse_csv(
         if not coords:
             continue  # ya está en errors
 
-        # FKs opcionales
         op_status_code = first.get("operational_status") or None
         fis_status_code = first.get("physical_status") or None
         spec = first.get("specification") or None
 
-        # Validaciones de esquema (code/name/estados) — reporta errores
-        # claros por fila en vez de que PostgreSQL reviente con
-        # "value too long".
         val_errors = _validate_component_fields(
             code=code,
             name=first.get("name", ""),
@@ -425,6 +455,358 @@ def parse_csv(
         ))
 
     return componentes, errors
+
+
+# ──────────────────────────────────────────────────────────────────────
+# XLSX (Excel)
+# ──────────────────────────────────────────────────────────────────────
+
+def parse_xlsx(
+    file_bytes: bytes,
+) -> tuple[list[ParsedComponent], list[ImportError]]:
+    """
+    Parsea un archivo .xlsx y retorna (componentes, errores).
+
+    La plantilla (ver `build_xlsx_template`) tiene:
+      - Fila 1: instrucciones generales.
+      - Filas 2-N: descripción por columna (campo, requerido/opcional,
+        formato, valores válidos). Estas filas son ignoradas por el parser
+        — sólo buscamos la fila de headers.
+      - Fila k: headers reales (code, name, type, district_ubigeo,
+        criticality, easting, northing, operational_status,
+        physical_status, specification).
+      - Filas k+1 ...: datos. Filas con `code = ELIMINAR` se saltean
+        (instrucción para el usuario de borrar las de ejemplo antes
+        de subir).
+
+    Cualquier fila de ejemplo dejada por el usuario con code=ELIMINAR
+    se ignora automáticamente — el modal/base le avisa igual que debe
+    eliminar esas filas antes de subir, pero el parser es tolerante.
+    """
+    from openpyxl import load_workbook
+
+    try:
+        wb = load_workbook(filename=io.BytesIO(file_bytes), data_only=True, read_only=True)
+    except Exception as e:
+        return [], [ImportError(
+            row=None, code=None,
+            message=f"No se pudo leer el archivo XLSX: {e}",
+        )]
+
+    ws = wb.active
+    if ws is None:
+        return [], [ImportError(row=None, code=None, message="Archivo XLSX sin hojas.")]
+
+    # Localizar la fila de headers exacta: primera fila cuyos valores
+    # (lower-cased) contienen TODOS los headers requeridos. Esto
+    # permite que la plantilla tenga filas de descripción arriba sin
+    # romper el parseo.
+    required_lower = set(CSV_REQUIRED_HEADERS)
+    header_row_idx = None
+    headers_map: dict[str, int] = {}  # header_lower → col_index (0-based)
+
+    for ri, row in enumerate(ws.iter_rows(values_only=True)):
+        # row: tuple de N valores, algunos pueden ser None.
+        row_lower = [
+            (str(v).strip().lower() if v is not None else "")
+            for v in row
+        ]
+        if required_lower.issubset({v for v in row_lower if v}):
+            header_row_idx = ri
+            for ci, val in enumerate(row_lower):
+                if val in required_lower or val in CSV_OPTIONAL:
+                    headers_map[val] = ci
+            break
+
+    if header_row_idx is None:
+        return [], [ImportError(
+            row=None, code=None,
+            message=(
+                "No se encontró fila de headers. La plantilla debe contener "
+                f"una fila con los encabezados: {', '.join(CSV_REQUIRED_HEADERS)}."
+            ),
+        )]
+
+    # Validar headers faltantes
+    missing = [h for h in CSV_REQUIRED_HEADERS if h not in headers_map]
+    if missing:
+        return [], [ImportError(
+            row=header_row_idx + 1,
+            code=None,
+            message=f"Headers faltantes: {', '.join(missing)}.",
+        )]
+
+    # Extraer rows: empezar después de header_row_idx. Cada row se
+    # normaliza a un dict {header_lower: str_value} ignorando columnas
+    # que no están en headers_map. Filas completamente vacías se saltean.
+    rows: list[tuple[int, dict]] = []
+    for ri, row in enumerate(ws.iter_rows(values_only=True), start=1):
+        if ri <= header_row_idx + 1:
+            continue
+        # Saltar filas completamente vacías
+        if all(v is None or (isinstance(v, str) and not v.strip()) for v in row):
+            continue
+        norm: dict[str, str] = {}
+        for header_lower, ci in headers_map.items():
+            val = row[ci] if ci < len(row) else None
+            if val is None:
+                norm[header_lower] = ""
+            elif isinstance(val, float) or isinstance(val, int):
+                #openpyxl puede traer números como float; normalizamos
+                # sin perder info (ej: 463529.0 → "463529").
+                if isinstance(val, float) and val.is_integer():
+                    norm[header_lower] = str(int(val))
+                else:
+                    norm[header_lower] = str(val)
+            else:
+                norm[header_lower] = str(val).strip()
+        rows.append((ri, norm))
+
+    wb.close()
+    return _build_components_from_rows(rows)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Plantilla Excel
+# ──────────────────────────────────────────────────────────────────────
+
+def build_xlsx_template() -> bytes:
+    """
+        Genera el XLSX plantilla con:
+          - Hoja 'Cargar Componentes': instrucciones + descripción por
+            columna + fila de headers + filas de ejemplo (marcadas con
+            code='ELIMINAR').
+          - Hoja 'Valores válidos': listados de tipos, criticidades y
+            estados operacionales/físicos del backend para que el usuario
+            sepa qué valores acepta cada columna.
+
+        El usuario debe:
+          1. Eliminar las filas de ejemplo (code='ELIMINAR').
+          2. Llenar sus datos en la grilla manteniendo los headers.
+          3. Subir el archivo al backend.
+
+        `parse_xlsx` identifica la fila de headers automáticamente y
+        saltea filas con code='ELIMINAR', así que aunque el usuario
+        olvide borrar las de ejemplo, el parser las ignora.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.datavalidation import DataValidation
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Cargar Componentes"
+
+    # Estilos
+    navy_fill = PatternFill("solid", fgColor="070B5B")
+    white_bold = Font(color="FFFFFF", bold=True, size=11, name="Calibri")
+    bold = Font(bold=True, name="Calibri")
+    small_italic = Font(italic=True, color="6F6C8F", size=9, name="Calibri")
+    normal = Font(name="Calibri", size=10)
+    thin = Side(border_style="thin", color="ABB5BE")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # ── Fila 1: instrucciones ──
+    ws["A1"] = (
+        "INSTRUCCIONES: Complete UNA fila por componente (o por vértice si es línea). "
+        "Elimine las filas de ejemplo (code=ELIMINAR) antes de subir. "
+        "Consulse la hoja 'Valores válidos' para conocer los valores permitidos."
+    )
+    ws["A1"].font = small_italic
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=10)
+    ws.row_dimensions[1].height = 30
+
+    # ── Filas 2-3: descripción por columna ──
+    # Encabezado de "descriptor" en columna K, "valor" en L (fuera de la
+    # grilla de datos). Pero más claro: dejamos la descripción en filas
+    # puestas arriba de cada header.
+    # Estructura más simple:
+    #   Fila 2: descripción de cada columna (qué formato/values).
+    #   Fila 3: headers reales (code, name, ...).
+    #   Fila 4+: ejemplos con code=ELIMINAR.
+
+    descriptions = [
+        ("code",
+         "4 dígitos numéricos. Ej: '0001'.\n"
+         "Requerido. Unique por (district + type + code)."),
+        ("name",
+         "Texto hasta 50 caracteres.\nRequerido. Ej: 'CAPTACION PUCUSANI'."),
+        ("type",
+         "Nombre del tipo de componente (ver hoja 'Valores válidos').\n"
+         "Requerido. Ej: 'CAPTACIÓN', 'RESERVORIO', 'LÍNEA DE CONDUCCIÓN'."),
+        ("district_ubigeo",
+         "6 dígitos ubigeo del distrito. Requerido. Ej: '120303'.\n"
+         "Valores válidos: branches activas del backend."),
+        ("criticality",
+         "ALTA / MEDIA / BAJA. Requerido. Por vértice."),
+        ("easting",
+         "Número UTM Este (metros). Rango válido: 100000–900000.\n"
+         "Requerido. Si es línea, una fila por vértice."),
+        ("northing",
+         "Número UTM Norte (metros). Rango válido: 0–10000000.\n"
+         "Requerido."),
+        ("operational_status",
+         "3 dígitos, código del estado operativo. Opcional.\n"
+         "Valores: ver hoja 'Valores válidos'."),
+        ("physical_status",
+         "1 letra mayúscula A-Z. Opcional.\n"
+         "Valores: ver hoja 'Valores válidos'."),
+        ("specification",
+         "Texto libre (max 300). Opcional; puede quedar vacío (= NULL)."),
+    ]
+
+    # Descripciones (fila 2)
+    for ci, (_, desc) in enumerate(descriptions, start=1):
+        cell = ws.cell(row=2, column=ci, value=desc)
+        cell.font = small_italic
+        cell.alignment = Alignment(
+            wrap_text=True, vertical="top", horizontal="left"
+        )
+        cell.border = border
+    ws.row_dimensions[2].height = 70
+
+    # Headers reales (fila 3)
+    headers = [h for h, _ in descriptions]
+    for ci, h in enumerate(headers, start=1):
+        cell = ws.cell(row=3, column=ci, value=h)
+        cell.fill = navy_fill
+        cell.font = white_bold
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = border
+    ws.row_dimensions[3].height = 24
+
+    # ── Filas de ejemplo (marcadas con code='ELIMINAR') ──
+    examples = [
+        ("ELIMINAR", "Captación Río Pichanaqui (EJEMPLO)", "CAPTACIÓN",
+         "120303", "ALTA", 506961, 8788264, "001", "B",
+         "Captación superficial — borre esta fila antes de subir"),
+        ("ELIMINAR", "Reservorio San Ramón (EJEMPLO)", "RESERVORIO",
+         "120305", "MEDIA", 465120, 8779850, "001", "B", ""),
+        ("ELIMINAR", "Estación Bombeo Satipo (EJEMPLO)",
+         "ESTACIÓN DE BOMBEO Y REBOMBEO DE AGUA POTABLE",
+         "120601", "ALTA", 471200, 8780050, "002", "C", ""),
+        # Línea con 2 vértices: repetir code en 2 filas.
+        ("ELIMINAR", "Línea Conducción Tramo 1 (EJEMPLO)", "LÍNEA DE CONDUCCIÓN",
+         "120303", "ALTA", 463600, 8777300, "001", "A", "Tramo de ejemplo"),
+        ("ELIMINAR", "Línea Conducción Tramo 1 (EJEMPLO)", "LÍNEA DE CONDUCCIÓN",
+         "120303", "MEDIA", 463700, 8777350, "001", "A", "Tramo de ejemplo"),
+    ]
+    for ri, ex in enumerate(examples, start=4):
+        for ci, v in enumerate(ex, start=1):
+            cell = ws.cell(row=ri, column=ci, value=v)
+            cell.font = normal
+            cell.border = border
+
+    # Anchos de columna
+    widths = [12, 38, 42, 18, 12, 14, 14, 22, 18, 38]
+    for ci, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(ci)].width = w
+
+    # ── Data validations (dropdowns) ──
+    # Necesitamos una 2da hoja con los listados vivos del backend; los
+    # DataValidations tipo "list" los referencian por rango.
+    #
+    # IMPORTANTE: openpyxl no acepta `=` inicial en `formula1` para DVs;
+    # la forma correcta es `'SheetName'!$A$2:$A$N` (comillas simples
+    # porque openpyxl las necesita macOS-style y para nombres con
+    # espacios/acentos). SIEMPRE deben tener comillas para evitar
+    # errores con Excel también.
+    #
+    # Nombre de hoja ASCII "Valores" (sin espacios ni acentos). Eso evita
+    # problemas de parsing de la fórmula en distintos lectores.
+    ws_vals = wb.create_sheet("Valores")
+
+    type_names = list(ComponentType.objects.values_list("name", flat=True))
+    crit_names = list(Criticality.objects.values_list("name", flat=True))
+    op_codes = list(OperationalStatus.objects.values_list("code", flat=True))
+    fis_codes = list(PhysicalStatus.objects.values_list("code", flat=True))
+
+    # Headers de la hoja "Valores"
+    ws_vals["A1"] = "Tipos de componente"
+    ws_vals["B1"] = "Criticidades"
+    ws_vals["C1"] = "Estados operacionales (código = nombre)"
+    ws_vals["D1"] = "Estados físicos (código = nombre)"
+    for c in ["A", "B", "C", "D"]:
+        ws_vals[f"{c}1"].font = white_bold
+        ws_vals[f"{c}1"].fill = navy_fill
+        ws_vals[f"{c}1"].alignment = Alignment(vertical="center")
+    ws_vals.row_dimensions[1].height = 22
+
+    # Pares (code, name) para mostrar leyenda legible.
+    op_pairs = list(OperationalStatus.objects.values_list("code", "name"))
+    fis_pairs = list(PhysicalStatus.objects.values_list("code", "name"))
+
+    max_len = max(len(type_names), len(crit_names), len(op_codes), len(fis_codes), 1)
+    for i in range(max_len):
+        r = i + 2
+        if i < len(type_names):
+            ws_vals.cell(row=r, column=1, value=type_names[i])
+        if i < len(crit_names):
+            ws_vals.cell(row=r, column=2, value=crit_names[i])
+        if i < len(op_codes):
+            code = op_pairs[i][0] if i < len(op_pairs) else op_codes[i]
+            name = op_pairs[i][1] if i < len(op_pairs) else ""
+            ws_vals.cell(row=r, column=3, value=f"{code} = {name}")
+        if i < len(fis_codes):
+            code = fis_pairs[i][0] if i < len(fis_pairs) else fis_codes[i]
+            name = fis_pairs[i][1] if i < len(fis_pairs) else ""
+            ws_vals.cell(row=r, column=4, value=f"{code} = {name}")
+
+    # Anchos de la hoja "Valores"
+    ws_vals.column_dimensions["A"].width = 50
+    ws_vals.column_dimensions["B"].width = 18
+    ws_vals.column_dimensions["C"].width = 32
+    ws_vals.column_dimensions["D"].width = 32
+
+    # Helper para armar la formula de DV. Sin `=`, comillas simples por
+    # consistencia. Sheet name "Valores" no las necesita pero da igual.
+    def _dv_formula(col: str, count: int) -> str:
+        return f"'Valores'!${col}$2:${col}${count + 1}"
+
+    # Dropdowns en la hoja principal, filas 4 a 200 (margen para llenar).
+    if type_names:
+        # col B = type
+        dv_type = DataValidation(
+            type="list",
+            formula1=_dv_formula("A", len(type_names)),
+            allow_blank=False,
+        )
+        dv_type.add("B4:B200")
+        ws.add_data_validation(dv_type)
+    if crit_names:
+        # col E = criticality
+        dv_crit = DataValidation(
+            type="list",
+            formula1=_dv_formula("B", len(crit_names)),
+            allow_blank=False,
+        )
+        dv_crit.add("E4:E200")
+        ws.add_data_validation(dv_crit)
+    if op_codes:
+        # col H = operational_status
+        dv_op = DataValidation(
+            type="list",
+            formula1=_dv_formula("C", len(op_codes)),
+            allow_blank=True,
+        )
+        dv_op.add("H4:H200")
+        ws.add_data_validation(dv_op)
+    if fis_codes:
+        # col I = physical_status
+        dv_fis = DataValidation(
+            type="list",
+            formula1=_dv_formula("D", len(fis_codes)),
+            allow_blank=True,
+        )
+        dv_fis.add("I4:I200")
+        ws.add_data_validation(dv_fis)
+
+    # Exportar a bytes (en memoria).
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -477,11 +859,12 @@ def parse_geojson(
     componentes: list[ParsedComponent] = []
     errors: list[ImportError] = []
 
-    # Agrupar features por `code` (por si un componente se divide en varios
-    # features MultiPoint con mismo code). Comportamiento raro: GeoJSON
-    # típicamente usa 1 feature = 1 componente. Pero soportamos el caso.
-    grouped: dict[str, list[tuple[int, dict]]] = {}
-    order: list[str] = []
+    # Agrupar features por (code, district_ubigeo, type) — clave natural
+    # unique_together del modelo Component. Igual que en CSV, esto
+    # permite subir tipos mezclados con mismo `code` como componentes
+    # distintos.
+    grouped: dict[tuple, list[tuple[int, dict]]] = {}
+    order: list[tuple] = []
     for idx, feat in enumerate(features, start=1):
         props = feat.get("properties", {}) or {}
         code = props.get("code")
@@ -490,13 +873,15 @@ def parse_geojson(
                 row=idx, code=None, message="Feature sin 'code' en properties."
             ))
             continue
-        if code not in grouped:
-            grouped[code] = []
-            order.append(code)
-        grouped[code].append((idx, feat))
+        group_key = (code, props.get("district_ubigeo", ""), props.get("type", ""))
+        if group_key not in grouped:
+            grouped[group_key] = []
+            order.append(group_key)
+        grouped[group_key].append((idx, feat))
 
-    for code in order:
-        feats = grouped[code]
+    for group_key in order:
+        code, district_key, type_key = group_key
+        feats = grouped[group_key]
         first_idx, first_feat = feats[0]
         props = first_feat.get("properties", {}) or {}
 

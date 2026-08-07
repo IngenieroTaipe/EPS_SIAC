@@ -166,7 +166,7 @@ export function StatsWidget({
 export function LoadDataButton() {
   const [open, setOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalFormat, setModalFormat] = useState<'Csv' | 'GeoJson' | undefined>(undefined);
+  const [modalFormat, setModalFormat] = useState<'Excel' | 'Csv' | 'GeoJson' | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   useClickOutside(containerRef, () => setOpen(false), open);
@@ -177,7 +177,7 @@ export function LoadDataButton() {
       navigate('/componentes/nuevo');
       return;
     }
-    if (label === 'Csv' || label === 'GeoJson') {
+    if (label === 'Excel' || label === 'Csv' || label === 'GeoJson') {
       setModalFormat(label);
       setModalOpen(true);
       return;

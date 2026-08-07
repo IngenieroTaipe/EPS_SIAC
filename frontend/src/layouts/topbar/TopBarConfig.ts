@@ -74,6 +74,7 @@ export const UNIDAD_OPERATIVA_OPTIONS: string[] = [
  */
 export const CARGAR_DATOS_OPTIONS: string[] = [
   'Manual',
+  'Excel',
   'Csv',
   'GeoJson',
 ];
@@ -93,7 +94,7 @@ export const topBarConfig: TopBarPageConfig[] = [
     route: '/',
     title: 'Sistema de Alertas Climáticas',
     subtitleWeight: 'semibold',
-    widgets: [],
+    widgets: [{ kind: 'loginButton' }],
   },
   {
     route: '/alertas/gestion',
