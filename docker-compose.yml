@@ -19,7 +19,7 @@ services:
     container_name: eps_siac_api
     networks:
       - eps_siac_network
-    restart: on-failure:2
+    restart: on-failure:5
     depends_on:
       db_postgis:
         condition: service_healthy

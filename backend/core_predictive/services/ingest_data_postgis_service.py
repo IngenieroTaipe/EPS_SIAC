@@ -197,7 +197,7 @@ class InsertDataToPostGIS:
         # === Ordenamiento de las series temporales ===
         sorted_tuples = sorted(timestamps_utc, key=lambda x: x[1])
         sorted_indices = [tup[0] for tup in sorted_tuples]
-        sorted_timestamps_utc = [tup[2] for tup in sorted_tuples]
+        sorted_timestamps_utc = [(tup[2]) for tup in sorted_tuples]
         
         data_matrix = tp_rate_resampled.values[sorted_indices, :, :]
 

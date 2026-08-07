@@ -18,7 +18,7 @@ from core_shared.constants import LIMA_TZ
 logger = logging.getLogger(__name__)
 
 @shared_task(
-    name="tasks.send_telegram_notification",
+    name="alerts_management.tasks.send_telegram_notification",
     bind=True,
     max_retries=3,
     default_retry_delay=30
@@ -130,7 +130,7 @@ def send_telegram_notification_task(self, notification_id: int):
         logger.error(f"Error inesperado al procesar notificación Telegram #{notification_id}: {error_str}")
         raise self.retry(exc=exc)
 
-@shared_task(name="tasks.dispatch_hourly_alerts")
+@shared_task(name="alerts_management.tasks.dispatch_hourly_alerts")
 def dispatch_hourly_alerts_task():
     """
         Worker Horario (Celery Beat):
@@ -157,7 +157,7 @@ def dispatch_hourly_alerts_task():
             logger.info(f"✅ [Worker] Notificación ID #{notification.id} despachada para Alerta {alert.code}")
 
 @shared_task(
-    name="tasks.process_forecast_and_adapt_alerts",
+    name="alerts_management.tasks.process_forecast_and_adapt_alerts",
     bind=True,
     max_retries=3,
     default_retry_delay=60
@@ -197,7 +197,7 @@ def process_forecast_and_adapt_alerts_task(self, gfs_request_id: int):
         # Reintento automático en caso de fallos temporales de concurrencia en la BD
         raise self.retry(exc=exc)
 
-@shared_task(name="tasks.process_state_machine_timeouts")
+@shared_task(name="alerts_management.tasks.process_state_machine_timeouts")
 def process_state_machine_timeouts_task():
     """
         Worker Recurrente (Ejecución cada 60 min vía Celery Beat):

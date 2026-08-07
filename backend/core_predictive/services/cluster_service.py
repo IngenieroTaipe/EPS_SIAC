@@ -112,7 +112,7 @@ class SpatialClusteringService:
                     c.id AS cell_id,
                     c.geometry,
                     c.district_ubigeos,
-                    c.timestamps->>(idx - 1) AS timestamp_utc,
+                    (c.timestamps->>(idx - 1))::text AS timestamp_utc,
                     (c.intensity_series->>(idx - 1))::float AS intensity,
                     UPPER(c.threshold_names->>(idx - 1)) AS threshold_name,
                     idx AS time_step

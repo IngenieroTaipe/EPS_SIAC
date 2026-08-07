@@ -133,5 +133,140 @@
         "code": "0015",
         "name": "LC - PICHANAQUI NORTE",
         "specification": "Línea de conducción interconectada a PTAP PKI, tramo norte."
+    },
+    {
+        "district_ubigeo": "160101",
+        "type_name": "Captación",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "1001",
+        "name": "CAPTACION LORETO 1",
+        "specification": "Captación en zona de precipitación norte"
+    },
+    {
+        "district_ubigeo": "160101",
+        "type_name": "Reservorio",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "1002",
+        "name": "RESERVORIO LORETO 2",
+        "specification": "Reservorio en zona de precipitación norte"
+    },
+    {
+        "district_ubigeo": "160101",
+        "type_name": "Planta de Tratamiento de Agua Potable",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "1003",
+        "name": "PTAP LORETO 3",
+        "specification": "Planta de Tratamiento en zona norte"
+    },
+    {
+        "district_ubigeo": "160101",
+        "type_name": "Fuente",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "1004",
+        "name": "FUENTE LORETO 4",
+        "specification": "Fuente subterránea norte"
+    },
+    {
+        "district_ubigeo": "160101",
+        "type_name": "Estación de Bombeo y Rebombeo de Agua Potable",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "1005",
+        "name": "EBR LORETO 5",
+        "specification": "Estación de bombeo norte"
+    },
+    {
+        "district_ubigeo": "250101",
+        "type_name": "Captación",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "2001",
+        "name": "CAPTACION UCAYALI 1",
+        "specification": "Captación en zona de precipitación central"
+    },
+    {
+        "district_ubigeo": "250101",
+        "type_name": "Reservorio",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "2002",
+        "name": "RESERVORIO UCAYALI 2",
+        "specification": "Reservorio en zona de precipitación central"
+    },
+    {
+        "district_ubigeo": "250101",
+        "type_name": "Planta de Tratamiento de Agua Potable",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "2003",
+        "name": "PTAP UCAYALI 3",
+        "specification": "Planta de Tratamiento en zona central"
+    },
+    {
+        "district_ubigeo": "250101",
+        "type_name": "Fuente",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "2004",
+        "name": "FUENTE UCAYALI 4",
+        "specification": "Fuente subterránea central"
+    },
+    {
+        "district_ubigeo": "250101",
+        "type_name": "Estación de Bombeo y Rebombeo de Agua Potable",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "2005",
+        "name": "EBR UCAYALI 5",
+        "specification": "Estación de bombeo central"
+    },
+    {
+        "district_ubigeo": "050101",
+        "type_name": "Captación",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "3001",
+        "name": "CAPTACION AYACUCHO 1",
+        "specification": "Captación en zona de precipitación sur"
+    },
+    {
+        "district_ubigeo": "050101",
+        "type_name": "Reservorio",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "3002",
+        "name": "RESERVORIO AYACUCHO 2",
+        "specification": "Reservorio en zona de precipitación sur"
+    },
+    {
+        "district_ubigeo": "050101",
+        "type_name": "Planta de Tratamiento de Agua Potable",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "3003",
+        "name": "PTAP AYACUCHO 3",
+        "specification": "Planta de Tratamiento en zona sur"
+    },
+    {
+        "district_ubigeo": "050101",
+        "type_name": "Fuente",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "3004",
+        "name": "FUENTE AYACUCHO 4",
+        "specification": "Fuente subterránea sur"
+    },
+    {
+        "district_ubigeo": "050101",
+        "type_name": "Estación de Bombeo y Rebombeo de Agua Potable",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "3005",
+        "name": "EBR AYACUCHO 5",
+        "specification": "Estación de bombeo sur"
     }
 ]
