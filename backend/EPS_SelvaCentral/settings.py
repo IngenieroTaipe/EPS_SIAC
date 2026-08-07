@@ -252,12 +252,12 @@ CELERY_BEAT_SCHEDULE = {
     },
 
     'despacho-horario-alertas-telegram': {
-        'task': 'tasks.dispatch_hourly_alerts',
+        'task': 'alerts_management.tasks.dispatch_hourly_alerts',
         'schedule': crontab(minute=0),  # Se ejecuta al minuto 0 de cada hora (Ej: 01:00, 02:00, etc.)
     },
 
     'evaluacion-timeouts-maquina-estados': {
-        'task': 'tasks.process_state_machine_timeouts',
+        'task': 'alerts_management.tasks.process_state_machine_timeouts',
         'schedule': crontab(minute=5),  # Se ejecuta cada hora al minuto 05 para dar margen
     },
 }

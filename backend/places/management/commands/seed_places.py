@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
         departments_path = path_dir / 'Departments/departments.json'
         provinces_path = path_dir / 'Provinces/provinces.json'
-        districts_path = path_dir / 'Districts/districts_part.json'
+        districts_path = path_dir / 'Districts/districts.json'
         sectors_path = path_dir / 'Sectors/sectors.json'
 
         for file in [departments_path, provinces_path, districts_path]:

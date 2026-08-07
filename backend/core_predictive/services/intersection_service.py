@@ -88,13 +88,17 @@ class GridIntersectionService:
             cell.district_ubigeos = ubigeos
 
             combined_rules: List[ThresholdsNaturalPhenomena] = []
+
+            # === Unir los umbrales de todos los distritos interseccionados ===
             for ubigeo in ubigeos:
                 combined_rules.extend(district_rules_map.get(ubigeo, []))
 
+            # === Ordenar umbrales de mayor a menor severidad ===
             combined_rules.sort(key=lambda r: r.min_value if r.min_value is not None else 0.0, reverse=True)
 
             names_series: List[str] = []
 
+            # === Evaluar la serie de intensidades horarias contra los umbrales ===
             for intensity in cell.intensity_series:
                 matched_threshold = "-"
                 for rule in combined_rules:
