@@ -104,10 +104,17 @@ function makeDivIconVariant(
 ) {
   const url = ICON_BY_TIPO[tipo];
   const color = COLOR_BY_ESTADO[estado];
+  // Tamaño del contenedor. En selected crece de 40 → 56 para abarcar
+  // el anillo amarillo; la IMAGEN interna se mantiene SIEMPRE en 40px
+  // (ancho nativo de los SVG) y se centra con display:grid + place-items:
+  // center. Así el punto lat/lng sigue coincidiendo con el centro visual
+  // del marcador, sin desplazamiento (bug previo: la imagen era 60×60
+  // siempre y sobresalía del contenedor, moviendo el centro visual).
   const size = selected ? 56 : 40;
+  const imgSize = 40;
   const half = size / 2;
-  const ringBg = selected
-    ? 'background: var(--eps-background-selected); border-radius: 50%; padding: 12px;'
+  const ringBackground = selected
+    ? 'background: var(--eps-background-selected);'
     : '';
   const html = `
     <div style="
@@ -116,12 +123,13 @@ function makeDivIconVariant(
       height: ${size}px;
       display: grid;
       place-items: center;
-      ${ringBg}
+      ${ringBackground}
+      border-radius: 50%;
       filter: drop-shadow(0 ${selected ? 6 : 4}px ${selected ? 6 : 4}px rgba(0,0,0,${selected ? 0.35 : 0.25}));
     ">
       <img
         src="${url}"
-        style="width: 60px; height: 60px;"
+        style="width: ${imgSize}px; height: ${imgSize}px;"
         alt=""
       />
     </div>

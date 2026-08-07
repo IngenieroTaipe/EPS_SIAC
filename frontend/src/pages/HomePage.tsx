@@ -33,8 +33,9 @@ const HOME_LAYER_OPTIONS: LayerControlOption[] = [
 ];
 
 export function HomePage() {
+  // Capas por defecto activas: distritos, precipitaciones y alertas.
   const [selected, setSelected] = useState<Set<LayerId>>(
-    () => new Set(['alertas']),
+    () => new Set(['distritos', 'precipitaciones', 'alertas']),
   );
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
@@ -43,10 +44,10 @@ export function HomePage() {
   }
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full z-0">
       <div className="relative h-full w-full">
         <BaseMap>
-          <DistrictLayer />
+          {selected.has('distritos') && <DistrictLayer />}
           {selected.has('precipitaciones') && <PrecipitationLayer />}
           {selected.has('alertas') && (
             <ClusterAlertLayer

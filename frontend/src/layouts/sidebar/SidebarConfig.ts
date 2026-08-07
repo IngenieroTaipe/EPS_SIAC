@@ -36,12 +36,16 @@ export interface NavGroup {
   label: string;
   /** Items del grupo. */
   items: NavItem[];
+  /** Si true, el grupo solo se muestra para admin (is_staff/superuser). */
+  adminOnly?: boolean;
 }
 
 // ── Iconos de Figma (SVG → componente React) ─────────────────────────────
 import CerrarSesionIcon from '@/assets/icons/cerrar-sesion.svg?react';
 import FlechaLadoIcon from '@/assets/icons/flecha-lado.svg?react';
 import MapaIcon from '@/assets/icons/mapa.svg?react';
+// Iconos admin (lucide-react; cumplen el mismo IconComponent).
+import { Building2, Users } from 'lucide-react';
 
 /**
  * Configuración por defecto del sidebar.
@@ -91,6 +95,22 @@ export const navConfig: NavGroup[] = [
           { to: '/climatico', label: 'Vista Geoespacial' },
           { to: '/umbrales/gestion', label: 'Gestionar Umbrales' },
         ],
+      },
+    ],
+  },
+  {
+    label: 'Sistema',
+    adminOnly: true,
+    items: [
+      {
+        to: '/admin/unidades-operativas',
+        label: 'Unidades Operativas',
+        icon: Building2,
+      },
+      {
+        to: '/admin/usuarios',
+        label: 'Usuarios',
+        icon: Users,
       },
     ],
   },

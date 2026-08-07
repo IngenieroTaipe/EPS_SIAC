@@ -158,6 +158,43 @@ export const apiUmbrales = {
     invalidateCachePrefix('umbrales:');
   },
 
+  /**
+   * bulkSave — Reescribe atómicamente toda la escalera de umbrales para un
+   * (district + natural_phenomena + variable) vía el endpoint `bulk/`.
+   *
+   * Semántica:
+   *  - items con `id` se actualizan (PATCH) en su fila existente.
+   *  - items sin `id` se CREAN (POST).
+   *  - Las filas existentes en (district, np, var) cuyos ids NO figuren
+   *    en `items` se ELIMINAN automáticamente.
+   *  - Todo dentro de una transacción del backend.
+   *  - `force=true` salta la verificación del estado previo pero NO la
+   *    coherencia final del ladder (útil para normalizar BDs antiguas
+   *    inconsistentes en el primer guardado post-migración).
+   */
+  async bulkSave(body: {
+    natural_phenomena: number;
+    variable: number;
+    district: string; // ubigeo
+    force?: boolean;
+    items: Array<{
+      id?: number;
+      threshold: number;
+      min_value: number | null;
+      max_value: number | null;
+    }>;
+  }): Promise<UmbralFenomeno[]> {
+    const res = await httpClient.request<
+      UmbralFenomeno[] | PaginatedResponse<UmbralFenomeno>
+    >({
+      method: 'POST',
+      url: '/core_predictive/thresholds-natural-phenomenas/bulk/',
+      data: body,
+    });
+    invalidateCachePrefix('umbrales:');
+    return unwrap<UmbralFenomeno>(res.data);
+  },
+
   async listNaturalPhenomena(): Promise<LightRef[]> {
     const res = await httpClient.get('/core_predictive/natural-phenomenas/');
     return unwrap<LightRef>(res.data);

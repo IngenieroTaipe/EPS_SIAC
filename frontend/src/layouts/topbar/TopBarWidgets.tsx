@@ -15,6 +15,7 @@ import ArchivoIcon from '@/assets/icons/archivo.svg?react';
 import FlechaIcon from '@/assets/icons/flecha.svg?react';
 import { useClickOutside } from '@/shared/hooks/useClickOutside';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
+import { CargarDatosModal } from '@/features/componentes/components/CargarDatosModal';
 import {
   UNIDADES_OPERATIVAS,
   UNIDAD_TODAS,
@@ -84,7 +85,19 @@ function DropdownItem({
 }
 
 // ── "Actualizado hace / X min" — render en 2 líneas ───────────────────
-export function UpdatedAtWidget({ text }: { text?: string }) {
+// Widget reactivo: consume el timestamp del último GFSRequest COMPLETED
+// desde el contexto de la timeline (PrecipitationTimelineContext) y calcula
+// el texto relativo con el hook `useLatestGfsUpdate`.
+//
+// Si la ruta actual no tiene timeline montada (ej: /alertas/gestion), el
+// contexto será null y el widget mostrará "Sin datos todavía". Esto es
+// aceptable: el usuario refresca al volver al mapa y ve el dato real.
+import { usePrecipitationTimeline } from '@/features/mapa/timeline/usePrecipitationTimeline';
+import { useLatestGfsUpdate } from '@/features/mapa/timeline/useLatestGfsUpdate';
+
+export function UpdatedAtWidget() {
+  const ctx = usePrecipitationTimeline();
+  const { label } = useLatestGfsUpdate(ctx?.latestCompletedAt ?? null);
   return (
     <div className="flex justify-start items-center gap-2.5 pr-5">
       <RestartIcon
@@ -96,7 +109,7 @@ export function UpdatedAtWidget({ text }: { text?: string }) {
           {UPDATED_LABEL_PREFIX}
         </span>
         <span className="text-text-invert-primary text-sm font-semibold font-sans">
-          {text ?? UPDATED_VALUE}
+          {label}
         </span>
       </div>
     </div>
@@ -152,6 +165,8 @@ export function StatsWidget({
 // Opciones: Manual / Excel / Csv. El dropdown se abre con hover+click.
 export function LoadDataButton() {
   const [open, setOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalFormat, setModalFormat] = useState<'Csv' | 'GeoJson' | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   useClickOutside(containerRef, () => setOpen(false), open);
@@ -162,8 +177,12 @@ export function LoadDataButton() {
       navigate('/componentes/nuevo');
       return;
     }
-    // TODO: disparar acción de carga según el formato elegido (Excel / Csv).
-    console.log('Cargar Datos →', label);
+    if (label === 'Csv' || label === 'GeoJson') {
+      setModalFormat(label);
+      setModalOpen(true);
+      return;
+    }
+    console.warn('Cargar Datos → formato no soportado:', label);
   };
 
   return (
@@ -210,6 +229,19 @@ export function LoadDataButton() {
           ))}
         </div>
       )}
+
+      {/* Modal de carga masiva (Csv / GeoJson). El refetch lo gestiona el
+          padre al desmontar/remontar, pero aquí exponemos un callback
+          opcional: illustra al usuario que la lista se actualizó. No
+          pasamos onImported porque la página de gestión hace su propio
+          fetch al montar; el modal se abrió desde el topbar que es
+          persistente, así que dejamos que el usuario cierre el modal y
+          recargue la página manualmente si está en /componentes/gestion. */}
+      <CargarDatosModal
+        open={modalOpen}
+        initialFormat={modalFormat}
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }

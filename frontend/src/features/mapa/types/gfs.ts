@@ -25,6 +25,7 @@
 
 import type { MultiPolygon, Polygon } from 'geojson';
 import type { LayerId } from '@/features/mapa/components/LayerControl';
+import { parsePetTimestamp } from '@/features/mapa/timeline/peruTime';
 
 /** Categoría de umbral o '-' (sin lluvia significativa). */
 export type GfsCategory =
@@ -104,6 +105,16 @@ export interface GfsWindowMetadata {
   previous_request_code?: string;
   window_duration_hours?: number;
   total_features?: number;
+  /**
+   * Timestamp ISO (wall-clock PET con offset `-05:00` literal) del momento en
+   * que el `GFSRequest` más reciente pasó a `COMPLETED`. Proviene del campo
+   * `updated_at` (AuditCompleteModel) y se formatea en el builder backend.
+   * Ej: `"2026-08-05T14:03:21-05:00"`.
+   *
+   * Usado por `useLatestGfsUpdate` para calcular "Actualizado hace X min" en
+   * el TopBar. Puede faltar si la DB no tiene corridas aún (cold-start).
+   */
+  latest_completed_at_local?: string;
 }
 
 export interface GfsClusterFeatureCollection {
@@ -216,6 +227,14 @@ export function classifyCluster(p: GfsClusterFeatureProperties): GfsCategory {
  */
 export function extractHHmm(timestampStr?: string | null): string {
   if (typeof timestampStr !== 'string' || !timestampStr) return '—';
+  // El backend emite timestamps en UTC ("...T22:00:00Z"). parsePetTimestamp
+  // lo convierte al wall-clock PET (UTC-5), alineado con el eje del timeline.
+  const pet = parsePetTimestamp(timestampStr);
+  if (pet && !Number.isNaN(pet.getTime())) {
+    const hh = String(pet.getHours()).padStart(2, '0');
+    const mm = String(pet.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
   const m = timestampStr.match(/(\d{2}:\d{2})/);
   return m ? m[1] : '—';
 }

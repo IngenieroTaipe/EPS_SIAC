@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Plus, Trash2 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { ChevronDown, MapPin, Plus, Trash2 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { cn } from '@/shared/lib/cn';
 import {
@@ -18,7 +18,7 @@ import {
   ZONA_UTM_DEFAULT,
 } from '../utm-utils';
 import { apiComponentes } from '@/services/apiComponentes';
-import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
+import { apiOrganization } from '@/services/apiOrganization';
 import { mapTipo } from '@/services/adaptadores';
 import { FilterableSelect } from '@/shared/components/FilterableSelect';
 import type { BackendComponentListCoord } from '@/services/apiComponentes';
@@ -77,8 +77,6 @@ const ICON_URL_BY_TIPO: Record<TipoComponente, string> = {
   'purgado-redes': CircleIconUrl,
   'otro': CircleIconUrl,
 };
-
-const STATE_BADGE_GENERIC = 'bg-text-status-placeholder rounded-full px-3 py-[3px] text-xs font-bold font-sans';
 
 type OpcionSelect = { value: string; label: string };
 
@@ -168,25 +166,38 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
   // ── Opciones dinámicas desde el backend ────────────────────────────
   const [tiposOptions, setTiposOptions] = useState<OpcionSelect[]>([]);
-  const [distritosOptions, setDistritosOptions] = useState<BackendDistrict[]>([]);
   const [estadosOpOptions, setEstadosOpOptions] = useState<OpcionSelect[]>([]);
   const [estadosFisOptions, setEstadosFisOptions] = useState<OpcionSelect[]>([]);
   const [criticidadesOptions, setCriticidadesOptions] = useState<OpcionSelect[]>([]);
+  /** Unidades operativas: branches activas con su district.ubigeo + nombre. */
+  const [branchesOptions, setBranchesOptions] = useState<
+    Array<{ ubigeo: string; name: string }>
+  >([]);
 
   useEffect(() => {
     Promise.all([
       apiComponentes.listTipos(),
-      apiPlaces.listDistrictsLight(),
       apiComponentes.listEstadosOperacionales(),
       apiComponentes.listEstadosFisicos(),
       apiComponentes.listCriticidades(),
+      apiOrganization.listBranches({ status: true }),
     ])
-      .then(([tipos, dists, ops, fis, crits]) => {
+      .then(([tipos, ops, fis, crits, branches]) => {
         setTiposOptions(tipos.map((t) => ({ value: String(t.id), label: t.name })));
-        setDistritosOptions(dists);
         setEstadosOpOptions(ops.map((o) => ({ value: o.code, label: o.name })));
         setEstadosFisOptions(fis.map((f) => ({ value: f.code, label: f.name })));
         setCriticidadesOptions(crits.map((c) => ({ value: String(c.id), label: c.name })));
+
+        // Filtrar branches con district válido y mapear a {ubigeo, name}.
+        const opts = branches
+          .map((b) => {
+            const d = typeof b.district === 'string' ? null : b.district;
+            if (!d || !d.ubigeo || !d.name) return null;
+            return { ubigeo: d.ubigeo, name: b.name }; // label = branch name
+          })
+          .filter((x): x is { ubigeo: string; name: string } => x !== null)
+          .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        setBranchesOptions(opts);
 
         // Criticidad de cada punto: el backend trae solo el *nombre* de la
         // criticidad (StringRelatedField en la coord embebida), no el id.
@@ -207,6 +218,14 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  /**
+   * Modo captura del mapa: cuando está ON, los clics en el mapa
+   * capturan un punto (modo puntual = reemplaza el único punto;
+   * modo línea = añade un vértice al final del trazado). Default OFF
+   * para evitar capturas accidentales. Los marcadores son
+   * arrastrables en cualquier modo (corrige posición a mano).
+   */
+  const [captureMode, setCaptureMode] = useState(false);
 
   // Modo "línea": el tipo elegido es conducción/aducción → N puntos.
   const esLinea = TIPO_LINEA.includes(mapTipo(tipoLabel));
@@ -244,6 +263,50 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
   function quitarPunto(idx: number) {
     setPuntos((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  /**
+   * Captura un punto del mapa (vía `useMapEvents({ click })` cuando el
+   * modo captura está activo). Pasa al callback del padre (la página)
+   * las coords en WGS84, y aquí en el componente convertimos a UTM y
+   * actualizamos `puntos`:
+   *   - Modo puntual: reemplaza `puntos[0]`.
+   *   - Modo línea: añade un nuevo vértice al final del trazado.
+   */
+  function handleMapCapture(lat: number, lng: number) {
+    const utm = latLonToUtm(lat, lng, ZONA_UTM_DEFAULT);
+    const east = String(utm.easting);
+    const north = String(utm.northing);
+    if (esLinea) {
+      // Nuevo vértice. Criticidad: tomamos la del primer catálogo (si
+      // cargó) o cadena vacía. El usuario puede ajustarla después en
+      // la tabla UTM.
+      const defaultCrit = criticidadesOptions[0]?.value ?? '';
+      setPuntos((prev) => [...prev, { east, north, criticalityId: defaultCrit }]);
+    } else {
+      setPuntos((prev) => {
+        if (prev.length === 0) return [{ east, north, criticalityId: '' }];
+        // Mantener la criticidad existente si había (no borrarla).
+        const critId = prev[0].criticalityId;
+        return [{ east, north, criticalityId: critId }];
+      });
+      // Tras la captura puntual se desactiva el modo captura (ya hay).
+      setCaptureMode(false);
+    }
+  }
+
+  /**
+   * Drag-end de un marcador arrastrable. El usuario soltó el marcador
+   * en una nueva posición; actualizamos ese índice con las nuevas coords
+   * (convertidas a UTM). Modo línea mueve el vértice `idx`; modo puntual
+   * `idx=0` repriza el único punto.
+   */
+  function handleMarkerDrag(idx: number, lat: number, lng: number) {
+    const utm = latLonToUtm(lat, lng, ZONA_UTM_DEFAULT);
+    actualizarPunto(idx, {
+      east: String(utm.easting),
+      north: String(utm.northing),
+    });
   }
 
   const MAX = 300;
@@ -347,262 +410,340 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 
   return (
     <div className="h-full flex flex-col">
-    <div className="h-full overflow-y-auto p-5 flex flex-col items-start gap-5">
-      {/* ── Cuerpo: 40% izquierda (datos) + 60% derecha (mapa+vistaprevia) ── */}
-      <div className="self-stretch flex justify-center items-stretch gap-6">
-        {/* Tarjeta izquierda — Datos del componente (columna comprimida) */}
-        <div className="w-[520px] p-5 rounded-2xl border border-input-stroke-main flex flex-col gap-4 bg-background-main">
-          <h2 className="text-text-primary text-base font-bold font-sans leading-6">
-            Datos del componente
-          </h2>
+      {/* ── Cuerpo: mapa a la izquierda (flex-1) + drawer datos a la derecha
+           fijo (w-[420px]). Sin tarjetas externas: el mapa es la vista
+           previa y el drawer contiene todo el formulario en un scroll
+           vertical único. Esto prepara el terreno para "click en el mapa
+           = agregar vértice" (futuro) y elimina la duplicación con la
+           antigua tarjeta Vista Previa. */}
+      <div className="flex-1 flex min-h-0">
+        {/* ── Mapa (izquierda, ocupa todo el ancho restante) ───────────── */}
+        <div className="flex-1 min-w-0 flex flex-col z-0 relative">
+          {/* Botón flotante para activar/desactivar modo captura.
+              Default OFF. Cuando está ON, los clics en el mapa capturan
+              un punto (modo puntual) o un vértice (modo línea). Viven
+              sobre el mapa, esquina superior derecha. */}
+          <button
+            type="button"
+            onClick={() => setCaptureMode((v) => !v)}
+            aria-pressed={captureMode}
+            aria-label={
+              esLinea
+                ? captureMode
+                  ? 'Finalizar captura de vértices en el mapa'
+                  : 'Capturar vértices en el mapa'
+                : captureMode
+                  ? 'Finalizar captura del punto en el mapa'
+                  : 'Capturar punto en el mapa'
+            }
+            title={
+              esLinea
+                ? captureMode
+                  ? 'Finalizar captura de vértices'
+                  : 'Capturar vértices en el mapa'
+                : captureMode
+                  ? 'Finalizar captura'
+                  : 'Capturar punto en el mapa'
+            }
+            className={cn(
+              'absolute top-3 right-3 z-[1000] inline-flex items-center gap-1.5',
+              'px-3 py-2 rounded-lg shadow-md text-sm font-bold font-sans transition-colors',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',
+              captureMode
+                ? 'bg-primary-main text-text-invert-primary hover:bg-primary-light'
+                : 'bg-background-main text-primary-main outline outline-1 outline-offset-[-1px] outline-primary-main hover:bg-primary-states-hover-main/20',
+            )}
+          >
+            <MapPin className="size-4" strokeWidth={2} aria-hidden="true" />
+            {captureMode
+              ? (esLinea ? 'Finalizar' : 'Finalizar')
+              : (esLinea ? 'Vértices' : 'Capturar')}
+          </button>
 
-          {/* Tipo de componente + Icono preview */}
-          <div className="flex gap-4">
-            <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-text-primary text-xs font-medium font-sans">
-                Tipo de Componente
-              </label>
-              <SelectInput
-                value={tipoId}
-                onChange={(v) => {
-                  setTipoId(v);
-                  const opt = tiposOptions.find((t) => t.value === v);
-                  setTipoLabel(opt?.label ?? '');
-                }}
-                options={tiposOptions}
-                placeholder="Seleccionar tipo de componente"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-text-primary text-xs font-medium font-sans">Ícono</label>
-              <div className="size-14 py-3 rounded-lg border border-button-stroke grid place-items-center bg-background-main">
-                <img
-                  src={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl}
-                  alt=""
-                  className="w-9 h-9"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Código */}
-          <Field label="Código">
-            <input
-              type="text"
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
-              placeholder="Ej. 008"
-              className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
-            />
-          </Field>
-
-          {/* Nombre */}
-          <Field label="Nombre">
-            <input
-              type="text"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Ej. Captación Río Pichanaqui"
-              className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
-            />
-          </Field>
-
-          {/* Distrito (Unidad Operativa) */}
-          <Field label="Unidad Operativa (Distrito)">
-            <FilterableSelect
-              value={distritoUbigeo}
-              onChange={setDistritoUbigeo}
-              options={distritosOptions.map((d) => ({ value: d.ubigeo, label: d.name }))}
-              placeholder="Buscar distrito…"
-              emptyLabel="— Seleccionar distrito —"
-              dropdownMinWidth="min-w-[480px]"
-            />
-          </Field>
-
-          {/* Estado operacional + Físico */}
-          <div className="flex gap-4">
-            <Field label="Estado Operacional" inline>
-              <SelectInput
-                value={estadoOperacionalCode}
-                onChange={setEstadoOperacionalCode}
-                options={estadosOpOptions}
-                placeholder="Seleccionar estado"
-              />
-            </Field>
-            <Field label="Estado Físico" inline>
-              <SelectInput
-                value={estadoFisicoCode}
-                onChange={setEstadoFisicoCode}
-                options={estadosFisOptions}
-                placeholder="Seleccionar estado"
-              />
-            </Field>
-          </div>
-
-          {/* Especificación */}
-          <Field label="Especificación (descripción - observaciones)">
-            <textarea
-              value={especificacionTruncada}
-              onChange={(e) => setEspecificacion(e.target.value.slice(0, MAX))}
-              placeholder="Ingrese una descripción u observaciones del componente..."
-              className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 pt-2.5 pb-2.5 text-text-primary text-sm font-sans resize-none min-h-20 focus:outline-2 focus:outline-primary-main"
-            />
-            <span className="self-end text-text-secondary text-xs font-sans">
-              {especificacionTruncada.length}/{MAX}
-            </span>
-          </Field>
-
-          {/* Coordenadas UTM — tabla compacta (una fila por vértice) */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="text-text-primary text-sm font-medium font-sans">
-                  {esLinea ? 'Vértices de la línea (UTM)' : 'Coordenadas UTM'}
-                </span>
-                {esLinea && (
-                  <span className="px-2 py-0.5 rounded-full bg-primary-states-hover-main/30 text-text-secondary text-xs font-sans">
-                    {puntos.length} · mínimo {minPuntos}
-                  </span>
-                )}
-              </div>
-              {esLinea && (
-                <button
-                  type="button"
-                  onClick={agregarPunto}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-main/10 text-primary-main text-xs font-medium font-sans hover:bg-primary-main/20 transition-colors"
-                >
-                  <Plus className="size-3.5" strokeWidth={2} aria-hidden="true" />
-                  Agregar vértice
-                </button>
-              )}
-            </div>
-            <span className="text-text-secondary text-xs font-sans">
-              Ingrese las coordenadas UTM y se transformarán automáticamente a Lat/Lon.
-              {esLinea && ' Cada vértice del tramo lleva su propia criticidad.'}
-            </span>
-
-            {/* Tabla compacta de vértices (header navy + scroll vertical) */}
-            <div className="rounded-lg border border-input-stroke-main overflow-hidden flex flex-col">
-              {/* Header navy sticky */}
-              <div className="inline-flex items-stretch bg-primary-main">
-                {esLinea && (
-                  <div className="w-10 h-8 px-2 py-1.5 inline-flex items-center">
-                    <span className="text-text-invert-primary text-xs font-bold font-sans">#</span>
-                  </div>
-                )}
-                <div className="w-32 h-8 px-2 py-1.5 inline-flex items-center">
-                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Este</span>
-                </div>
-                <div className="w-32 h-8 px-2 py-1.5 inline-flex items-center">
-                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Norte</span>
-                </div>
-                <div className="w-36 h-8 px-2 py-1.5 inline-flex items-center">
-                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Criticidad</span>
-                </div>
-                <div className="w-28 h-8 px-2 py-1.5 inline-flex items-center">
-                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Lat</span>
-                </div>
-                <div className="w-28 h-8 px-2 py-1.5 inline-flex items-center">
-                  <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">Lon</span>
-                </div>
-                {esLinea && <div className="w-10 h-8 px-2 py-1.5 inline-flex items-center" />}
-              </div>
-
-              {/* Filas (scroll vertical interno si hay muchos vértices) */}
-              <div className={cn('bg-background-main', esLinea && puntos.length > 6 ? 'max-h-72 overflow-y-auto' : '')}>
-                {puntos.map((p, idx) => {
-                  const geo = puntosGeo[idx];
-                  const puedeQuitar = esLinea && puntos.length > minPuntos;
-                  return (
-                    <div
-                      key={p.id ?? `new-${idx}`}
-                      className="inline-flex items-stretch border-b border-input-stroke-main last:border-b-0 hover:bg-primary-states-hover-main/10 transition-colors"
-                    >
-                      {esLinea && (
-                        <div className="w-10 h-9 px-2 py-1.5 inline-flex items-center justify-center">
-                          <span className="size-5 inline-flex items-center justify-center rounded-full bg-primary-main text-text-invert-primary text-xs font-bold">
-                            {idx + 1}
-                          </span>
-                        </div>
-                      )}
-                      <div className="w-32 h-9 px-1.5 py-1 inline-flex items-center">
-                        <input
-                          type="number"
-                          value={p.east}
-                          onChange={(e) => actualizarPunto(idx, { east: e.target.value })}
-                          placeholder="463529.00"
-                          className="w-full bg-background-main rounded-md outline outline-1 outline-offset-[-1px] outline-button-stroke px-2 py-1 text-text-primary text-sm font-mono tabular-nums font-sans focus:outline-2 focus:outline-primary-main"
-                        />
-                      </div>
-                      <div className="w-32 h-9 px-1.5 py-1 inline-flex items-center">
-                        <input
-                          type="number"
-                          value={p.north}
-                          onChange={(e) => actualizarPunto(idx, { north: e.target.value })}
-                          placeholder="8777285.00"
-                          className="w-full bg-background-main rounded-md outline outline-1 outline-offset-[-1px] outline-button-stroke px-2 py-1 text-text-primary text-sm font-mono tabular-nums font-sans focus:outline-2 focus:outline-primary-main"
-                        />
-                      </div>
-                      <div className="w-36 h-9 px-1.5 py-1 inline-flex items-center">
-                        <SelectInput
-                          value={p.criticalityId}
-                          onChange={(v) => actualizarPunto(idx, { criticalityId: v })}
-                          options={criticidadesOptions}
-                          placeholder="—"
-                          compact
-                        />
-                      </div>
-                      <div className="w-28 h-9 px-2 py-1 inline-flex items-center">
-                        <span className="text-text-secondary text-xs font-mono tabular-nums truncate">
-                          {geo?.valido ? geo.lat.toFixed(6) : '—'}
-                        </span>
-                      </div>
-                      <div className="w-28 h-9 px-2 py-1 inline-flex items-center">
-                        <span className="text-text-secondary text-xs font-mono tabular-nums truncate">
-                          {geo?.valido ? geo.lon.toFixed(6) : '—'}
-                        </span>
-                      </div>
-                      {esLinea && (
-                        <div className="w-10 h-9 px-2 py-1.5 inline-flex items-center justify-center">
-                          {puedeQuitar && (
-                            <button
-                              type="button"
-                              onClick={() => quitarPunto(idx)}
-                              className="p-1 rounded-md text-secondary-main hover:bg-secondary-main/10 transition-colors"
-                              aria-label="Quitar vértice"
-                            >
-                              <Trash2 className="size-3.5" strokeWidth={2} aria-hidden="true" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tarjeta derecha — Mapa referencial + vista previa */}
-        <div className="flex-1 flex flex-col gap-5">
-          <MapaReferencial
-            puntos={puntosGeo}
+          <MiniMapa
+            lat={puntosGeo.find((p) => p.valido)?.lat ?? 0}
+            lon={puntosGeo.find((p) => p.valido)?.lon ?? 0}
+            puntos={puntosGeo.filter((p) => p.valido)}
             esLinea={esLinea}
             iconUrl={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl}
             excludeId={initial?.id}
-          />
-          <VistaPrevia
-            tipo={tipoLabel}
-            puntos={puntosGeo}
-            esLinea={esLinea}
-            criticidadesOptions={criticidadesOptions}
-            unidad={distritosOptions.find((d) => d.ubigeo === distritoUbigeo)?.name ?? ''}
-            estadoOperacional={estadosOpOptions.find((o) => o.value === estadoOperacionalCode)?.label ?? ''}
-            estadoFisico={estadosFisOptions.find((f) => f.value === estadoFisicoCode)?.label ?? ''}
+            fullSize
+            captureMode={captureMode}
+            onCapture={handleMapCapture}
+            onMarkerDrag={handleMarkerDrag}
+            onRemoveVertex={(idx) => {
+              if (esLinea && puntos.length > minPuntos) quitarPunto(idx);
+            }}
+            minPuntos={minPuntos}
           />
         </div>
-      </div>
+
+        {/* ── Drawer derecho con todos los datos (scroll vertical único) ── */}
+        <aside className="w-[420px] shrink-0 border-l border-input-stroke-main bg-background-main flex flex-col">
+          <div className="overflow-y-auto flex-1 p-5 flex flex-col gap-4">
+            <h2 className="text-text-primary text-base font-bold font-sans leading-6">
+              {initial?.id ? `Editar componente #${initial.codigo}` : 'Nuevo componente'}
+            </h2>
+
+            {/* Tipo de componente + Icono preview */}
+            <div className="flex gap-4">
+              <div className="flex-1 flex flex-col gap-1.5">
+                <label className="text-text-primary text-xs font-medium font-sans">
+                  Tipo de Componente
+                </label>
+                <SelectInput
+                  value={tipoId}
+                  onChange={(v) => {
+                    setTipoId(v);
+                    const opt = tiposOptions.find((t) => t.value === v);
+                    setTipoLabel(opt?.label ?? '');
+                  }}
+                  options={tiposOptions}
+                  placeholder="Seleccionar tipo de componente"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-text-primary text-xs font-medium font-sans">Ícono</label>
+                <div className="size-14 py-3 rounded-lg border border-button-stroke grid place-items-center bg-background-main">
+                  <img
+                    src={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl}
+                    alt=""
+                    className="w-9 h-9"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Código */}
+            <Field label="Código">
+              <input
+                type="text"
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value)}
+                placeholder="Ej. 008"
+                className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+              />
+            </Field>
+
+            {/* Nombre */}
+            <Field label="Nombre">
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Ej. Captación Río Pichanaqui"
+                className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 py-2.5 text-text-primary text-sm font-sans focus:outline-2 focus:outline-primary-main"
+              />
+            </Field>
+
+            {/* Distrito (Unidad Operativa) */}
+            <Field label="Unidad Operativa (Distrito)">
+              <FilterableSelect
+                value={distritoUbigeo}
+                onChange={setDistritoUbigeo}
+                options={branchesOptions.map((d) => ({ value: d.ubigeo, label: d.name }))}
+                placeholder="Buscar distrito…"
+                emptyLabel="— Seleccionar distrito —"
+                dropdownMinWidth="min-w-[380px]"
+              />
+            </Field>
+
+            {/* Estado operacional + Físico */}
+            <div className="flex gap-3">
+              <Field label="Estado Operacional" inline>
+                <SelectInput
+                  value={estadoOperacionalCode}
+                  onChange={setEstadoOperacionalCode}
+                  options={estadosOpOptions}
+                  placeholder="Seleccionar estado"
+                />
+              </Field>
+              <Field label="Estado Físico" inline>
+                <SelectInput
+                  value={estadoFisicoCode}
+                  onChange={setEstadoFisicoCode}
+                  options={estadosFisOptions}
+                  placeholder="Seleccionar estado"
+                />
+              </Field>
+            </div>
+
+            {/* Especificación */}
+            <Field label="Especificación (descripción - observaciones)">
+              <textarea
+                value={especificacionTruncada}
+                onChange={(e) => setEspecificacion(e.target.value.slice(0, MAX))}
+                placeholder="Ingrese una descripción u observaciones del componente..."
+                className="w-full bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke px-3 pt-2.5 pb-2.5 text-text-primary text-sm font-sans resize-none min-h-20 focus:outline-2 focus:outline-primary-main"
+              />
+              <span className="self-end text-text-secondary text-xs font-sans">
+                {especificacionTruncada.length}/{MAX}
+              </span>
+            </Field>
+
+            {/* Coordenadas UTM — tabla compacta (una fila por vértice) */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-text-primary text-sm font-medium font-sans">
+                    {esLinea ? 'Vértices de la línea (UTM)' : 'Coordenadas UTM'}
+                  </span>
+                  {esLinea && (
+                    <span className="px-2 py-0.5 rounded-full bg-primary-states-hover-main/30 text-text-secondary text-xs font-sans">
+                      {puntos.length} · mínimo {minPuntos}
+                    </span>
+                  )}
+                </div>
+                {esLinea && (
+                  <button
+                    type="button"
+                    onClick={agregarPunto}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-main/10 text-primary-main text-xs font-medium font-sans hover:bg-primary-main/20 transition-colors"
+                  >
+                    <Plus className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                    Agregar vértice
+                  </button>
+                )}
+              </div>
+              <span className="text-text-secondary text-xs font-sans">
+                Ingrese las coordenadas UTM y se transformarán automáticamente a Lat/Lon.
+                {esLinea && ' Cada vértice del tramo lleva su propia criticidad.'}
+              </span>
+
+              {/* Tabla UTM compacta — ya construida abajo (esLinea ? linea : punto) */}
+              {esLinea ? (
+              /* Tabla de vértices (LÍNEA) — scroll horizontal compartido
+                 (header + filas) via `overflow-x-auto` en el wrapper.
+                 Header sticky vertical (se mantiene al scrollear y).
+                 Columnas con width MINIMO via `min-w-*` para que cuando
+                 haya menos ancho aparezca scroll horizontal en lugar de
+                 comprimirse. */
+              <div className="rounded-lg border border-input-stroke-main overflow-x-auto">
+                <div className="min-w-[44rem]">
+                  {/* Header navy — sticky top */}
+                  <div className="grid grid-cols-[2.5rem_8rem_8rem_9rem_7rem_7rem_2.5rem]
+                                  bg-primary-main sticky top-0 z-10">
+                    <HeaderCell>#</HeaderCell>
+                    <HeaderCell>Este</HeaderCell>
+                    <HeaderCell>Norte</HeaderCell>
+                    <HeaderCell>Criticidad</HeaderCell>
+                    <HeaderCell>Lat</HeaderCell>
+                    <HeaderCell>Lon</HeaderCell>
+                    <div className="h-8" />
+                  </div>
+                  <div
+                    className={cn(
+                      'bg-background-main overflow-y-auto',
+                      puntos.length > 6 ? 'max-h-72' : '',
+                      '[scrollbar-gutter:stable]',
+                    )}
+                  >
+                    {puntos.map((p, idx) => {
+                      const geo = puntosGeo[idx];
+                      const puedeQuitar = puntos.length > minPuntos;
+                      return (
+                        <div
+                          key={p.id ?? `new-${idx}`}
+                          className="grid grid-cols-[2.5rem_8rem_8rem_9rem_7rem_7rem_2.5rem]
+                                     items-center border-b border-input-stroke-main last:border-b-0
+                                     hover:bg-primary-states-hover-main/10 transition-colors"
+                        >
+                          <div className="h-9 flex items-center justify-center">
+                            <span className="size-5 inline-flex items-center justify-center rounded-full bg-primary-main text-text-invert-primary text-xs font-bold">
+                              {idx + 1}
+                            </span>
+                          </div>
+                          <CoordCellInput
+                            value={p.east}
+                            onChange={(v) => actualizarPunto(idx, { east: v })}
+                            placeholder="463529.00"
+                          />
+                          <CoordCellInput
+                            value={p.north}
+                            onChange={(v) => actualizarPunto(idx, { north: v })}
+                            placeholder="8777285.00"
+                          />
+                          <div className="px-1.5 py-1">
+                            <SelectInput
+                              value={p.criticalityId}
+                              onChange={(v) => actualizarPunto(idx, { criticalityId: v })}
+                              options={criticidadesOptions}
+                              placeholder="—"
+                              compact
+                            />
+                          </div>
+                          <CoordCellRead value={geo?.valido ? geo.lat.toFixed(6) : '—'} />
+                          <CoordCellRead value={geo?.valido ? geo.lon.toFixed(6) : '—'} />
+                          <div className="h-9 flex items-center justify-center">
+                            {puedeQuitar && (
+                              <button
+                                type="button"
+                                onClick={() => quitarPunto(idx)}
+                                className="p-1 rounded-md text-secondary-main hover:bg-secondary-main/10 transition-colors"
+                                aria-label="Quitar vértice"
+                              >
+                                <Trash2 className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Modo PUNTO: misma estructura con scroll horizontal compartido. */
+              <div className="rounded-lg border border-input-stroke-main overflow-x-auto">
+                <div className="min-w-[36rem]">
+                  <div className="grid grid-cols-[8rem_8rem_9rem_7rem_7rem]
+                                  bg-primary-main sticky top-0 z-10">
+                    <HeaderCell>Este</HeaderCell>
+                    <HeaderCell>Norte</HeaderCell>
+                    <HeaderCell>Criticidad</HeaderCell>
+                    <HeaderCell>Lat</HeaderCell>
+                    <HeaderCell>Lon</HeaderCell>
+                  </div>
+                  <div className="bg-background-main">
+                    {puntos.map((p, idx) => {
+                      const geo = puntosGeo[idx];
+                      return (
+                        <div
+                          key={p.id ?? `new-${idx}`}
+                          className="grid grid-cols-[8rem_8rem_9rem_7rem_7rem] items-center
+                                     border-b border-input-stroke-main last:border-b-0"
+                        >
+                          <CoordCellInput
+                            value={p.east}
+                            onChange={(v) => actualizarPunto(idx, { east: v })}
+                            placeholder="463529.00"
+                          />
+                          <CoordCellInput
+                            value={p.north}
+                            onChange={(v) => actualizarPunto(idx, { north: v })}
+                            placeholder="8777285.00"
+                          />
+                          <div className="px-1.5 py-1">
+                            <SelectInput
+                              value={p.criticalityId}
+                              onChange={(v) => actualizarPunto(idx, { criticalityId: v })}
+                              options={criticidadesOptions}
+                              placeholder="—"
+                              compact
+                            />
+                          </div>
+                          <CoordCellRead value={geo?.valido ? geo.lat.toFixed(6) : '—'} />
+                          <CoordCellRead value={geo?.valido ? geo.lon.toFixed(6) : '—'} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+            </div>
+          </div>
+        </aside>
       </div>
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
@@ -664,6 +805,53 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
 }
 
 // ── Subcomponentes ───────────────────────────────────────────────────
+
+/** Celda del header de la tabla de vértices (navy). */
+function HeaderCell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="h-8 px-2 inline-flex items-center">
+      <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+/** Celda cuerpo de la tabla de vértices con input numérico (UTM Este/Norte). */
+function CoordCellInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="px-1.5 py-1">
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-background-main rounded-md outline outline-1 outline-offset-[-1px] outline-button-stroke
+                   px-2 py-1 text-text-primary text-sm font-mono tabular-nums font-sans
+                   focus:outline-2 focus:outline-primary-main"
+      />
+    </div>
+  );
+}
+
+/** Celda read-only de la tabla de vértices (Lat/Lon calculados). */
+function CoordCellRead({ value }: { value: string }) {
+  return (
+    <div className="px-2 py-1 h-9 flex items-center">
+      <span className="text-text-secondary text-xs font-mono tabular-nums truncate w-full">
+        {value}
+      </span>
+    </div>
+  );
+}
 
 function Field({
   label,
@@ -736,176 +924,77 @@ function SelectInput({
 }
 
 /**
- * MapaReferencial — contenedor del mini-mapa Leaflet en el editor.
+ * CaptureController — componente helper que vive dentro del `<MapContainer>`
+ * para escuchar clicks del mapa cuando `captureMode` está ON y disparar
+ * `onCapture(lat, lng)`. También aplica estilo `crosshair` al cursor del
+ * contenedor del mapa cuando hay captura activa (estilo QGIS/Felt).
  *
- * Muestra el componente en edición + todos los demás (vía ComponentLayer)
- * para que el usuario vea la relación con la red. Permite zoom/pan.
- * Al cambiar las coordenadas (lat/lon) en el formulario, el mapa hace
- * pan automático al nuevo punto con zoom 15.
+ * No renderiza nada; es un side-effect puro.
  */
-function MapaReferencial({
-  puntos,
-  esLinea,
-  iconUrl,
-  excludeId,
+function CaptureController({
+  captureMode,
+  onCapture,
 }: {
-  puntos: PuntoConLatLon[];
-  esLinea: boolean;
-  iconUrl: string;
-  excludeId?: string;
+  captureMode: boolean;
+  onCapture: (lat: number, lng: number) => void;
 }) {
-  const validos = puntos.filter((p) => p.valido);
-  // Centro: primero válido, o default Pichanaqui.
-  const primero = validos[0];
-  const lat = primero?.lat ?? 0;
-  const lon = primero?.lon ?? 0;
-  return (
-    <div className="flex-1 min-h-[400px] p-5 rounded-2xl border border-input-stroke-main flex flex-col gap-3 bg-background-main relative isolate">
-      <div className="flex items-center gap-2">
-        <h3 className="text-text-primary text-base font-bold font-sans">
-          {esLinea ? 'Recorrido de la línea' : 'Ubicación del componente'}
-        </h3>
-        <span className="px-2 py-0.5 bg-primary-states-hover-main/30 rounded-full text-text-secondary text-xs font-medium font-sans">
-          Vista referencial
-        </span>
-      </div>
-      <MiniMapa
-        lat={lat}
-        lon={lon}
-        puntos={validos}
-        esLinea={esLinea}
-        iconUrl={iconUrl}
-        excludeId={excludeId}
-      />
-    </div>
-  );
-}
-
-/**
- * AutoPan — componente helper que observa `lat/lon` y hace pan+zoom al
- * nuevo punto cuando cambia. Vive dentro del `<MapContainer>` (usa useMap).
- */
-function AutoPan({ lat, lon }: { lat: number; lon: number }) {
   const map = useMap();
+  // `as any`: react-leaflet@5 + @types/leaflet@1.9 no resuelve
+  // correctamente las props de `useMapEvents` bajo TS6 moduleResolution
+  // bundler. Mismo workaround que el resto del mapa (ver ComponentLayer).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const useMapEventsAny = useMapEvents as any;
+
+  // Subscribirse a clicks del mapa. Los ignoramos cuando el modo captura
+  // está OFF (sólo pan/zoom natural).
+  useMapEventsAny({
+    click: (e: { latlng: { lat: number; lng: number } }) => {
+      if (!captureMode) return;
+      onCapture(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  // Cursor crosshair en modo captura (estilo QGIS/Felt).
   useEffect(() => {
-    if (lat === 0 && lon === 0) return; // No pan si aún no hay coords.
-    map.setView([lat, lon], 15, { animate: true });
-  }, [lat, lon, map]);
+    const container = map.getContainer();
+    if (captureMode) {
+      container.style.cursor = 'crosshair';
+    } else {
+      container.style.cursor = '';
+    }
+    return () => {
+      container.style.cursor = '';
+    };
+  }, [map, captureMode]);
+
   return null;
 }
 
-/** Vista previa —卡片 resumen de datos. */
-function VistaPrevia({
-  tipo,
-  puntos,
-  esLinea,
-  criticidadesOptions,
-  unidad,
-  estadoOperacional,
-  estadoFisico,
-}: {
-  tipo: string;
-  puntos: PuntoConLatLon[];
-  esLinea: boolean;
-  criticidadesOptions: OpcionSelect[];
-  unidad: string;
-  estadoOperacional: string;
-  estadoFisico: string;
-}) {
-  const primero = puntos[0];
-  const lat = primero?.lat ?? 0;
-  const lon = primero?.lon ?? 0;
-  const utmE = primero?.east ?? '';
-  const utmN = primero?.north ?? '';
-  const criticidadNombre =
-    criticidadesOptions.find((c) => c.value === primero?.criticalityId)?.label ?? '';
-
-  return (
-    <div className="self-stretch p-5 rounded-2xl border border-input-stroke-main flex flex-col gap-3 bg-background-main">
-      <h3 className="text-text-primary text-base font-bold font-sans">
-        Vista previa del componente
-      </h3>
-      <div className="flex flex-col gap-2.5">
-        <Fila label="Tipo:" value={tipo} />
-        {!esLinea ? (
-          <>
-            <Fila
-              label="Ubicación:"
-              value={lat === 0 && lon === 0
-                ? '—'
-                : `Lat: ${lat.toFixed(6)}, Long: ${lon.toFixed(6)}`}
-            />
-            <Fila label="UTM:" value={`E: ${utmE}, N: ${utmN}`} />
-          </>
-        ) : (
-          <Fila
-            label="Vértices:"
-            value={`${puntos.length} punto${puntos.length === 1 ? '' : 's'}`}
-          />
-        )}
-        <Fila label="Unidad Operativa:" value={unidad} />
-        <Fila
-          label="Estado Operacional:"
-          value={estadoOperacional}
-          badgeColor={STATE_BADGE_GENERIC}
-        />
-        <Fila
-          label="Estado Físico:"
-          value={estadoFisico}
-          badgeColor={STATE_BADGE_GENERIC}
-        />
-        {!esLinea && (
-          <Fila
-            label="Criticidad:"
-            value={criticidadNombre}
-            badgeColor={colorCriticidad(criticidadNombre)}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function colorCriticidad(nombre: string): string {
-  const n = nombre.toUpperCase();
-  if (n.includes('ALT')) {
-    return 'bg-secondary-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-secondary-main';
-  }
-  if (n.includes('MED')) {
-    return 'bg-warning-states-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-warning-dark';
-  }
-  return 'bg-success-states-hover rounded-full px-3 py-[3px] text-xs font-bold font-sans text-success-dark';
-}
-
-function Fila({
-  label,
-  value,
-  badgeColor,
-}: {
-  label: string;
-  value: string;
-  badgeColor?: string;
-}) {
-  return (
-    <div className="flex justify-between items-center">
-      <span className="text-text-status-placeholder text-sm font-normal font-sans">{label}</span>
-      {badgeColor ? (
-        <span className={badgeColor}>{value}</span>
-      ) : (
-        <span className="text-text-primary text-sm font-medium font-sans">{value}</span>
-      )}
-    </div>
-  );
-}
-
 /**
- * MiniMapa — renderiza un mapa Leaflet similar al `MapaComponentes` pero
- * en miniatura. Permite zoom/pan (scrollWheelZoom activo), muestra todos
- * los componentes existentes via `ComponentLayer` y un marker destacado
- * para el componente en edición.
+ * MiniMapa — mapa Leaflet usado por el editor. En el layout actual vive
+ * a pantalla completa a la izquierda del drawer de datos. Muestra el
+ * componente en edición + todos los demás (vía `ComponentLayer`) para
+ * que el usuario vea la relación con la red. Permite zoom/pan.
  *
- * Al cambiar `lat/lon` (desde UTM o edición directa), el componente
- * `AutoPan` mueve el centro y ajusta el zoom a 15.
+ * `fullSize` rellena todo el espacio disponible. Si se pasa `false`,
+ * usa `min-h-[360px]` (modo legacy).
+ *
+ * Modo captura (`captureMode`):
+ *   - ON → clic en el mapa captura (punto: reemplaza; línea: añade
+ *     vértice al final). El cursor se vuelve `crosshair`.
+ *   - OFF → click en el mapa NO hace nada (sólo pan/zoom natural).
+ *
+ * Marcadores arrastrables (siempre, en cualquier modo):
+ *   - En `dragend` actualizamos la posición del vértice correspondiente
+ *     vía `onMarkerDrag(idx, lat, lng)`. No requiere modo captura —
+ *     corregir posición es la edición más común.
+ *
+ * Popup "Eliminar vértice": en modo línea, click en un marcador abre un
+ * popup con un botón para eliminarlo (respeta `minPuntos`).
+ *
+ * Nota: el antiguo `AutoPan` fue removido. Causaba loops con el dragging
+ * (mover marcador → cambian coords → AutoPan re-centra → marcador
+ * "vuelve"). El usuario centra el mapa a mano (scrollWheelZoom activo).
  */
 function MiniMapa({
   lat,
@@ -914,6 +1003,12 @@ function MiniMapa({
   esLinea,
   iconUrl,
   excludeId,
+  fullSize = false,
+  captureMode = false,
+  onCapture,
+  onMarkerDrag,
+  onRemoveVertex,
+  minPuntos,
 }: {
   lat: number;
   lon: number;
@@ -921,6 +1016,12 @@ function MiniMapa({
   esLinea: boolean;
   iconUrl: string;
   excludeId?: string;
+  fullSize?: boolean;
+  captureMode?: boolean;
+  onCapture?: (lat: number, lng: number) => void;
+  onMarkerDrag?: (idx: number, lat: number, lng: number) => void;
+  onRemoveVertex?: (idx: number) => void;
+  minPuntos?: number;
 }) {
   // Cast a any para evitar el bug de tipos de react-leaflet@5 + @types/leaflet
   // bajo TS6 moduleResolution: bundler. Mismo workaround que el resto del mapa.
@@ -933,11 +1034,17 @@ function MiniMapa({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const PolylineAny = Polyline as any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const PopupAny = Popup as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Lany = L as any;
 
-  // Icono destacado del componente en edición (56x56 + anilloamarillo,
+  // Icono destacado del componente en edición (56x56 + anillo amarillo,
   // idéntico al marker "selected" de ComponentLayer para que ambos mapas
-  // se vean iguales y no haya desplazamiento visual entre ellos).
+  // se vean iguales y sin desplazamiento visual del punto lat/lng). La
+  // imagen interna se mantiene SIEMPRE en 40px (ancho nativo del SVG);
+  // el contenedor crece a 56px para alojar el anillo amarillo alrededor.
+  // El padding fue removido (causaba desplazamiento porque la imagen era
+  // 60×60 y sobresalía del contenedor).
   const icon = Lany.divIcon({
     html: `<div style="
       color: var(--eps-primary-main);
@@ -945,9 +1052,8 @@ function MiniMapa({
       width:56px;height:56px;
       background: var(--eps-background-selected);
       border-radius: 50%;
-      padding: 12px;
       filter: drop-shadow(0 6px 6px rgba(0,0,0,0.35));
-    "><img src="${iconUrl}" style="width:60px;height:60px;" alt=""/></div>`,
+    "><img src="${iconUrl}" style="width:40px;height:40px;" alt=""/></div>`,
     className: 'mini-marker-selected',
     iconSize: [56, 56],
     iconAnchor: [28, 28],
@@ -972,51 +1078,127 @@ function MiniMapa({
     });
 
   // Centro inicial: si hay coordenadas válidas, usa esas; si no, Pichanaqui.
+  // El AutoPan fue removido, así que nos basta con el `center` inicial.
   const center: [number, number] =
     lat !== 0 && lon !== 0 ? [lat, lon] : [-11.019, -75.297];
 
-  // `key` cambia si `center` cambia meaningfulmente, así react-leaflet
-  // remonta el MapContainer con el nuevo `center`. Esto permite que el
-  // `AutoPan` (que usa `useMap`) tenga tiempo de ajustar el centro sin
-  // conflictos con el `center` inicial.
-  const mapKey = `mini-${lat.toFixed(4)}-${lon.toFixed(4)}-${puntos.length}`;
-
-  // Polyline path: lista de [lat,lon] por cada punto valido.
+  // Polyline path: lista de [lat,lon] por cada punto válido.
   const path: [number, number][] = puntos.map((p) => [p.lat, p.lon]);
 
   return (
-    <div className="flex-1 rounded-xl overflow-hidden border border-input-stroke-main min-h-[360px]">
+    <div
+      className={cn(
+        'flex-1 rounded-xl overflow-hidden border border-input-stroke-main',
+        fullSize ? 'h-full min-h-0' : 'min-h-[360px]',
+      )}
+    >
       <MapContainerAny
-        key={mapKey}
         center={center}
         zoom={15}
         scrollWheelZoom
         zoomControl={false}
+        minZoom={5}
+        maxZoom={20}
+        maxBounds={[[-18.5, -81.5], [0.5, -68.5]]}
+        maxBoundsViscosity={0.7}
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayerAny
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution="Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+          maxZoom={20}
+          maxNativeZoom={16}
         />
         {/* Componentes del sistema (para ver la relación con los demás). */}
         <ComponentLayer excludeId={excludeId} />
-        {/* AutoPan ajusta el centro cuando cambian lat/lon. */}
-        <AutoPan lat={lat} lon={lon} />
+
+        {/* Controlador de modo captura: escucha clicks cuando ON y
+            aplica cursor crosshair. */}
+        <CaptureController
+          captureMode={captureMode}
+          onCapture={(lat, lng) => onCapture?.(lat, lng)}
+        />
+
+        {/* Polyline del trazado en modo línea. */}
         {esLinea && path.length >= 2 && (
           <PolylineAny
             positions={path}
             pathOptions={{ color: '#1f6feb', weight: 4, opacity: 0.8 }}
           />
         )}
+
+        {/* Marcadores arrastrables */}
         {esLinea
-          ? puntos.map((p, i) => (
+          ? puntos.map((p, i) => {
+            // UTM del vértice derivado de su lat/lon (la principal del editor).
+              let utmE = '';
+              let utmN = '';
+              try {
+                const u = latLonToUtm(p.lat, p.lon, ZONA_UTM_DEFAULT);
+                utmE = Math.round(u.easting).toLocaleString('es-PE');
+                utmN = Math.round(u.northing).toLocaleString('es-PE');
+              } catch {
+                // fuera de rango, lo dejamos en —
+              }
+              return (
               <MarkerAny
                 key={p.id ?? `new-${i}`}
                 position={[p.lat, p.lon]}
                 icon={iconVertice(i + 1)}
-              />
-            ))
-          : <MarkerAny position={center} icon={icon} />}
+                draggable
+                eventHandlers={{
+                  dragend: (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
+                    const ll = e.target.getLatLng();
+                    onMarkerDrag?.(i, ll.lat, ll.lng);
+                  },
+                }}
+              >
+                <PopupAny>
+                  <div className="flex flex-col gap-1.5" style={{ fontFamily: 'sans-serif' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--eps-primary-main)' }}>
+                      Vértice {i + 1}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--eps-text-secondary)' }}>
+                      UTM Este: <strong style={{ color: 'var(--eps-text-primary)', fontVariantNumeric: 'tabular-nums' }}>{utmE || '—'}</strong>
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--eps-text-secondary)' }}>
+                      UTM Norte: <strong style={{ color: 'var(--eps-text-primary)', fontVariantNumeric: 'tabular-nums' }}>{utmN || '—'}</strong>
+                    </span>
+                    {(puntos.length > (minPuntos ?? 1)) && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveVertex?.(i)}
+                        className="mt-1 px-2 py-1 rounded-md text-xs text-danger-main
+                                   border border-danger-main hover:bg-danger-states-hover
+                                   font-sans font-bold"
+                      >
+                        Eliminar vértice
+                      </button>
+                    )}
+                  </div>
+                </PopupAny>
+              </MarkerAny>
+              );
+            })
+          // Modo puntual: mostramos un marcador arrastrable SÓLO cuando
+          // hay un punto válido definido. Si no, no se muestra marker
+          // (el cursor crosshair guía al usuario a capturar).
+          : puntos.length > 0
+            ? puntos.map((p, i) => (
+                <MarkerAny
+                  key={p.id ?? `new-${i}`}
+                  position={[p.lat, p.lon]}
+                  icon={icon}
+                  draggable
+                  eventHandlers={{
+                    dragend: (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
+                      const ll = e.target.getLatLng();
+                      onMarkerDrag?.(i, ll.lat, ll.lng);
+                    },
+                  }}
+                />
+              ))
+            : null}
       </MapContainerAny>
     </div>
   );

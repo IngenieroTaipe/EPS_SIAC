@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 from datetime import timedelta
 import numpy as np
@@ -47,70 +48,59 @@ class GFSDataService(StorageService):
         ).exists()
 
     def execute_download_data(
-        self, 
+        self,
         request_code: str,
-        total_hours: int = GFS_TOTAL_HOURS_FORECAST, 
+        total_hours: int = GFS_TOTAL_HOURS_FORECAST,
     ) -> dict[str, str | None]:
         """
-            El método Orquestador Principal se encarga de coordinar la descarga por lotes y ensamblado de pasadas horarias de la NOAA GFS.
+            El método Orquestador Principal se encarga de coordinar la descarga por lotes
+            y ensamblado de pasadas horarias de la NOAA GFS.
+
+            === FIX ===
+            Antes: iteraba por una matriz de runs (18Z hoy, 12Z hoy, 06Z hoy, ... ayer)
+            cayendo en "fallback" al primer run que existiera. Eso disfrazaba el
+            `request_code` (ej. AUTO_..._18Z) con datos del run 12Z y rompía el eje
+            temporal del timeline (.solapamiento de timestamps HISTORIC/FORECAST).
+            Ahora: parsea `request_code` (ej. `AUTO_20260805_18Z`), extrae fecha+run-hour
+            objetivo e intenta ÚNICAMENTE ese run. Si NOAA no publicó todavía, lanza
+            `ValidationError` y Celery reintenta en 30 min (configurado en `tasks.py`).
         """
         if total_hours > 120:
             raise ValidationError("El máximo de horas permitido para paso horario de 1h en GFS es 120h.")
 
-        # === Generación de la Matriz de ejecuciones nominales (UTC) === 
-        datetime_config = self._build_execution_matrix()
-        now_utc = timezone.now()
-
-        tag = f"request_{request_code}"
-        output_file = None
-
-        # === Iteración sobre ejecuciones nominales (18Z, 12Z, 06Z, 00Z de hoy y ayer) === 
-        for dt_cfg in datetime_config:
-            run_datetime = (
-                now_utc + timedelta(days=dt_cfg["date_offset"])
-            ).replace(
-                hour=dt_cfg["time"],
-                minute=0,
-                second=0,
-                microsecond=0,
+        # === Parseo del run objetivo desde el request_code ===
+        # Formato esperado: "AUTO_YYYYMMDD_HHZ" (ej. "AUTO_20260805_18Z").
+        match = re.match(r"^AUTO_(\d{4})(\d{2})(\d{2})_(\d{2})Z$", request_code)
+        if not match:
+            raise ValidationError(
+                f"request_code inválido, no se puede parsear el run objetivo: '{request_code}'. "
+                f"Formato esperado: AUTO_YYYYMMDD_HHZ (ej. AUTO_20260805_18Z)."
             )
+        y, mo, d, hh = match.groups()
+        run_date = f"{y}{mo}{d}"
+        run_hour = hh
+        run_label = f"{run_date} {run_hour}Z"
+        herbie_date_str = f"{y}-{mo}-{d} {run_hour}:00"
+        tag = f"request_{request_code}"
 
-            if run_datetime > now_utc:
-                continue
+        logger.info(f"[NOAA GFS] Evaluando ejecución {run_label} ({total_hours}h)...")
 
-            herbie_date_str = run_datetime.strftime('%Y-%m-%d %H:00')
-            run_date = run_datetime.strftime('%Y%m%d')
-            run_hour = f"{dt_cfg['time']:02d}"
+        # === Descarga remota desde AWS S3 vía FastHerbie ===
+        # Se lanza `ValidationError` si NOAA aún no publicó el run; Celery reintenta.
+        local_files = self._fetch_remote_dataset(herbie_date_str, total_hours, run_label)
 
-            logger.info(f"[NOAA GFS] Evaluando ejecución {run_date} {run_hour}Z ({total_hours}h)...")
+        # === Procesamiento, Normalización y Rebanado por BBOX de cada paso ===
+        datasets = self._process_and_crop_steps(local_files)
 
-            try:
-                # === Descarga remota desde AWS S3 vía FastHerbie ===
-                local_files = self._fetch_remote_dataset(herbie_date_str, total_hours)
-                
-                if not local_files:
-                    logger.warning(f"[NOAA GFS] Ejecución {run_date} {run_hour}Z aún no disponible en AWS S3.")
-                    continue
+        # === Concatenación y Ensamblado del NetCDF Comprimido Final ===
+        output_file = self._assemble_and_save_netcdf(datasets, tag, run_date, run_hour)
 
-                # === Procesamiento, Normalización y Rebanado por BBOX de cada paso ===
-                datasets = self._process_and_crop_steps(local_files)
+        logger.info(f"[NOAA GFS] Archivo NetCDF generado exitosamente: {output_file}")
 
-                # === Concatenación y Ensamblado del NetCDF Comprimido Final ===
-                output_file = self._assemble_and_save_netcdf(datasets, tag, run_date, run_hour)
-
-                logger.info(f"[NOAA GFS] Archivo NetCDF generado exitosamente: {output_file}")
-                
-                return {
-                    "file_path": output_file,
-                    "file_name": os.path.basename(output_file)
-                }
-
-            except Exception as e:
-                logger.warning(f"[NOAA GFS Warning] Falló el procesamiento de {run_date} {run_hour}Z: {str(e)}")
-                if output_file and os.path.exists(output_file):
-                    os.remove(output_file)
-
-        raise ValidationError(f"No fue posible obtener el paquete completo de {total_hours}h desde AWS S3.")
+        return {
+            "file_path": output_file,
+            "file_name": os.path.basename(output_file)
+        }
 
     # =========================================================================
     # MÉTODOS PRIVADOS ESPECIALIZADOS (SEGREGACIÓN DE RESPONSABILIDADES)
@@ -118,7 +108,11 @@ class GFSDataService(StorageService):
 
     def _build_execution_matrix(self) -> list[dict]:
         """
-            Se encarga de construir la matriz de ejecuciones nominales (18Z, 12Z, 06Z, 00Z). 
+            === DEPRECATED / NO USADO en `execute_download_data` ===
+            Se conserva como documentación de los runs nominales NOAA (00/06/12/18Z,
+            hoy y ayer) y por si a futuro se requiere un fallback explícito controlado.
+            NO BORRAR: algunos tests pueden referenciarlo; el loop en `execute_download_data`
+            ya no lo consume desde el fix anti-disfraz (ref. tasks.py / commit anti-fallback).
         """
         return [
             {"date_offset": 0, "time": GFS_RUN_HOURS[3]},   # 18Z Hoy
@@ -131,10 +125,19 @@ class GFSDataService(StorageService):
             {"date_offset": -1, "time": GFS_RUN_HOURS[0]},  # 00Z Ayer
         ]
 
-    def _fetch_remote_dataset(self, herbie_date_str: str, total_hours: int) -> list:
-        """ 
-            Verifica la disponibilidad del último step y ejecuta la descarga 
-            Byte-Range con FastHerbie. 
+    def _fetch_remote_dataset(self, herbie_date_str: str, total_hours: int, run_label: str) -> list:
+        """
+            Verifica la disponibilidad del último step y ejecuta la descarga
+            Byte-Range con FastHerbie.
+
+            === FIX ===
+            Antes: si `idx_df.empty`, devolvía `[]` silenciosamente → el caller caía
+            al "fallback" (descargar el run anterior y guardarlo como el nuevo).
+            Ahora: lanzar `ValidationError` para que Celery `self.retry()` reintente
+            en 30 min (configurado en `tasks.py`). Esto evita el "disfraz" del run.
+            También captura el `ValueError` que Herbie levanta internamente cuando
+            el `.idx` no fue publicado todavía (lo normaliza a `ValidationError`
+            con mensaje claro, para que el log de Celery sea legible).
         """
         h_check = Herbie(
             herbie_date_str,
@@ -144,12 +147,29 @@ class GFSDataService(StorageService):
             priority=['aws']
         )
 
-        idx_df = h_check.inventory(search=":APCP:surface:")
-        if idx_df.empty:
-            return []
+        try:
+            idx_df = h_check.inventory(search=":APCP:surface:")
+        except ValueError as e:
+            # Herbie raises ValueError cuando el `.idx` no existe en S3 todavía.
+            # Lo normalizamos a `ValidationError` con mensaje legible.
+            raise ValidationError(
+                f"NOAA no ha publicado el run {run_label} todavía. "
+                f"El archivo `.idx` no fue encontrado en AWS S3 (Herbie: {str(e)[:80]}). "
+                f"Reintentar en algunos minutos."
+            )
+
+        if idx_df is None or idx_df.empty:
+            # === FIX: fallar honesto en vez de devolver [] silencioso ===
+            # NOAA aún no publicó el archivo `.idx` para este run.
+            # El retry policy de Celery se encarga de reintentar en 30 min.
+            raise ValidationError(
+                f"NOAA no ha publicado el run {run_label} todavía. "
+                f"El archivo `.idx` no fue encontrado en AWS S3. "
+                f"Reintentar en algunos minutos."
+            )
 
         logger.info(f"[AWS S3 Byte-Range] Descargando {total_hours} pasos temporales (:APCP:surface:)...")
-        
+
         FH = FastHerbie(
             DATES=[herbie_date_str],
             model="gfs",

@@ -40,7 +40,12 @@ export function GestionUmbrales() {
 
   const [selectedUbigeo, setSelectedUbigeo] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<UmbralFenomeno | null>(null);
+  const [modalMode, setModalMode] = useState<'editar' | 'agregar'>('agregar');
+  const [editingCombo, setEditingCombo] = useState<{
+    naturalPhenomenaId: number;
+    variableId: number;
+    districtUbigeo: string;
+  } | null>(null);
 
   // 1. Cargar todos los umbrales una sola vez (para saber qué distritos
   //    tienen umbrales y operar el resto por filtro en memoria).
@@ -155,27 +160,46 @@ export function GestionUmbrales() {
   const activoId = maxInfo.umbral?.id ?? null;
 
   function abrirCrear() {
-    setEditing(null);
+    setEditingCombo(null);
+    setModalMode('agregar');
     setModalOpen(true);
   }
 
   function abrirEditar(u: UmbralFenomeno) {
-    setEditing(u);
+    // Fija el combo (np + var + distrito) a regenerar; el editor precarga
+    // los cortes actuales y deshabilita los 3 selects.
+    setEditingCombo({
+      naturalPhenomenaId: u.natural_phenomena.id,
+      variableId: u.variable.id,
+      districtUbigeo: u.district.ubigeo,
+    });
+    setModalMode('editar');
     setModalOpen(true);
   }
 
-  function handleSaved(saved: UmbralFenomeno) {
+  /**
+   * Recibe la lista COMPLETA de filas resultantes del bulk (escalera nueva
+   * del distrito + fenómeno + variable editado). Sustituye todas las filas
+   * previas del mismo combo en `todosUmbrales`, dejando el resto del estado
+   * intacto (otros distritos / fenómenos / variables).
+   */
+  function handleSaved(rows: UmbralFenomeno[]) {
+    if (rows.length === 0) return;
+    const npId = rows[0].natural_phenomena.id;
+    const varId = rows[0].variable.id;
+    const ubigeo = rows[0].district.ubigeo;
     setTodosUmbrales((prev) => {
-      const idx = prev.findIndex((u) => u.id === saved.id);
-      if (idx === -1) return [...prev, saved];
-      const next = [...prev];
-      next[idx] = saved;
-      return next;
+      const restantes = prev.filter(
+        (u) =>
+          !(
+            u.district.ubigeo === ubigeo &&
+            u.natural_phenomena.id === npId &&
+            u.variable.id === varId
+          ),
+      );
+      return [...restantes, ...rows];
     });
-  }
-
-  function handleDeleted(id: number) {
-    setTodosUmbrales((prev) => prev.filter((u) => u.id !== id));
+    setError(null);
   }
 
   const maxCategoria = maxInfo.umbral
@@ -321,12 +345,13 @@ export function GestionUmbrales() {
 
       <EditorUmbral
         open={modalOpen}
-        initial={editing}
-        defaultDistrictUbigeo={selectedUbigeo ?? undefined}
+        mode={modalMode}
+        defaultDistrictUbigeo={editingCombo?.districtUbigeo ?? selectedUbigeo ?? undefined}
+        defaultNaturalPhenomenaId={editingCombo?.naturalPhenomenaId}
+        defaultVariableId={editingCombo?.variableId}
         siblingsPool={todosUmbrales}
         onClose={() => setModalOpen(false)}
         onSaved={handleSaved}
-        onDeleted={handleDeleted}
       />
     </div>
   );

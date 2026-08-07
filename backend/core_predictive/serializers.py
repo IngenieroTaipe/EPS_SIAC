@@ -488,8 +488,37 @@ class ThresholdNaturalPhenomenaSerializer(PrepareDataMixin, serializers.ModelSer
 
         # === Validación para ambos campos presentes ===
         if min_val is not None and max_val is not None:
-            if min_val > max_val: # No se valida directamente porque el mínimo y el máximo umbral tendrán uno de los 2 valores en None
+            if min_val > max_val:
                 raise serializers.ValidationError("El valor mínimo no puede ser mayor que el valor máximo.")
+
+        # === Validación de escalera (continuidad estricta) ===
+        # El contexto `force=True` (enviado por el @action bulk/) indica
+        # que el caller reescribe todo el ladder atómicamente y la
+        # validación del grupo completo ya se hizo en el viewset, así
+        # que aquí sólo validamos la coherencia individual del row.
+        if not self.context.get('force'):
+            instance_id = self.instance.id if self.instance else None
+            np = attrs.get('natural_phenomena') or (self.instance.natural_phenomena if self.instance else None)
+            var = attrs.get('variable') or (self.instance.variable if self.instance else None)
+            dist = attrs.get('district') or (self.instance.district if self.instance else None)
+            if np is not None and var is not None and dist is not None:
+                siblings = list(
+                    ThresholdsNaturalPhenomena.objects.filter(
+                        natural_phenomena=np,
+                        variable=var,
+                        district=dist,
+                    ).exclude(id=instance_id)
+                )
+                # Proyectar el row candidato sobre los hermanos y validar
+                # la escalera resultante como un todo.
+                candidate = _RowProxy(
+                    threshold=attrs.get('threshold') or (self.instance.threshold if self.instance else None),
+                    min_value=min_val if min_val is not None else (self.instance.min_value if self.instance else None),
+                    max_value=max_val if max_val is not None else (self.instance.max_value if self.instance else None),
+                )
+                errores = _validar_escalera(siblings, candidate)
+                if errores:
+                    raise serializers.ValidationError(errores)
 
         return attrs
 
@@ -504,3 +533,107 @@ class ThresholdNaturalPhenomenaSerializer(PrepareDataMixin, serializers.ModelSer
         if instance.threshold:
             representation['threshold'] = ThresholdLightSerializer(instance.threshold).data
         return representation
+
+
+# ==============================================================================
+# HELPERS DE VALIDACIÓN DE ESCALERA
+# ==============================================================================
+# Una "escalera" es el conjunto de umbrales (ThresholdsNaturalPhenomena) que
+# comparten (district, natural_phenomena, variable). Debe cumplir:
+#
+#   1. Orden implícito por min_value asc (NULL tratado como -inf).
+#   2. max_value de cada nivel == min_value del siguiente (continuidad estricta,
+#      sin solapes ni huecos).
+#   3. El nivel superior (último) lleva max_value = NULL (sin techo).
+#   4. El nivel inferior (primero) lleva min_value >= 0 (piso libre del distrito).
+#
+# `_RowProxy` permite inyectar el row candidato (en edición/creación) dentro
+# del grupo de hermanos sin persistirlo, para validar el estado resultante
+# antes de escribir.
+
+class _RowProxy:
+    """Proxy ligero para simular un ThresholdsNaturalPhenomena en validación."""
+
+    def __init__(self, threshold, min_value, max_value):
+        self.id = -1  # sentinel para filtrar vía .exclude(id=...)
+        self.threshold = threshold
+        self.min_value = min_value
+        self.max_value = max_value
+
+
+def _validar_escalera(rows, candidate=None):
+    """
+    Valida un conjunto de umbrales + (opcional) un candidato, proyectándolos
+    como escalera de (district, np, var).
+
+    Devuelve una lista de mensajes de error (vacía = OK).
+    """
+    # Únicos por threshold.id (puede haber duplicados en BD si el candidato
+    # coincide con uno existente).
+    plana = list(rows)
+    if candidate is not None:
+        plana.append(candidate)
+
+    # Descartar rows incompletos (sin threshold o sin min/max ambos).
+    plana = [r for r in plana if r.threshold is not None and (r.min_value is not None or r.max_value is not None)]
+    if not plana:
+        return []
+
+    # Eliminar duplicados por threshold_id (gana el candidato).
+    vistos = {}
+    for r in plana:
+        tid = getattr(r.threshold, 'id', None) or r.threshold
+        vistos[tid] = r
+    unicos = list(vistos.values())
+
+    # Ordenar por min_value (NULL → -inf para que queden abajo).
+    def _min_key(r):
+        return r.min_value if r.min_value is not None else float('-inf')
+    unicos.sort(key=_min_key)
+
+    errores = []
+    for i, r in enumerate(unicos):
+        # Piso del primero
+        if i == 0:
+            if r.min_value is None:
+                errores.append("El umbral inferior debe tener un valor mínimo (piso) definido.")
+            elif r.min_value < 0:
+                errores.append(f"El valor mínimo del umbral inferior ({r.min_value}) no puede ser negativo.")
+        # Techo del último
+        if i == len(unicos) - 1:
+            if r.max_value is not None:
+                # Permitimos techo numérico sólo si hay un único nivel; si hay
+                # más, el último debe ser NULL (sin techo) para que la escalera
+                # sea abierta por arriba.
+                if len(unicos) > 1:
+                    errores.append(
+                        f"El umbral superior no debe tener valor máximo (debe ser NULL / sin techo). "
+                        f"Actualmente está en {r.max_value}."
+                    )
+        else:
+            nxt = unicos[i + 1]
+            if r.max_value is None:
+                errores.append(
+                    f"El umbral '{getattr(r.threshold, 'name', r.threshold)}' no tiene valor máximo, "
+                    f"pero existe un umbral superior ('{getattr(nxt.threshold, 'name', nxt.threshold)}'); "
+                    f"el máximo debe igualar el mínimo del siguiente ({nxt.min_value})."
+                )
+                continue
+            if nxt.min_value is None:
+                errores.append(
+                    f"El umbral '{getattr(nxt.threshold, 'name', nxt.threshold)}' no tiene valor mínimo, "
+                    f"pero existe un umbral inferior; el mínimo debe igualar el máximo del anterior ({r.max_value})."
+                )
+                continue
+            if abs(r.max_value - nxt.min_value) > 1e-9:
+                errores.append(
+                    f"Discontinuidad entre '{getattr(r.threshold, 'name', r.threshold)}' "
+                    f"(máx {r.max_value}) y '{getattr(nxt.threshold, 'name', nxt.threshold)}' "
+                    f"(mín {nxt.min_value}). Los rangos deben ser continuos: máximo == mínimo del siguiente."
+                )
+            if r.max_value <= (r.min_value if r.min_value is not None else float('-inf')):
+                errores.append(
+                    f"El umbral '{getattr(r.threshold, 'name', r.threshold)}' tiene mínimo >= máximo "
+                    f"({r.min_value} / {r.max_value})."
+                )
+    return errores

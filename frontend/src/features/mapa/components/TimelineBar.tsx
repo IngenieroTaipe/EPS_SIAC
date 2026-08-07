@@ -274,7 +274,7 @@ export function TimelineBar({
             return (
               <span
                 key={seg.label}
-                className="absolute top-0 truncate text-text-primary text-[11px] font-bold font-sans"
+                className="absolute top-0 truncate text-text-primary text-[13px] font-extrabold font-sans"
                 style={{ left: `${startPct}%`, width: `${widthPct + 4}%` }}
                 title={seg.label}
               >
@@ -305,7 +305,7 @@ export function TimelineBar({
                   style={{ left: `${pct}%` }}
                 >
                   <div className="w-px h-1 bg-input-stroke-main/70" />
-                  <span className="mt-0.5 text-[10px] tabular-nums font-bold text-text-secondary font-sans whitespace-nowrap">
+                  <span className="mt-0.5 text-[12px] tabular-nums font-extrabold text-text-primary font-sans whitespace-nowrap">
                     {labelForSlot(i)}
                   </span>
                 </div>

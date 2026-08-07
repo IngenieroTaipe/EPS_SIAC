@@ -20,7 +20,7 @@ import type { ComponentType, SVGProps } from 'react';
 export type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 export type TopBarWidget =
-  | { kind: 'updatedAt'; text?: string }
+  | { kind: 'updatedAt' }
   | { kind: 'alertBadge'; text: string }
   | { kind: 'stats'; components: string; critical: string }
   | { kind: 'loadDataButton' }
@@ -39,15 +39,15 @@ export interface TopBarPageConfig {
   widgets?: TopBarWidget[];
 }
 
-/** Texto del widget "Actualizado". Se renderiza en 2 líneas:
- *   línea 1: UPDATED_LABEL_PREFIX  ("Actualizado hace")
- *   línea 2: UPDATED_VALUE         ("30 min", "1 hora", etc.)
- *
- * Para cambiar el valor dinámicamente (cada 5 min) actualiza `UPDATED_VALUE`
- * o pasa `text` al widget `updatedAt` desde la config de la página.
+/** Texto del widget "Actualizado".
+ *  El prefijo "Actualizado hace" se sigue mostrando estático aquí.
+ *  El valor relativo ("5 min", "1 h", etc.) lo calcula ahora `UpdatedAtWidget`
+ *  en `TopBarWidgets.tsx` vía el hook `useLatestGfsUpdate`, leyendo el
+ *  `metadata.latest_completed_at_local` que envía el backend en `/window-18h/`.
+ *  `UPDATED_VALUE` ya no se usa (se conserva por retrocompatibilidad de imports).
  */
 export const UPDATED_LABEL_PREFIX = 'Actualizado hace';
-export const UPDATED_VALUE = '30 min';
+export const UPDATED_VALUE = '—'; // legacy, reemplazado por el hook reactivo
 
 /** Texto del subtítulo siempre visible. */
 export const SUBTITLE_TEXT = 'EPS Selva Central';
@@ -74,8 +74,8 @@ export const UNIDAD_OPERATIVA_OPTIONS: string[] = [
  */
 export const CARGAR_DATOS_OPTIONS: string[] = [
   'Manual',
-  'Excel',
   'Csv',
+  'GeoJson',
 ];
 
 /**
@@ -93,7 +93,7 @@ export const topBarConfig: TopBarPageConfig[] = [
     route: '/',
     title: 'Sistema de Alertas Climáticas',
     subtitleWeight: 'semibold',
-    widgets: [{ kind: 'loginButton' }],
+    widgets: [],
   },
   {
     route: '/alertas/gestion',
@@ -146,6 +146,16 @@ export const topBarConfig: TopBarPageConfig[] = [
       { kind: 'updatedAt' },
     ],
   },
+  {
+    route: '/admin/unidades-operativas',
+    title: 'Gestión de Unidades Operativas',
+    widgets: [],
+  },
+  {
+    route: '/admin/usuarios',
+    title: 'Gestión de Usuarios',
+    widgets: [],
+  },
 ];
 
 /** Config por defecto si la ruta no coincide con ninguna en `topBarConfig`. */
@@ -168,4 +178,6 @@ export const HIDE_UNIDAD_OPERATIVA_ROUTES: string[] = [
   '/alertas/gestion',
   '/componentes/nuevo',
   '/umbrales/gestion',
+  '/admin/unidades-operativas',
+  '/admin/usuarios',
 ];

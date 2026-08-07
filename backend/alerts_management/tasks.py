@@ -3,6 +3,7 @@
 import logging
 # pyrefly: ignore [missing-import]
 from celery import shared_task
+from celery.exceptions import Retry
 from django.utils import timezone
 from datetime import timedelta
 
@@ -93,16 +94,40 @@ def send_telegram_notification_task(self, notification_id: int):
             
             logger.info(f"Notificación #{notification_id} despachada exitosamente para Alerta #{alert.code}.")
             return True
-        else:
-            raise Exception(f"Fallo en la respuesta de la API de Telegram: {response}")
+
+        # === Envío fallido ===
+        error_str = str(response) if response is not None else "response=None"
+        is_config_error = "no están configurados" in error_str or "no configurad" in error_str
+
+        if is_config_error:
+            # Error de configuración: no tiene sentido reintentar, no se resolverá solo.
+            logger.warning(
+                f"[Telegram] Notificación #{notification_id} NO enviada: credenciales no configuradas. "
+                f"Marcando como omitida para evitar bucle de reintentos."
+            )
+            return False
+
+        # Error transitorio (HTTP 5xx, timeout, red, API de Telegram caída) -> reintentar
+        logger.error(f"Error transitorio al procesar notificación Telegram #{notification_id}: {error_str}")
+        raise self.retry(exc=Exception(error_str))
 
     except AlertNotification.DoesNotExist:
         logger.error(f"Error: La notificación #{notification_id} no existe en la base de datos.")
         return False
-        
+
+    except Retry:
+        # self.retry() lanza esta excepción: debe propagarse sin capturarla como error genérico.
+        raise
+
     except Exception as exc:
-        logger.error(f"Error al procesar notificación Telegram #{notification_id}: {str(exc)}")
-        # Reintento automático con delay exponencial
+        # Error inesperado (BD, serialización, etc.). Si es de config, abortar; si no, reintentar.
+        error_str = str(exc)
+        if "no están configurados" in error_str or "no configurad" in error_str:
+            logger.warning(
+                f"[Telegram] Notificación #{notification_id} omitida: credenciales no configuradas."
+            )
+            return False
+        logger.error(f"Error inesperado al procesar notificación Telegram #{notification_id}: {error_str}")
         raise self.retry(exc=exc)
 
 @shared_task(name="tasks.dispatch_hourly_alerts")

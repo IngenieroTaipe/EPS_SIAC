@@ -223,6 +223,10 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_HTTPONLY': False,  # Desactiva la restricción de cookies HttpOnly
     'JWT_AUTH_HEADER_PREFIX': 'Bearer',
+    # Serializer del perfil del propio usuario (GET/PATCH /auth/user/).
+    # Se extiende para incluir `is_staff`/`is_superuser` y permitir al
+    # frontend decidir qué mostrar según el rol del usuario autenticado.
+    'USER_DETAILS_SERIALIZER': 'authentication.serializers.UserDetailsSerializer',
 }
 
 # Configuración del Broker y Resultados (Redis)
@@ -236,19 +240,36 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC' # El schedule usará la zona horario global UTC
 CELERY_ENABLE_UTC = True
 
+# === Caché y Locks (Redis compartido entre procesos) ===
+# Por defecto Django usa LocMemCache (caché en memoria POR PROCESO), lo que impide:
+#   1) Que un worker de Celery invalide la caché de la API (el timeline no se refrescaba).
+#   2) Que el lock Redis (`cache.add`) funcione entre workers (doble descarga al mismo .nc).
+# Usamos Redis DB 1 para no chocar con el broker/result backend de Celery (DB 0).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.getenv('CACHE_URL', 'redis://redis:6379/1'),
+    }
+}
+
 # === Planificador Periódico (Celery Beat) ===
 CELERY_BEAT_SCHEDULE = {
     'descarga-automatica-gfs-diaria': {
         # === Nombre de la tarea a ejecutar ===
         'task': 'core_predictive.tasks.run_scheduled_gfs_download',
-        
+
         # === Programación de ejecución (08:15 y 20:15 UTC todos los días) ===
         # Los valores se establecen en base a las horas de ejecución del modelo, solo que 1 hora después para evitar problemas y garantizar la descarga.
         # 00/24 UTC + 1:00 (periodo adicional) => 1:00 UTC (20:00 -> Perú)
         # 06 UTC + 1:00 (periodo adicional) => 7:00 UTC (02:00 -> Perú)
         # 12 UTC + 1:00 (periodo adicional) => 13:00 UTC (08:00 -> Perú)
         # 18 UTC + 1:00 (periodo adicional) => 19:00 UTC (14:00 -> Perú)
-        'schedule': crontab(hour='1,7,13,19'),
+        #
+        # === FIX ===
+        # Sin `minute=0` explícito, Celery interpreta `minute='*'` (default) y dispara
+        # 60 tareas por hora en vez de 1. Eso producía el spam de "Skip Task" en el log.
+        # Ver https://docs.celeryq.dev/en/stable/userguide/periodic-tasks.html#crontab-schedules
+        'schedule': crontab(hour='1,7,13,19', minute=0),
     },
 
     'despacho-horario-alertas-telegram': {

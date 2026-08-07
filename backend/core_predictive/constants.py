@@ -24,6 +24,17 @@ GFS_RUN_HOURS = [
 
 # Número máximo de horas de pronóstico a descargar (por defecto 12 horas con paso de 1 hora)
     # Esto equivale a 12 archivos .grib2 (f001 a f012)
+# === TODO / FUTURE-PROOFING: Ampliar horizonte futuro a 16h ===
+# Para garantizar 6h mínimo de horizonte futuro (peor caso del peor caso con C=+4h),
+# cambiar esto a `16`. NOAA publica f016 en el mismo tandeo que f012 (misma latencia ~3h36min),
+# no añade riesgo. En ese caso, actualizar también:
+#   1. backend/core_predictive/utils/geojson_builder.py:
+#        - `BETWEEN 1 AND 12` (latest_slice) → `BETWEEN 1 AND 16`
+#        - `'window_duration_hours': 18` → `'window_duration_hours': 22`
+#   2. backend/core_predictive/views.py (opcional cosmético):
+#        - url_path='window-18h' → 'window-22h' (rompería el frontend, dejar como está)
+#   3. frontend/src/features/mapa/timeline/types.ts, PrecipitationTimelineProvider.tsx:
+#        - comentarios "ventana 18h" → "ventana 22h" (cosmético)
 GFS_TOTAL_HOURS_FORECAST = 12
 MIN_THRESHOLD_MM_H = 0.1
 

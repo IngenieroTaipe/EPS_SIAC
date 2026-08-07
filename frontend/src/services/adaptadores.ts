@@ -75,6 +75,16 @@ export function adaptarComponentes(
       .map(utmFromCoord)
       .filter((u): u is { easting: number; northing: number; zone?: string } => Boolean(u));
 
+    // Estados (operacional + físico) — labels legibles del backend.
+    const estadoOperacional =
+      comp.operational_status?.name && comp.operational_status.name.trim()
+        ? comp.operational_status.name
+        : undefined;
+    const estadoFisico =
+      comp.physical_status?.name && comp.physical_status.name.trim()
+        ? comp.physical_status.name
+        : undefined;
+
     if (esLinea) {
       const puntos: Array<[number, number]> = coordList.map((c) => {
         const [lng, lat] = c.geojson!.coordinates;
@@ -97,6 +107,8 @@ export function adaptarComponentes(
         utmNorthing: primerUtm?.northing,
         utmZone: primerUtm?.zone,
         verticesUtm: verticesUtm.length > 0 ? verticesUtm : undefined,
+        estadoOperacional,
+        estadoFisico,
       });
     } else {
       const [lng, lat] = coordList[0].geojson!.coordinates;
@@ -114,6 +126,8 @@ export function adaptarComponentes(
         utmEasting: primerUtm?.easting,
         utmNorthing: primerUtm?.northing,
         utmZone: primerUtm?.zone,
+        estadoOperacional,
+        estadoFisico,
       });
     }
   }

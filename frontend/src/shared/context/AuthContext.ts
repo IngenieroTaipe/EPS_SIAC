@@ -14,6 +14,12 @@ export interface AuthUser {
   email?: string;
   first_name?: string;
   last_name?: string;
+  /** True si el usuario es administrador (personal interno de la EPS). */
+  is_staff?: boolean;
+  /** True si es superuser de Django. */
+  is_superuser?: boolean;
+  /** Nombres de los grupos asignados (ej. ["Administrator"]). */
+  groups?: string[];
 }
 
 export interface AuthContextValue {
@@ -28,6 +34,8 @@ export interface AuthContextValue {
   isLoggingIn: boolean;
   /** Mensaje de error del último intento de login (se limpia al reintentar). */
   loginError: string | null;
+  /** True si el usuario logueado es admin (is_staff o is_superuser). */
+  isAdmin: boolean;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

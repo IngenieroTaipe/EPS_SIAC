@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { navConfig, logoutConfig } from './SidebarConfig';
 import { SidebarNavItem, SidebarToggle } from './SidebarNavItem';
+import { UserBadge } from '@/shared/components/UserBadge';
 import { cn } from '@/shared/lib/cn';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { useAuth } from '@/shared/context/AuthContext.hooks';
@@ -26,7 +27,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [logoutHover, setLogoutHover] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const { logout } = useAuth();
+  const { logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const LogoutIcon = logoutConfig.icon;
 
@@ -44,7 +45,7 @@ export function Sidebar() {
     <aside
       className={cn(
         'relative h-screen sticky top-0 z-30 bg-background-main rounded-section shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]',
-        'flex flex-col items-center gap-6 px-2.5 py-10',
+        'flex flex-col items-center gap-6 px-2.5 pt-5 pb-5',
         'transition-[width] duration-200 shrink-0',
         collapsed ? 'w-20' : 'w-72',
       )}
@@ -76,7 +77,9 @@ export function Sidebar() {
 
       {/* ── Cuerpo scrollable de navegación ──────────────────────── */}
       <div className="self-stretch flex-1 py-2.5 flex flex-col justify-start items-start gap-2 overflow-y-auto overflow-x-visible">
-        {navConfig.map((group, index) => (
+        {navConfig
+          .filter((group) => !group.adminOnly || isAdmin)
+          .map((group, index) => (
           <div
             key={group.label}
             className="self-stretch flex flex-col justify-start items-start gap-2"
@@ -115,6 +118,9 @@ export function Sidebar() {
 
       {/* ── Cierre de sesión (al fondo) ────────────────────────────── */}
       <div className="self-stretch flex flex-col justify-end items-center gap-2.5">
+        {/* Badge de usuario con rol (sesión iniciada) */}
+        <UserBadge collapsed={collapsed} />
+
         <button
           type="button"
           onMouseEnter={() => setLogoutHover(true)}
