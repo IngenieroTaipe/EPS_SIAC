@@ -13,7 +13,7 @@ import {
 import { cn } from '@/shared/lib/cn';
 import { apiComponentes, type ImportResult } from '@/services/apiComponentes';
 
-type Formato = 'csv' | 'geojson';
+type Formato = 'csv' | 'geojson' | 'xlsx';
 type Step = 'format' | 'upload' | 'preview' | 'result' | 'error';
 
 const CSV_HEADERS = [
@@ -93,7 +93,7 @@ const GEOJSON_SAMPLE = {
 interface CargarDatosModalProps {
   open: boolean;
   /** Formato preseleccionado por el dropdown ('Csv' / 'GeoJson'). */
-  initialFormat?: 'Csv' | 'GeoJson';
+  initialFormat?: 'Excel' | 'Csv' | 'GeoJson';
   onClose: () => void;
   /** Callback opcional tras importar exitosamente (ej. refetch). */
   onImported?: () => void;
@@ -129,7 +129,9 @@ export function CargarDatosModal({
 }: CargarDatosModalProps) {
   const navigate = useNavigate();
   const [format, setFormat] = useState<Formato>(
-    initialFormat === 'GeoJson' ? 'geojson' : 'csv',
+    initialFormat === 'GeoJson' ? 'geojson'
+      : initialFormat === 'Excel' ? 'xlsx'
+      : 'csv',
   );
   const [step, setStep] = useState<Step>('format');
   const [file, setFile] = useState<File | null>(null);
@@ -142,7 +144,11 @@ export function CargarDatosModal({
   // Reset al abrir/cerrar.
   useEffect(() => {
     if (open) {
-      setFormat(initialFormat === 'GeoJson' ? 'geojson' : 'csv');
+      setFormat(
+      initialFormat === 'GeoJson' ? 'geojson'
+        : initialFormat === 'Excel' ? 'xlsx'
+        : 'csv',
+    );
       setStep(initialFormat ? 'upload' : 'format');
       setFile(null);
       setResult(null);
@@ -174,6 +180,32 @@ export function CargarDatosModal({
   }
 
   function handleDownloadPlantilla() {
+    // XLSX (Excel): el backend genera la plantilla con descripciones,
+    // dropdowns y filas de ejemplo. La descargamos como Blob HTTP.
+    if (format === 'xlsx') {
+      apiComponentes
+        .downloadXlsxTemplate()
+        .then((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'plantilla_componentes.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        })
+        .catch((err) => {
+          setServerError(
+            err?.response?.data?.error ||
+              err?.message ||
+              'Error al descargar la plantilla Excel.',
+          );
+        });
+      return;
+    }
+
+    // CSV / GeoJSON: generados en el cliente desde una constante.
     let blob: Blob;
     let filename: string;
     if (format === 'csv') {
@@ -208,7 +240,7 @@ export function CargarDatosModal({
     setResult(null);
     setServerError(null);
     setLoading(true);
-    const api = format === 'csv' ? apiComponentes.importCsv : apiComponentes.importGeojson;
+    const api = getImportApi(format);
     api(f, true)
       .then((r) => {
         setResult(r);
@@ -235,7 +267,7 @@ export function CargarDatosModal({
   function handleConfirmImport() {
     if (!file) return;
     setLoading(true);
-    const api = format === 'csv' ? apiComponentes.importCsv : apiComponentes.importGeojson;
+    const api = getImportApi(format);
     api(file, false)
       .then((r) => {
         if (r.errors.length > 0) {
@@ -308,7 +340,14 @@ export function CargarDatosModal({
               <p className="text-sm text-text-secondary font-sans">
                 Elegí el formato del archivo que querés cargar:
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <FormatCard
+                  active={format === 'xlsx'}
+                  onClick={() => handleSelectFormat('xlsx')}
+                  icon={<FileSpreadsheet className="size-8 text-primary-main" />}
+                  title="Excel"
+                  desc="Tabla con descripciones por columna y dropdowns de valores válidos. Recomendado."
+                />
                 <FormatCard
                   active={format === 'csv'}
                   onClick={() => handleSelectFormat('csv')}
@@ -382,14 +421,22 @@ export function CargarDatosModal({
                       Arrastrá el archivo acá o hacé clic
                     </p>
                     <span className="text-text-secondary text-xs font-sans">
-                      {format === 'csv' ? '.csv (UTF-8)' : '.geojson / .json'}
+                      {format === 'csv'
+                        ? '.csv (UTF-8)'
+                        : format === 'xlsx'
+                          ? '.xlsx (Excel)'
+                          : '.geojson / .json'}
                     </span>
                     <input
                       ref={inputRef}
                       type="file"
-                      accept={format === 'csv'
-                        ? '.csv,text/csv'
-                        : '.geojson,.json,application/geo+json,application/json'}
+                      accept={
+                        format === 'csv'
+                          ? '.csv,text/csv'
+                          : format === 'xlsx'
+                            ? '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel'
+                            : '.geojson,.json,application/geo+json,application/json'
+                      }
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
@@ -561,6 +608,13 @@ export function CargarDatosModal({
 
 // ── Subcomponentes ────────────────────────────────────────────────────
 
+/** Elige el service de importación según el formato elegido. */
+function getImportApi(format: Formato) {
+  if (format === 'csv') return apiComponentes.importCsv;
+  if (format === 'xlsx') return apiComponentes.importXlsx;
+  return apiComponentes.importGeojson;
+}
+
 function StepBreadcrumb({ step, format }: { step: Step; format: Formato }) {
   // Etiquetas legibles por paso para el sub-encabezado.
   const labels: Record<Step, string> = {
@@ -609,6 +663,25 @@ function FormatCard({
 }
 
 function CriteriosBlock({ format }: { format: Formato }) {
+  if (format === 'xlsx') {
+    return (
+      <div className="flex flex-col gap-2 p-4 rounded-lg bg-primary-main/5 border border-input-stroke-main">
+        <span className="text-text-primary text-sm font-bold font-sans">
+          Criterios del Excel
+        </span>
+        <ul className="text-text-secondary text-xs font-sans list-disc list-inside flex flex-col gap-1 leading-relaxed">
+          <li>Descargá la <strong>plantilla</strong> — ya tiene descripción por columna, dropdowns con los valores válidos (tipo, criticidad, estados) y filas de ejemplo.</li>
+          <li>Mantené la fila de headers (navy) tal cual.</li>
+          <li>Borrá las filas con <code>code = ELIMINAR</code> antes de subir (son ejemplos; el parser también las saltea automáticamente, pero queda más limpio).</li>
+          <li>Completá UNA fila por componente. Para líneas (LÍNEA DE CONDUCCIÓN / ADUCCIÓN): repetí el <code>code</code> en N filas, una por vértice.</li>
+          <li>Usá los <strong>dropdowns</strong> en <code>type</code>, <code>criticality</code>, <code>operational_status</code> y <code>physical_status</code> para evitar errores de tipeo.</li>
+          <li>Consultá la hoja <strong>"Valores"</strong> del mismo archivo para conocer los tipos / criticidades / estados disponibles y sus códigos.</li>
+          <li><code>specification</code> puede quedar vacío (= NULL en la DB).</li>
+          <li>Encoding UTF-8 nativo de .xlsx (tildes y ñ no son problema).</li>
+        </ul>
+      </div>
+    );
+  }
   if (format === 'csv') {
     return (
       <div className="flex flex-col gap-2 p-4 rounded-lg bg-primary-main/5 border border-input-stroke-main">

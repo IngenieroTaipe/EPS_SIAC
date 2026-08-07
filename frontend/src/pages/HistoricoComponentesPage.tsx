@@ -192,9 +192,6 @@ export function HistoricoComponentesPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden p-6 text-text-primary">
-      <h1 className="text-h2 font-bold text-primary-main mb-4 font-sans shrink-0">
-        Gestión de Componentes
-      </h1>
 
       {/* ── Barra de filtros (una fila, flex-wrap a 2 si no cabe) ──── */}
       <div className="mb-5 flex flex-wrap items-end gap-4 shrink-0">

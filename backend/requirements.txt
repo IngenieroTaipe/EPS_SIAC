@@ -16,3 +16,5 @@ redis
 netCDF4>=1.6.5
 h5netcdf>=1.3.0 
 scipy
+# Excel plantilla / parser para carga masiva de componentes
+openpyxl>=3.1.0

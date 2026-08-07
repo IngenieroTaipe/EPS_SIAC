@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 
+from django.http import HttpResponse
 from django.db import transaction
 from django.contrib.gis.geos import Point
 from drf_spectacular.utils import extend_schema_view, extend_schema
@@ -29,7 +30,9 @@ from components.serializers import (
 from components.importer import (
     parse_csv,
     parse_geojson,
+    parse_xlsx,
     persist_components,
+    build_xlsx_template,
     ImportError as ImportFileError,
 )
 
@@ -183,14 +186,21 @@ class ComponentViewSet(viewsets.ModelViewSet):
     # Estrategia: ver `components/importer.py` para los detalles de
     # parseo/validación. Respuesta JSON:
     #   { created: int, errors: [{row, code, message}, ...] }
-    parser_classes = [MultiPartParser, FormParser]
+    #
+    # NOTA sobre parsers: NO seteamos `parser_classes` a nivel de
+    # ViewSet (afectaría list/retrieve/download_xlsx_template que son
+    # GETs normales y rompería la negociación de contenido cuando el
+    # frontend envía Content-Type: application/json por default). En
+    # su lugar aplicamos [MultiPartParser, FormParser] acción por acción
+    # via `@action(parser_classes=[...])` (ver abajo).
 
     @extend_schema(
         tags=['Components / Component'],
         summary="Importar componentes desde CSV (dry_run para preview)",
         request=None,  # multipart con campo 'file'
     )
-    @action(detail=False, methods=['post'], url_path='import-csv')
+    @action(detail=False, methods=['post'], url_path='import-csv',
+            parser_classes=[MultiPartParser, FormParser])
     def import_csv(self, request):
         return self._handle_import(request, parse_csv)
 
@@ -199,9 +209,60 @@ class ComponentViewSet(viewsets.ModelViewSet):
         summary="Importar componentes desde GeoJSON (dry_run para preview)",
         request=None,  # multipart con campo 'file'
     )
-    @action(detail=False, methods=['post'], url_path='import-geojson')
+    @action(detail=False, methods=['post'], url_path='import-geojson',
+            parser_classes=[MultiPartParser, FormParser])
     def import_geojson(self, request):
         return self._handle_import(request, parse_geojson)
+
+    @extend_schema(
+        tags=['Components / Component'],
+        summary="Importar componentes desde XLSX (Excel) (dry_run para preview)",
+        request=None,  # multipart con campo 'file'
+    )
+    @action(detail=False, methods=['post'], url_path='import-xlsx',
+            parser_classes=[MultiPartParser, FormParser])
+    def import_xlsx(self, request):
+        return self._handle_import(request, parse_xlsx)
+
+    @extend_schema(
+        tags=['Components / Component'],
+        summary="Descargar plantilla XLSX con descripciones y validaciones",
+    )
+    @action(detail=False, methods=['get'], url_path='download-xlsx-template')
+    def download_xlsx_template(self, request):
+        """
+            Devuelve un .xlsx listo para descargar y editar. Tiene:
+              - Hoja principal con descripciones por columna, headers navy,
+                y filas de ejemplo con code='ELIMINAR'.
+              - Hoja 'Valores' con tipos, criticidades y estados.
+              - Dropdowns (DataValidation) en las columnas type,
+                criticality, operational_status y physical_status que se
+                alimentan de la hoja de valores.
+
+            En caso de error interno capturamos el traceback y lo
+            devolvemos como texto plano 500 para que sea diagnosticable
+            desde el frontend / DevTools (sin necesidad de revisar logs
+            del server).
+        """
+        import logging, traceback
+        logger = logging.getLogger(__name__)
+        logger.info("[download-xlsx-template] request recibido, llamando build_xlsx_template()")
+        try:
+            file_bytes = build_xlsx_template()
+            logger.info("[download-xlsx-template] build OK, %d bytes", len(file_bytes))
+        except Exception as e:
+            logger.exception("[download-xlsx-template] EXCEPCION en build_xlsx_template")
+            return HttpResponse(
+                f"Error generando plantilla XLSX: {e}\n\n{traceback.format_exc()}",
+                content_type="text/plain; charset=utf-8",
+                status=500,
+            )
+        resp = HttpResponse(
+            file_bytes,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        resp['Content-Disposition'] = 'attachment; filename="plantilla_componentes.xlsx"'
+        return resp
 
     def _handle_import(self, request, parser_fn):
         """

@@ -301,6 +301,37 @@ export const apiComponentes = {
     );
     return res.data;
   },
+
+  /**
+   * Importa componentes desde un archivo .xlsx (Excel). El backend
+   * identifica la fila de headers automáticamente (la plantilla tiene
+   * filas de descripción arriba de los headers). Las filas con
+   * `code = ELIMINAR` se saltean (filas de ejemplo de la plantilla).
+   * Misma estrategia dry_run que `importCsv`/`importGeojson`.
+   */
+  async importXlsx(file: File, dryRun = false): Promise<ImportResult> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await httpClient.post(
+      `/components/components/import-xlsx/?dry_run=${dryRun ? 'true' : 'false'}`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return res.data;
+  },
+
+  /**
+   * Descarga la plantilla XLSX generada por el backend (con
+   * descripciones por columna, dropdowns para type/criticidad/estados
+   * y filas de ejemplo con code=ELIMINAR). Devuelve un Blob.
+   */
+  async downloadXlsxTemplate(): Promise<Blob> {
+    const res = await httpClient.get(
+      '/components/components/download-xlsx-template/',
+      { responseType: 'blob' },
+    );
+    return res.data as Blob;
+  },
 };
 
 /** Resultado de importación (CSV o GeoJSON). */
