@@ -1,147 +1,238 @@
 import { useNavigate } from 'react-router-dom';
-import ViewIcon from '@/assets/icons/view.svg?react';
-import EditIcon from '@/assets/icons/edit.svg?react';
+import { Pencil, Eye } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { ESTADO_LABEL, type AlertaHistorica } from '../types';
+import { ESTADO_VISUAL, UMBRAL_LABEL } from '../alerta-utils';
 import { formatFechaHora } from '../stepper-utils';
 
 /**
- * AlertaRow — fila de la tabla de alertas (variante simple, NO el histórico completo).
+ * AlertaRow — fila de la tabla de alertas.
  *
- * Columnas (según Figma):
- *   1) Código           (PK-XXXX)
- *   2) Fen. Climático
- *   3) Fecha/hora predicción
+ * Diseño minimalista alineado con `ComponentRow`:
+ *   - Filas en blanco con separadores hairline (`border-input-stroke-main`).
+ *   - Hover sutil `bg-primary-states-hover-main/10`.
+ *   - Fila seleccionada: fondo `background-selected` (amarillo muy suave)
+ *     cuando `highlightSelected=true` en la tabla.
+ *
+ * Columnas (en este orden):
+ *   1) Código                  — texto semibold navy (identidad)
+ *   2) Fen. Climático          — fenómeno detectado
+ *   3) Fecha/hora predicción   — fecha legible
  *   4) Unidad Operativa
- *   5) Umbral            (etiqueta legible)
- *   6) Estado o fase     (badge con color del estado)
- *   7) Acciones          (iconos view + edit)
+ *   5) Umbral                  — etiqueta legible
+ *   6) Estado o fase           — badge de color del estado
+ *   7) Acciones                — botón Editar (gestion) o view+edit (mapa)
  *
- * Comportamiento:
- *   - Clic en la fila (no en los iconos) → alterna selección (función `onToggleSelect`).
- *   - Fondo amarillo `bg-background-selected` cuando está seleccionada.
- *   - Botón view → navega a `/alertas/gestion` (tabla histórico completo).
- *   - Botón edit → navega a `/alertas/${id}/editar` (editor de estados).
- *   - Botón edit deshabilitado (estilo apagado) cuando estado = 'atendido' o 'no-confirmado'.
+ * Variantes:
+ *   - `gestion` (default): clic en la fila abre el `AlertaDetailSheet`
+ *     (`onOpenDetail` obligatorio); sólo botón Editar standalone. Es la
+ *     variante usada por `HistoricoAlertasPage`.
+ *   - `mapa`: clic en la fila alterna selección (`onToggleSelect`) y
+ *    _resalta en el mapa_; mantiene los botones view (→ histórico) + edit.
+ *     Usada por `MapAlertsPanel`.
  */
 
-const UMBRAL_LABEL = {
-  'moderadamente-lluvioso': 'Moderadamente Lluvioso',
-  'lluvioso': 'Lluvioso',
-  'muy-lluvioso': 'Muy Lluvioso',
-  'extremadamente-lluvioso': 'Extremadamente Lluvioso',
-} as const;
-
-const STATUS_BADGE: Record<string, string> = {
-  'predicho': 'bg-alerts-status-predicho text-text-primary',
-  'en-espera-confirmacion': 'bg-alerts-status-en-espera-confirmacion text-text-primary',
-  'no-confirmado': 'bg-alerts-status-no-confirmado text-text-invert-primary',
-  'confirmado': 'bg-alerts-status-confirmado-reporte text-text-invert-primary',
-  'en-espera-reporte': 'bg-alerts-status-confirmado-reporte text-text-invert-primary',
-  'en-proceso-atencion': 'bg-alerts-status-en-proceso-atencion text-text-invert-primary',
-  'atendido': 'bg-alerts-status-atendido text-text-primary',
-};
+export type AlertaRowVariant = 'mapa' | 'gestion';
 
 interface AlertaRowProps {
   alerta: AlertaHistorica;
   selected: boolean;
-  onToggleSelect: (id: string) => void;
+  /** Toggle selección (variante `mapa`). */
+  onToggleSelect?: (id: string) => void;
+  /** Abrir el sheet de detalle al clic en fila (variante `gestion`). */
+  onOpenDetail?: (alerta: AlertaHistorica) => void;
+  /** Si true, fija el ancho de cada celda (gestión con scroll horizontal). */
+  fixedWidths?: boolean;
+  /** Variante. Default `gestion`. */
+  variant?: AlertaRowVariant;
 }
 
-export function AlertaRow({ alerta, selected, onToggleSelect }: AlertaRowProps) {
+export function AlertaRow({
+  alerta,
+  selected,
+  onToggleSelect,
+  onOpenDetail,
+  fixedWidths = false,
+  variant = 'gestion',
+}: AlertaRowProps) {
   const navigate = useNavigate();
-  const isReadOnly = alerta.estado === 'atendido' || alerta.estado === 'no-confirmado';
-  const isAtendido = alerta.estado === 'atendido';
+  const a = alerta;
+  const esGestion = variant === 'gestion';
+  const visual = ESTADO_VISUAL[a.estado];
+  const isReadOnly = a.estado === 'atendido' || a.estado === 'no-confirmado';
+
+  function handleRowClick() {
+    if (esGestion) onOpenDetail?.(a);
+    else onToggleSelect?.(a.id);
+  }
+
+  function handleEditClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    navigate(`/alertas/${encodeURIComponent(a.id)}/editar`);
+  }
+
+  function handleViewClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    navigate(`/alertas/gestion?id=${encodeURIComponent(a.id)}`);
+  }
 
   return (
     <div
-      onClick={() => onToggleSelect(alerta.id)}
+      onClick={handleRowClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleRowClick();
+        }
+      }}
       className={cn(
-        'self-stretch inline-flex justify-between items-center overflow-hidden cursor-pointer transition-colors',
+        'self-stretch inline-flex items-stretch overflow-hidden cursor-pointer transition-colors',
         'border-b border-input-stroke-main',
-        selected ? 'bg-background-selected' : 'bg-white hover:bg-background-selected/40',
+        selected
+          ? 'bg-background-selected'
+          : 'bg-background-main hover:bg-primary-states-hover-main/10',
       )}
     >
-      {/* Código */}
-      <Cell minWidth="min-w-28">{alerta.id}</Cell>
-      {/* Fenómeno */}
-      <Cell minWidth="min-w-36">{alerta.fenomeno}</Cell>
-      {/* Fecha predicción */}
-      <Cell minWidth="min-w-48">{formatFechaHora(alerta.fechaPrediccionInicio)}</Cell>
-      {/* Unidad operativa */}
-      <Cell minWidth="min-w-48">{alerta.unidadOperativa}</Cell>
-      {/* Umbral */}
-      <Cell minWidth="min-w-28">{UMBRAL_LABEL[alerta.umbral]}</Cell>
-      {/* Estado badge */}
-      <div className="flex-1 min-w-36 px-2 inline-flex justify-center items-center">
+      {/* 1. Código */}
+      <Cell minWidth="min-w-24" width="w-32" bold>
+        {a.id}
+      </Cell>
+      {/* 2. Fenómeno */}
+      <Cell minWidth="min-w-36" width="w-44">
+        <span className="truncate" title={a.fenomeno}>{a.fenomeno}</span>
+      </Cell>
+      {/* 3. Fecha predicción */}
+      <Cell minWidth="min-w-48" width="w-56" mono>
+        {formatFechaHora(a.fechaPrediccionInicio)}
+      </Cell>
+      {/* 4. Unidad operativa */}
+      <Cell minWidth="min-w-40" width="w-56">
+        <span className="truncate" title={a.unidadOperativa}>
+          {a.unidadOperativa || '—'}
+        </span>
+      </Cell>
+      {/* 5. Umbral */}
+      <Cell minWidth="min-w-36" width="w-48">
+        <span className="truncate text-text-secondary" title={UMBRAL_LABEL[a.umbral]}>
+          {UMBRAL_LABEL[a.umbral]}
+        </span>
+      </Cell>
+      {/* 6. Estado badge */}
+      <div className={cn(
+        'inline-flex justify-center items-center px-3 py-2',
+        fixedWidths ? 'w-44' : 'flex-1 min-w-36',
+      )}>
         <div
           className={cn(
-            'px-3 py-1 rounded-lg text-xs font-normal font-sans',
-            STATUS_BADGE[alerta.estado],
+            'px-2 py-0.5 rounded-md text-xs font-bold font-sans inline-flex items-center gap-1.5',
+            visual.badge,
           )}
         >
-          {ESTADO_LABEL[alerta.estado]}
+          <span className={cn('size-2 rounded-full', visual.dot)} />
+          {ESTADO_LABEL[a.estado]}
         </div>
       </div>
-      {/* Acciones */}
-      <div className="flex-1 min-w-24 py-2 inline-flex justify-center items-center gap-2">
-        <IconButton
-          label="Ver detalle"
-          onClick={() =>
-            navigate(`/alertas/gestion?id=${encodeURIComponent(alerta.id)}`)
-          }
-        >
-          <ViewIcon className="size-5 text-text-primary" aria-hidden="true" />
-        </IconButton>
-        <IconButton
-          label="Editar"
-          disabled={isReadOnly || isAtendido}
-          subtle={isReadOnly || isAtendido}
-          onClick={() => navigate(`/alertas/${alerta.id}/editar`)}
-        >
-          <EditIcon
+
+      {/* 7. Acciones */}
+      <div className={cn(
+        'inline-flex justify-center items-center gap-2 px-3',
+        fixedWidths ? 'w-20' : 'flex-1 min-w-20',
+      )}>
+        {esGestion ? (
+          <button
+            type="button"
+            aria-label="Editar alerta"
+            onClick={handleEditClick}
+            disabled={isReadOnly}
             className={cn(
-              'size-5',
-              isReadOnly || isAtendido
-                ? 'text-text-status-placeholder'
-                : 'text-text-primary',
+              'size-8 inline-flex items-center justify-center rounded-lg',
+              'outline outline-1 outline-offset-[-1px] outline-input-stroke-main',
+              'text-text-primary bg-background-main transition-colors',
+              'hover:bg-primary-main hover:text-text-invert-primary',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',
+              isReadOnly && 'opacity-40 cursor-not-allowed hover:bg-background-main hover:text-text-primary',
             )}
-            aria-hidden="true"
-          />
-        </IconButton>
+          >
+            <Pencil className="size-4" strokeWidth={2} aria-hidden="true" />
+          </button>
+        ) : (
+          <>
+            <IconButton
+              label="Ver en histórico"
+              onClick={handleViewClick}
+            >
+              <Eye className="size-5 text-text-primary" aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              label="Editar"
+              disabled={isReadOnly}
+              onClick={handleEditClick}
+            >
+              <Pencil
+                className={cn(
+                  'size-5',
+                  isReadOnly ? 'text-text-status-placeholder' : 'text-text-primary',
+                )}
+                aria-hidden="true"
+              />
+            </IconButton>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-/** Celda estándar. */
+/** Celda de texto. `bold` para identidad (código). `mono` para fechas. */
 function Cell({
   children,
   minWidth,
+  width,
+  bold = false,
+  mono = false,
 }: {
   children: React.ReactNode;
   minWidth: string;
+  width?: string;
+  bold?: boolean;
+  mono?: boolean;
 }) {
   return (
-    <div className={cn('flex-1 h-10 px-3 py-2 flex justify-center items-center', minWidth)}>
-      <span className="text-text-primary text-sm font-normal font-sans">{children}</span>
+    <div
+      className={cn(
+        'h-11 px-3 py-2 inline-flex items-center',
+        width ?? 'flex-1',
+        minWidth,
+      )}
+    >
+      <span
+        className={cn(
+          'text-sm font-sans truncate',
+          bold
+            ? 'text-primary-main font-bold'
+            : 'text-text-primary font-normal',
+          mono && 'font-mono tabular-nums',
+        )}
+      >
+        {children}
+      </span>
     </div>
   );
 }
 
-/** Botón de icono redondeado (bg blanco, outline input-stroke). */
+/** Botón de icono redondeado (variante mapa). */
 function IconButton({
   children,
   label,
   onClick,
   disabled = false,
-  subtle = false,
 }: {
   children: React.ReactNode;
   label: string;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   disabled?: boolean;
-  subtle?: boolean;
 }) {
   return (
     <button
@@ -149,16 +240,15 @@ function IconButton({
       aria-label={label}
       disabled={disabled}
       onClick={(e) => {
-        // Evitar que el clic en el botón se propague al row (que selecciona).
         e.stopPropagation();
-        if (!disabled) onClick();
+        if (!disabled) onClick(e);
       }}
       className={cn(
-        'h-7 px-1 py-1 bg-background-main rounded-lg outline outline-[0.5px] outline-input-stroke-main',
+        'size-8 bg-background-main rounded-lg outline outline-1 outline-offset-[-1px] outline-input-stroke-main',
         'inline-flex items-center justify-center transition-colors',
         'hover:bg-primary-states-hover-main',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',
-        subtle && 'opacity-50 cursor-not-allowed hover:bg-background-main',
+        disabled && 'opacity-40 cursor-not-allowed hover:bg-background-main',
       )}
     >
       {children}

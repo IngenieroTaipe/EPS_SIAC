@@ -19,6 +19,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
+  // ── Logout automático por 401: el interceptor de axios en `httpClient`
+  //    detecta token expirado/inválido y dispara `auth:unauthorized`. Aquí
+  //    sincronizamos el estado de React (limpiando sesión) para que el
+  //    `AppLayout` redirija a `/`. Sin esto, el contexto seguiría creyendo
+  //    que hay sesión aunque el localStorage esté vacío, y el usuario vería
+  //    la página protegida sin datos (p. ej. componentes vacíos).
+  useEffect(() => {
+    function handleUnauthorized() {
+      setIsAuthenticated(false);
+      setUser(null);
+    }
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
+
   // ── Bootstrap: si al montar la app hay un token en localStorage (p. ej.
   //    tras un F5 o reabrir la pestaña) pero todavía no sabemos quién es el
   //    usuario (`user === null`), pedimos el perfil a `/auth/user/` para

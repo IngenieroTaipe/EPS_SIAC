@@ -18,5 +18,19 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Permite argumentos intencionalmente no usados cuando se prefijan con `_`.
+      // Estándar de facto en TS; útil para callbacks de librerías (p. ej.
+      // react-leaflet `onEachFeature(_feature, _layer)`) y parámetros de
+      // posición que se deben declarar por firma pero no se necesitan.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
   },
 ])

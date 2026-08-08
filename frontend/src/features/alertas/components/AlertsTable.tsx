@@ -1,51 +1,65 @@
 import type { AlertaHistorica } from '../types';
-import { AlertaRow } from './AlertaRow';
+import { AlertaRow, type AlertaRowVariant } from './AlertaRow';
 
 /**
- * AlertsTable — tabla de alertas con header navy (`primary-extra-light`).
+ * AlertsTable — tabla minimalista de alertas (gestión).
  *
- * Columnas (según Figma):
+ * Diseño alineado con `ComponentsTable`:
+ *   - Header **sólido navy** `bg-primary-main` con texto blanco, sin
+ *     outline grueso. Separador entre header y filas hairline
+ *     `border-input-stroke-main`. Header sticky para que se mantenga al
+ *     hacer scroll vertical.
+ *   - Filas en blanco con hover sutil. Clic en la fila abre el sheet
+ *     (variante `gestion`).
+ *   - Borde redondeado `rounded-xl`.
+ *
+ * Columnas (en orden):
  *   Código | Fen. Climático | Fecha/hora predicción | Unidad Operativa
- *   | Umbral | Estado o fase | (acciones)
+ *   | Umbral | Estado o fase | Acciones
  *
- * Comportamiento:
- *   - Selección simple: solo UNA alerta seleccionada a la vez.
- *   - `sortSelectedFirst` (default true): la fila seleccionada se mueve
- *     al inicio de la tabla (igual que ComponentsTable).
- *   - `highlightSelected`: controla si la fila seleccionada se pinta
- *     de amarillo (útil en el panel del mapa; en el histórico se deja
- *     en false porque no hay sincronización con el mapa).
- *
- * Estilos:
- *   - Header: `bg-primary-extra-light` + texto BLANCO semibold `text-sm`.
- *   - Filas: texto `text-sm` (no text-base) para que quepan las acciones
- *     a la derecha sin recortarse en zoom 100%.
+ * Variantes:
+ *   - `gestion` (default): clic en fila abre el sheet; el botón Editar
+ *     navega a `/alertas/:id/editar`.
+ *   - `mapa`: toggle selección (resaltado en el mapa); fila con botones
+ *     view + edit (legacy, usado por `MapAlertsPanel`).
  */
 interface AlertsTableProps {
   alertas: AlertaHistorica[];
+  /** ID de la fila resaltada (seleccionada en el sheet o en el mapa). */
   selectedId: string | null;
-  onToggleSelect: (id: string) => void;
+  /** Toggle selección (variante `mapa`). */
+  onToggleSelect?: (id: string) => void;
+  /** Abrir el sheet al clic en fila (variante `gestion`). */
+  onOpenDetail?: (alerta: AlertaHistorica) => void;
   /** Si true (default), el row seleccionado se mueve al inicio. */
   sortSelectedFirst?: boolean;
-  /** Si true (default), el row usa fondo amarillo en selected. */
+  /** Si true, el row usa fondo amarillo en selected. Default true. */
   highlightSelected?: boolean;
+  /** Anchura fija de celdas (recomendado en gestión con scroll x). */
+  fixedWidths?: boolean;
+  /** Variante. Default `gestion`. */
+  variant?: AlertaRowVariant;
 }
 
 const HEADER_COLS = [
-  { label: 'Código', minWidth: 'min-w-28' },
-  { label: 'Fen. Climático', minWidth: 'min-w-36' },
-  { label: 'Fecha/hora predicción', minWidth: 'min-w-48' },
-  { label: 'Unidad Operativa', minWidth: 'min-w-48' },
-  { label: 'Umbral', minWidth: 'min-w-28' },
-  { label: 'Estado o fase', minWidth: 'min-w-36' },
-];
+  { label: 'Código', width: 'w-32' },
+  { label: 'Fen. Climático', width: 'w-44' },
+  { label: 'Fecha/hora predicción', width: 'w-56' },
+  { label: 'Unidad Operativa', width: 'w-56' },
+  { label: 'Umbral', width: 'w-48' },
+  { label: 'Estado o fase', width: 'w-44' },
+  { label: '', width: 'w-20' },
+] as const;
 
 export function AlertsTable({
   alertas,
   selectedId,
   onToggleSelect,
+  onOpenDetail,
   sortSelectedFirst = true,
   highlightSelected = true,
+  fixedWidths = true,
+  variant = 'gestion',
 }: AlertsTableProps) {
   // Ordenar: si hay seleccionado y sortSelectedFirst, ese va primero.
   const ordered = sortSelectedFirst && selectedId
@@ -56,30 +70,31 @@ export function AlertsTable({
     : alertas;
 
   return (
-    <div className="self-stretch rounded-[10px] border border-input-stroke-main flex flex-col justify-start items-center gap-0.5 overflow-hidden">
-      {/* Header — texto blanco, text-sm */}
-      <div className="self-stretch h-12 bg-primary-extra-light rounded-tl-[10px] rounded-tr-[10px] inline-flex justify-between items-center">
+    <div className="self-stretch flex flex-col">
+      {/* Header sólido navy — sticky para que se mantenga al hacer scroll */}
+      <div className="inline-flex items-stretch bg-primary-main sticky top-0 z-10">
         {HEADER_COLS.map((col) => (
           <div
-            key={col.label}
-            className={`flex-1 h-12 ${col.minWidth} px-3 py-2 bg-primary-extra-light flex justify-center items-center gap-2`}
+            key={col.label || 'acciones'}
+            className={`${col.width} h-10 px-3 py-2 inline-flex items-center`}
           >
-            <span className="text-text-invert-primary text-sm font-semibold font-sans">
+            <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">
               {col.label}
             </span>
           </div>
         ))}
-        {/* Columna acciones vacía */}
-        <div className="flex-1 min-w-24" />
       </div>
 
       {/* Filas */}
-      {ordered.map((alerta) => (
+      {ordered.map((a) => (
         <AlertaRow
-          key={alerta.id}
-          alerta={alerta}
-          selected={highlightSelected && selectedId === alerta.id}
+          key={a.id}
+          alerta={a}
+          selected={highlightSelected && selectedId === a.id}
           onToggleSelect={onToggleSelect}
+          onOpenDetail={onOpenDetail}
+          fixedWidths={fixedWidths}
+          variant={variant}
         />
       ))}
     </div>

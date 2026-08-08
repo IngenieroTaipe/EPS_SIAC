@@ -212,9 +212,6 @@ export function GestionUmbrales() {
 
   return (
     <div className="h-full overflow-y-auto p-6 text-text-primary">
-      <h1 className="text-h2 font-bold text-primary-main mb-4 font-sans">
-        Gestión de Umbrales
-      </h1>
 
       <div className="mb-5 flex flex-wrap items-end gap-6">
         <div className="flex flex-col gap-1.5">

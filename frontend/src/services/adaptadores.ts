@@ -73,7 +73,10 @@ export function adaptarComponentes(
     const primerUtm = utmFromCoord(coordList[0]);
     const verticesUtm = coordList
       .map(utmFromCoord)
-      .filter((u): u is { easting: number; northing: number; zone?: string } => Boolean(u));
+      .filter(
+        (u): u is { easting: number; northing: number; zone: string } =>
+          Boolean(u),
+      );
 
     // Estados (operacional + físico) — labels legibles del backend.
     const estadoOperacional =

@@ -47,6 +47,9 @@ export function MapAlertsPanel({
         selectedId={selectedId}
         onToggleSelect={onToggleSelect}
         highlightSelected
+        fixedWidths={false}
+        variant="mapa"
+        sortSelectedFirst
       />
     </MapSlidingPanel>
   );

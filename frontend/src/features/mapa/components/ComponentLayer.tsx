@@ -114,7 +114,7 @@ function makeDivIconVariant(
   const imgSize = 40;
   const half = size / 2;
   const ringBackground = selected
-    ? 'background: var(--eps-background-selected);'
+    ? 'background: var(--eps-background-selected); box-shadow: 0 0 0 2px var(--eps-background-selected);'
     : '';
   const html = `
     <div style="

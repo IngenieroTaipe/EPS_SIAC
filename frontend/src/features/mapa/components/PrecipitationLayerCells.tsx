@@ -55,7 +55,6 @@ export function PrecipitationLayerCells() {
   // Fetch del endpoint window-18h de celdas (una sola vez al montar).
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     apiGFS
       .getWindow18hCells()
       .then((geojson: GfsCellFeatureCollection) => {
@@ -165,7 +164,6 @@ export function PrecipitationLayerCells() {
     const featureStatus = feature.properties?.temporal_status ?? 'FORECAST';
     if (featureStatus !== active.temporal_status)
       return { fillOpacity: 0, stroke: false };
-    const mmh = intensityAt(feature, idx);
     const cat: GfsCategory = classifyCell(feature, idx);
     if (cat === '-') return { fillOpacity: 0, stroke: false };
     return {

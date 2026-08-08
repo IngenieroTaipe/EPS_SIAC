@@ -19,7 +19,6 @@ import { CargarDatosModal } from '@/features/componentes/components/CargarDatosM
 import { UNIDAD_TODAS } from '@/shared/context/UnidadOperativaContext';
 import {
   UPDATED_LABEL_PREFIX,
-  UPDATED_VALUE,
   UNIDAD_OPERATIVA_LABEL,
   CARGAR_DATOS_OPTIONS,
 } from './TopBarConfig';

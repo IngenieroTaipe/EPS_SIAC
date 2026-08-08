@@ -1,61 +1,56 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Search, X } from 'lucide-react';
 import { AlertsTable } from '@/features/alertas/components/AlertsTable';
-import { ESTADO_LABEL, type AlertaHistorica, type EstadoAlertaHistorica } from '@/features/alertas/types';
+import { AlertaDetailSheet } from '@/features/alertas/components/AlertaDetailSheet';
+import {
+  ESTADO_LABEL,
+  type AlertaHistorica,
+} from '@/features/alertas/types';
+import { ESTADOS_FILTRABLES } from '@/features/alertas/alerta-utils';
 import { apiAlerts } from '@/services/apiAlerts';
 import { mapAlertListToFrontend } from '@/features/alertas/alertAdapters';
-import { cn } from '@/shared/lib/cn';
+import { FilterableSelect, type FilterableOption } from '@/shared/components/FilterableSelect';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
 import { UNIDAD_TODAS } from '@/shared/context/UnidadOperativaContext';
 
-/**
- * Compara una unidad del mock (p.ej. "Pichanaqui") con el nombre del
- * contexto (p.ej. "Pichanaqui-Sangani") usando la "raíz" antes del
- * guion, para evitar duplicar de la lista de unidades en esta página.
- * Mientras el mock usa nombres cortos heredados, el contexto usa los
- * nombres canónicos; esto los reconcilia sin tocar el mock.
- */
-function mismaUnidad(unidadAlerta: string, selectedNombre: string): boolean {
-  if (selectedNombre === UNIDAD_TODAS) return true;
-  const rootSel = selectedNombre.split('-')[0];
-  const rootAlerta = unidadAlerta.split('-')[0];
-  return rootSel === rootAlerta;
-}
-
-/** Estados se pueden filtrar individualmente (checkbox list). */
-const ESTADOS_FILTRABLES: EstadoAlertaHistorica[] = [
-  'predicho',
-  'en-espera-confirmacion',
-  'no-confirmado',
-  'confirmado',
-  'en-espera-reporte',
-  'en-proceso-atencion',
-  'atendido',
-];
-
-/** Color del badge por estado (para el indicador del checkbox). */
-const ESTADO_DOT: Record<EstadoAlertaHistorica, string> = {
-  'predicho': 'bg-alerts-status-predicho',
-  'en-espera-confirmacion': 'bg-alerts-status-en-espera-confirmacion',
-  'no-confirmado': 'bg-alerts-status-no-confirmado',
-  'confirmado': 'bg-alerts-status-confirmado-reporte',
-  'en-espera-reporte': 'bg-alerts-status-confirmado-reporte',
-  'en-proceso-atencion': 'bg-alerts-status-en-proceso-atencion',
-  'atendido': 'bg-alerts-status-atendido',
-};
+/** Máximo de sugerencias del autocompletado del buscador. */
+const MAX_SUGERENCIAS = 8;
 
 /**
- * HistoricoAlertasPage — vista de tabla histórica con filtros.
+ * HistoricoAlertasPage — vista "Gestión de Alertas" (tabla histórica con
+ * filtros).
  *
- * Filtros (en barra superior):
- *   - Unidad operativa (select único; "Todas" = sin filtro).
- *   - Estados (lista de checkboxes con dot de color).
- *   - Intervalo de fechas: desde / hasta. La fecha de comparación es
- *     `fechaCreacion` (cuando se generó la alerta histórica). Motivo
- *     porque esa fecha inicia el ciclo de vida de la alerta y es
- *     consistente para todos los estados. Si más tarde el backend
- *     expone otras fechas relevantes (`fechaFinalizacion`), se puede
- *     añadir un selector "Comparar por: creación / notificación / predicción / cierre".
+ * Ruta: `/alertas/gestion`. Puede recibir `?id=ID` para resaltar y
+ * pre-seleccionar una alerta (cuando el usuario entra desde el botón
+ * "view" del panel del mapa u otra vista).
+ *
+ * Layout idéntico a `HistoricoComponentesPage`:
+ *   - Contenedor `h-full flex flex-col overflow-hidden` → sólo la tabla
+ *     y el sheet lateral scrollean; la barra de filtros queda fija arriba.
+ *   - Tabla a la izquierda + `AlertaDetailSheet` a la derecha (estático,
+ *     `floating=false`) al seleccionar una fila.
+ *
+ * Filtros (todos controles `FilterableSelect` salvo el buscador, que es
+ * input con autocompletado, y el rango de fechas, que es nativo):
+ *
+ *   1. Buscar — input con sugerencias en vivo (dropdown de alertas que
+ *      matchean código/fenómeno/distrito/unidad). Click en una sugerencia
+ *      la fija y filtra la tabla.
+ *   2. Unidad Operativa — `FilterableSelect` con las unidades activas del
+ *      contexto global (branch.name, incluyendo "Todas").
+ *   3. Estados — `FilterableSelect` multi (chips seleccionables con dot
+ *      de color). Incluye "Seleccionar todos".
+ *   4. Desde / 5. Hasta — nativos `type="date"` (compara contra
+ *      `fechaCreacion`, que inicia el ciclo de vida de la alerta).
+ *   6. Limpiar filtros — botón que resetea todo (sólo visible si hay
+ *      filtros no-default).
+ *
+ * Notas sobre el modelo (ver `alertAdapters.ts`):
+ *   el listado del backend NO incluye unidad operativa/distrito ni estado,
+ *   así que esos filtros pueden no acotar resultados hasta que el backend
+ *   los exponga. Mientras tanto, el filtro se mantiene en cliente para no
+ *   romper la UI si el backend los agrega mañana.
  */
 export function HistoricoAlertasPage() {
   const [searchParams] = useSearchParams();
@@ -66,39 +61,68 @@ export function HistoricoAlertasPage() {
   const [alertas, setAlertas] = useState<AlertaHistorica[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [estadosSeleccionados, setEstadosSeleccionados] = useState<Set<EstadoAlertaHistorica>>(
-    () => new Set(ESTADOS_FILTRABLES),
+  // ── Filtros ────────────────────────────────────────────────────────
+  const [busqueda, setBusqueda] = useState<string>('');
+  const [busquedaAbierta, setBusquedaAbierta] = useState<boolean>(false);
+  // Estados: por defecto TODOS seleccionados (= sin filtro). Es un array
+  // de values (slugs), lo que espera `FilterableSelect` en modo multi.
+  const [estadosSeleccionados, setEstadosSeleccionados] = useState<string[]>(
+    ESTADOS_FILTRABLES,
   );
   const [desde, setDesde] = useState<string>('');
   const [hasta, setHasta] = useState<string>('');
 
-  // ID seleccionado en la tabla (para resaltar fila si hace falta). Si
-  // llega ?id= desde el mapa (botón view del AlertaRow), pre-selecciona.
   const [selectedId, setSelectedId] = useState<string | null>(preselectId);
 
   // Cargar alertas del backend al montar.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- secuencia de
+       carga (loading true → fetch → loading false), patrón canónico. */
     setIsLoading(true);
     apiAlerts.listAlerts()
-      .then((items) => {
-        const mapped = items.map(mapAlertListToFrontend);
-        setAlertas(mapped);
-      })
+      .then((items) => setAlertas(items.map(mapAlertListToFrontend)))
       .catch((err) => console.error('Error cargando alertas:', err))
       .finally(() => setIsLoading(false));
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  // Toggle real: clic en fila seleccionada la deselecciona (igual que las
-  // demás vistas que usan AlertsTable/ComponentsTable).
-  function handleToggleSelect(id: string) {
-    setSelectedId((prev) => (prev === id ? null : id));
-  }
+  // ── Opciones de filtros ───────────────────────────────────────────
+  /** Opciones Unidad Operativa: "Todas" + branches activos. */
+  const unidadOptions = useMemo<FilterableOption[]>(
+    () => [
+      { value: UNIDAD_TODAS, label: UNIDAD_TODAS },
+      ...branches.map((b) => ({ value: b.name, label: b.name })),
+    ],
+    [branches],
+  );
 
-  // Aplicar filtros sobre los datos ya cargados.
-  const alertasFiltradas = useMemo(() => {
+  /** Opciones Estados (labels legibles). */
+  const estadosOptions = useMemo<FilterableOption[]>(
+    () => ESTADOS_FILTRABLES.map((e) => ({ value: e, label: ESTADO_LABEL[e] })),
+    [],
+  );
+
+  // ── Sugerencias del autocompletado ────────────────────────────────
+  const sugerencias = useMemo<AlertaHistorica[]>(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return [];
+    const out: AlertaHistorica[] = [];
+    for (const a of alertas) {
+      const hay = `${a.id} ${a.fenomeno} ${a.distrito} ${a.unidadOperativa}`.toLowerCase();
+      if (hay.includes(q)) out.push(a);
+      if (out.length >= MAX_SUGERENCIAS) break;
+    }
+    return out;
+  }, [busqueda, alertas]);
+
+  // ── Alertas filtradas (in-memory contra todos los filtros) ─────────
+  const alertasFiltradas = useMemo<AlertaHistorica[]>(() => {
+    const q = busqueda.trim().toLowerCase();
+    const estadosSet = new Set(estadosSeleccionados);
+    const unidad = selectedNombre === UNIDAD_TODAS ? '' : selectedNombre;
     return alertas.filter((a) => {
-      if (!mismaUnidad(a.unidadOperativa, selectedNombre)) return false;
-      if (!estadosSeleccionados.has(a.estado)) return false;
+      if (unidad && a.unidadOperativa !== unidad && a.distrito !== unidad) return false;
+      if (!estadosSet.has(a.estado)) return false;
       const fechaCreacion = new Date(a.fechaCreacion).getTime();
       if (desde) {
         const desdeTs = new Date(`${desde}T00:00:00`).getTime();
@@ -108,130 +132,238 @@ export function HistoricoAlertasPage() {
         const hastaTs = new Date(`${hasta}T23:59:59`).getTime();
         if (fechaCreacion > hastaTs) return false;
       }
+      if (q) {
+        const hay = `${a.id} ${a.fenomeno} ${a.distrito} ${a.unidadOperativa}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [alertas, selectedNombre, estadosSeleccionados, desde, hasta]);
+  }, [alertas, selectedNombre, estadosSeleccionados, desde, hasta, busqueda]);
 
-  // Opciones del filtro: "Todas" + branches activos del contexto.
-  const unidadOptions = useMemo(
-    () => [UNIDAD_TODAS, ...branches.map((b) => b.name)],
-    [branches],
-  );
+  // Toggle real: clic en fila seleccionada la deselecciona.
+  function handleToggleSelect(id: string) {
+    setSelectedId((prev) => (prev === id ? null : id));
+  }
+
+  /** Abrir el sheet desde una fila de la tabla. */
+  function handleOpenDetail(a: AlertaHistorica) {
+    setSelectedId(a.id);
+  }
+
+  /** Alerta actualmente seleccionada para el sheet (lookup por id). */
+  const selectedAlerta = useMemo<AlertaHistorica | null>(() => {
+    if (!selectedId) return null;
+    return alertas.find((a) => a.id === selectedId) ?? null;
+  }, [alertas, selectedId]);
+
+  // ── Flags para mostrar "Limpiar filtros" + estado activo ──────────
+  const hayFiltrosActivos =
+    busqueda.trim() !== '' ||
+    selectedNombre !== UNIDAD_TODAS ||
+    estadosSeleccionados.length !== ESTADOS_FILTRABLES.length ||
+    desde !== '' ||
+    hasta !== '';
+
+  function limpiarFiltros() {
+    setBusqueda('');
+    setBusquedaAbierta(false);
+    setSelectedNombre(UNIDAD_TODAS);
+    setEstadosSeleccionados(ESTADOS_FILTRABLES);
+    setDesde('');
+    setHasta('');
+  }
+
+  // Cierra el dropdown del buscador al click fuera.
+  useEffect(() => {
+    if (!busquedaAbierta) return;
+    function onClick(e: MouseEvent) {
+      const el = e.target as HTMLElement | null;
+      if (el && el.closest('[data-buscador-root]')) return;
+      setBusquedaAbierta(false);
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [busquedaAbierta]);
 
   return (
-    <div className="h-full overflow-y-auto p-6 text-text-primary">
-      <h1 className="text-h2 font-bold text-primary-main mb-4 font-sans">
-        Histórico de Alertas
-      </h1>
+    <div className="h-full flex flex-col overflow-hidden p-6 text-text-primary">
 
-      {/* ── Barra de filtros ───────────────────────────────────────────── */}
-      <div className="mb-5 flex flex-wrap items-end gap-6">
-        {/* Unidad Operativa */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-text-primary text-sm font-medium font-sans">Unidad Operativa</label>
-          <select
-            value={selectedNombre}
-            onChange={(e) => setSelectedNombre(e.target.value)}
-            className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
-                       focus:outline-2 focus:outline-primary-main"
-          >
-            {unidadOptions.map((u) => (
-              <option key={u} value={u}>{u}</option>
-            ))}
-          </select>
-        </div>
+      {/* ── Barra de filtros (una fila, flex-wrap a 2 si no cabe) ──── */}
+      <div className="mb-5 flex flex-wrap items-end gap-4 shrink-0">
+        {/* 1. Buscar (input con autocompletado) */}
+        <div className="flex flex-col gap-1.5 relative" data-buscador-root>
+          <label className="text-text-primary text-sm font-medium font-sans">Buscar</label>
+          <div className="relative w-72">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-icon-main pointer-events-none"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => {
+                setBusqueda(e.target.value);
+                setBusquedaAbierta(true);
+              }}
+              onFocus={() => setBusquedaAbierta(true)}
+              placeholder="Código, fenómeno o unidad"
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke bg-background-main text-text-primary font-sans text-sm
+                         focus:outline-2 focus:outline-primary-main
+                         placeholder:text-text-secondary"
+            />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBusqueda('');
+                  setBusquedaAbierta(false);
+                }}
+                aria-label="Borrar búsqueda"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-secondary hover:text-text-primary"
+              >
+                <X className="size-4" strokeWidth={2} aria-hidden="true" />
+              </button>
+            )}
 
-        {/* Estados (multi-select con checkboxes coloreados) */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-text-primary text-sm font-medium font-sans">Estados</label>
-          <div className="flex flex-wrap items-center gap-2 max-w-2xl">
-            {ESTADOS_FILTRABLES.map((est) => {
-              const isOn = estadosSeleccionados.has(est);
-              return (
-                <button
-                  key={est}
-                  type="button"
-                  onClick={() =>
-                    setEstadosSeleccionados((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(est)) next.delete(est);
-                      else next.add(est);
-                      return next;
-                    })
-                  }
-                  className={cn(
-                    'inline-flex items-center gap-2 px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] text-sm font-sans cursor-pointer transition-colors',
-                    isOn
-                      ? 'bg-primary-states-hover-main outline-primary-main text-primary-main font-bold'
-                      : 'bg-background-main outline-button-stroke text-text-primary hover:bg-primary-states-hover-main/30',
-                  )}
-                >
-                  <span className={`size-2.5 rounded-full ${ESTADO_DOT[est]}`} />
-                  {ESTADO_LABEL[est]}
-                </button>
-              );
-            })}
+            {/* Dropdown de sugerencias */}
+            {busquedaAbierta && sugerencias.length > 0 && (
+              <div
+                role="listbox"
+                className="absolute z-50 mt-1 left-0 right-0 bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke shadow-lg
+                           max-h-72 overflow-y-auto py-1"
+              >
+                {sugerencias.map((a) => {
+                  const label = a.id;
+                  const sub = [a.fenomeno, a.unidadOperativa].filter(Boolean).join(' · ');
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => {
+                        setBusqueda(label);
+                        setBusquedaAbierta(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm font-sans transition-colors
+                                 text-text-primary hover:bg-primary-states-hover-main/30
+                                 flex flex-col gap-0.5"
+                    >
+                      <span className="font-medium truncate">{label}</span>
+                      {sub && (
+                        <span className="text-xs text-text-secondary truncate">{sub}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Fecha desde */}
+        {/* 2. Unidad Operativa */}
+        <div className="flex flex-col gap-1.5 w-64">
+          <label className="text-text-primary text-sm font-medium font-sans">
+            Unidad Operativa
+          </label>
+          <FilterableSelect
+            value={selectedNombre}
+            onChange={(v) => setSelectedNombre(v)}
+            options={unidadOptions}
+            placeholder="Buscar unidad…"
+            emptyLabel="— Todas —"
+          />
+        </div>
+
+        {/* 3. Estados (multi-select) */}
+        <div className="flex flex-col gap-1.5 w-72">
+          <label className="text-text-primary text-sm font-medium font-sans">Estados</label>
+          <FilterableSelect
+            multiselect
+            value={estadosSeleccionados}
+            onChange={(v) => setEstadosSeleccionados(v)}
+            options={estadosOptions}
+            placeholder="Buscar estado…"
+            emptyLabel="— Todos —"
+            allLabel="Todos los estados"
+          />
+        </div>
+
+        {/* 4. Fecha desde */}
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">Desde</label>
           <input
             type="date"
             value={desde}
             onChange={(e) => setDesde(e.target.value)}
-            className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
+            className="w-40 px-3 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke bg-background-main text-text-primary font-sans text-sm
                        focus:outline-2 focus:outline-primary-main"
           />
         </div>
 
-        {/* Fecha hasta */}
+        {/* 5. Fecha hasta */}
         <div className="flex flex-col gap-1.5">
           <label className="text-text-primary text-sm font-medium font-sans">Hasta</label>
           <input
             type="date"
             value={hasta}
             onChange={(e) => setHasta(e.target.value)}
-            className="px-3 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke bg-button-fill-button text-text-primary font-sans text-sm
+            className="w-40 px-3 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke bg-background-main text-text-primary font-sans text-sm
                        focus:outline-2 focus:outline-primary-main"
           />
         </div>
 
-        {/* Reset */}
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedNombre(UNIDAD_TODAS);
-            setEstadosSeleccionados(new Set(ESTADOS_FILTRABLES));
-            setDesde('');
-            setHasta('');
-          }}
-          className="px-4 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke text-text-primary text-sm font-medium font-sans
-                     hover:bg-primary-states-hover-main/30 transition-colors"
-        >
-          Limpiar filtros
-        </button>
+        {/* 6. Limpiar filtros (solo si hay filtros no-default) */}
+        {hayFiltrosActivos && (
+          <button
+            type="button"
+            onClick={limpiarFiltros}
+            className="self-end px-3 py-2.5 rounded-lg outline outline-1 outline-offset-[-1px]
+                       outline-button-stroke text-text-primary text-sm font-medium font-sans
+                       hover:bg-primary-states-hover-main/30 transition-colors"
+          >
+            Limpiar filtros
+          </button>
+        )}
 
-        <span className="px-2 py-2 text-text-secondary text-xs font-sans">
-          {isLoading ? 'Cargando...' : `${alertasFiltradas.length} resultado${alertasFiltradas.length === 1 ? '' : 's'}`}
+        {/* Contador de resultados (al final de la fila) */}
+        <span className="ml-auto self-end px-2 py-2 text-text-secondary text-xs font-sans">
+          {isLoading
+            ? 'Cargando…'
+            : `${alertasFiltradas.length} resultado${alertasFiltradas.length === 1 ? '' : 's'}`}
         </span>
       </div>
 
-      {/* ── Tabla histórica ───────────────────────────────────────────── */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-text-secondary text-sm font-sans">Cargando alertas...</p>
+      {/* ── Tabla + Sheet lateral ─────────────────────────────────── */}
+      <div className="flex flex-1 gap-4 min-h-0">
+        <div className="flex-1 overflow-auto min-w-0 rounded-xl border border-input-stroke-main">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-text-secondary text-sm font-sans">Cargando alertas...</p>
+            </div>
+          ) : (
+            <AlertsTable
+              alertas={alertasFiltradas}
+              selectedId={selectedId}
+              onToggleSelect={handleToggleSelect}
+              onOpenDetail={handleOpenDetail}
+              sortSelectedFirst
+              fixedWidths
+              variant="gestion"
+            />
+          )}
         </div>
-      ) : (
-        <AlertsTable
-          alertas={alertasFiltradas}
-          selectedId={selectedId}
-          onToggleSelect={handleToggleSelect}
-          highlightSelected={false}
-          sortSelectedFirst={false}
-        />
-      )}
+
+        {/* Sheet de detalle (estático, al lado de la tabla) */}
+        {selectedAlerta && (
+          <div className="w-[26rem] shrink-0">
+            <AlertaDetailSheet
+              alerta={selectedAlerta}
+              onClose={() => setSelectedId(null)}
+              floating={false}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Empty state si no hay resultados */}
       {!isLoading && alertasFiltradas.length === 0 && (
