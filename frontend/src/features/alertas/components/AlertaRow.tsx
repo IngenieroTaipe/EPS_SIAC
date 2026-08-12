@@ -68,7 +68,10 @@ export function AlertaRow({
 
   function handleEditClick(e: React.MouseEvent) {
     e.stopPropagation();
-    navigate(`/alertas/${encodeURIComponent(a.id)}/editar`);
+    // El backend cambió `lookup_field` a `id` (PK numérico); navegamos
+    // con backendId cuando está, si no cae a `id` (mock/legacy).
+    const editId = a.backendId ?? a.id;
+    navigate(`/alertas/${encodeURIComponent(editId)}/editar`);
   }
 
   function handleViewClick(e: React.MouseEvent) {
@@ -141,22 +144,43 @@ export function AlertaRow({
         fixedWidths ? 'w-20' : 'flex-1 min-w-20',
       )}>
         {esGestion ? (
-          <button
-            type="button"
-            aria-label="Editar alerta"
-            onClick={handleEditClick}
-            disabled={isReadOnly}
-            className={cn(
-              'size-8 inline-flex items-center justify-center rounded-lg',
-              'outline outline-1 outline-offset-[-1px] outline-input-stroke-main',
-              'text-text-primary bg-background-main transition-colors',
-              'hover:bg-primary-main hover:text-text-invert-primary',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',
-              isReadOnly && 'opacity-40 cursor-not-allowed hover:bg-background-main hover:text-text-primary',
-            )}
-          >
-            <Pencil className="size-4" strokeWidth={2} aria-hidden="true" />
-          </button>
+          isReadOnly ? (
+            // En estados terminales (atendido / no-confirmado), el lápiz
+            // está deshabilitado porque ya no se puede editar. En su
+            // lugar mostramos un botón "Ver" (ojo) que navega a la misma
+            // ruta de edición para que el operador pueda revisar el
+            // reporte de daños/acciones y el histórico sellado en modo
+            // solo lectura.
+            <button
+              type="button"
+              aria-label="Ver detalle de la alerta"
+              onClick={handleEditClick}
+              className={cn(
+                'size-8 inline-flex items-center justify-center rounded-lg',
+                'outline outline-1 outline-offset-[-1px] outline-input-stroke-main',
+                'text-text-primary bg-background-main transition-colors',
+                'hover:bg-primary-main hover:text-text-invert-primary',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',
+              )}
+            >
+              <Eye className="size-4" strokeWidth={2} aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label="Editar alerta"
+              onClick={handleEditClick}
+              className={cn(
+                'size-8 inline-flex items-center justify-center rounded-lg',
+                'outline outline-1 outline-offset-[-1px] outline-input-stroke-main',
+                'text-text-primary bg-background-main transition-colors',
+                'hover:bg-primary-main hover:text-text-invert-primary',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',
+              )}
+            >
+              <Pencil className="size-4" strokeWidth={2} aria-hidden="true" />
+            </button>
+          )
         ) : (
           <>
             <IconButton

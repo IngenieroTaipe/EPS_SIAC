@@ -3,8 +3,14 @@ import type { EstadoAlertaHistorica } from './types';
 /**
  * Determina si una alerta en `estado` debe mostrar el reporte de daños.
  *
- * El flujo abre el reporte de daños a partir de "en-espera-reporte" y se
- * mantiene visible (read-only en algunos casos) hasta el final.
+ * Visible desde `en-espera-reporte` inclusive, pero allí viene como
+ * read-only (vacío, "Pendiente de evaluar"). Recién se vuelve editable
+ * en `en-proceso-atencion` (ver `isReporteDanosEditable`).
+ *
+ * Razón: el backend (`AlertTransitionSerializer.validate` línea 499)
+ * exige `taken_actions` siempre que mandes `damage_report` sin importar
+ * la fase; nos obliga a persistir daño y acciones juntos en el PATCH
+ * final a ATENDIDO. Por eso no se permite editar daño en `en-espera-reporte`.
  */
 export function shouldShowReporteDanos(estado: EstadoAlertaHistorica): boolean {
   return (
@@ -15,12 +21,14 @@ export function shouldShowReporteDanos(estado: EstadoAlertaHistorica): boolean {
 }
 
 /**
- * Determina si el reporte de daños es editable.
- *
- * Es editable solo en "en-espera-reporte" (momento de clasificar daños).
- * En etapas posteriores ya está lleno y la spec dice que dentro de las
- * 2 horas posteriores al cambio a NO_CONFIRMADO se puede editar manualmente;
- * aquí simplificamos: read-only una vez guardado.
+ * El daño es editable en `en-espera-reporte`: el operador describe los
+ * daños mientras espera resultados. Se persiste recién en el PATCH final
+ * hacia `atendido` (mandado junto con `taken_actions`), porque el backend
+ * tiene un check en `AlertTransitionSerializer.validate` línea 499 que
+ * exige `taken_actions` siempre que se mande `damage_report` sin importar
+ * la fase. Mientras tanto el daño queda en state local del componente
+ * GestionAlertas (se pierde si el usuario recarga; aceptable mientras
+ * el backend no arregle el bug).
  */
 export function isReporteDanosEditable(estado: EstadoAlertaHistorica): boolean {
   return estado === 'en-espera-reporte';
@@ -36,11 +44,9 @@ export function shouldShowReporteAcciones(estado: EstadoAlertaHistorica): boolea
 }
 
 /**
- * Determina si el reporte de acciones es editable.
- *
- * Editable en "en-proceso-atencion" (cuando se está gestionando).
- * En "atendido", la spec permite editar el reporte dentro de los 2 días
- * siguientes; aquí simplificamos: read-only una vez cerrada.
+ * Las acciones son editables en `en-proceso-atencion`, mientras el
+ * operador gestiona la alerta. En `atendido` ya está sellado (solo el
+ * endpoint de update-results dentro de 48h lo desbloquearía).
  */
 export function isReporteAccionesEditable(estado: EstadoAlertaHistorica): boolean {
   return estado === 'en-proceso-atencion';

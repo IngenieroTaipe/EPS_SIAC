@@ -5,8 +5,8 @@ import type { AlertaHistorica } from '../types';
  *
  * Muestra campos de solo lectura:
  *   - Código de alerta (ID, no editable)
- *   - Unidad Operativa
- *   - Distrito
+ *   - Unidad Operativa (solo si la alerta afecta a una branch activa;
+ *     si no, la línea se oculta — la alerta no pertenece a ninguna UO).
  *
  * Campo estilizado como input-disabled según Figma:
  *   fondo `button-fill-button`, borde `button-stroke`, texto `text-status-placeholder`.
@@ -23,8 +23,9 @@ export function InfoCard({ alerta }: InfoCardProps) {
       </h2>
 
       <Campo label="Código de alerta (No editable)" value={alerta.id} />
-      <Campo label="Unidad Operativa" value={alerta.unidadOperativa} />
-      <Campo label="Distrito" value={alerta.distrito} />
+      {alerta.unidadOperativa && (
+        <Campo label="Unidad Operativa" value={alerta.unidadOperativa} />
+      )}
     </div>
   );
 }
