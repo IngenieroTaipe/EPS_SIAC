@@ -17,8 +17,8 @@ from alerts_management.models import (
     AlertClusters
 )
 
-from core_predictive.serializers import (
-    NaturalPhenomenaLightSerializer
+from places.models import (
+    District
 )
 
 from core_shared.constants import LIMA_TZ
@@ -173,27 +173,67 @@ class AlertResultSecondarySerializer(serializers.ModelSerializer):
             'damage_report',
             'taken_actions',
         ]
+
 # ==============================================================================
 # SERIALIZADORES DE LISTA DE ALERTAS
 # ==============================================================================
 class AlertListSerializer(serializers.ModelSerializer):
     alert_clusters = serializers.SerializerMethodField()
     max_threshold = serializers.StringRelatedField()
+    natural_phenomena_name = serializers.SlugRelatedField(
+        source='natural_phenomena',
+        slug_field='name', # nombre de la tabla natural_phenomena
+        read_only=True
+    )
 
     start_time_local = serializers.SerializerMethodField()
     end_time_local = serializers.SerializerMethodField()
-    
+
+
+    status = serializers.SerializerMethodField()
+    phase = serializers.SerializerMethodField()
+    # ubigeos = serializers.SerializerMethodField()
+
     class Meta:
         model = Alert
         fields = [
             'id',
             'code',
+            'natural_phenomena_name',
+            'status',
+            'phase',
             'max_intensity_mm_h',
             'max_threshold',
             'start_time_local',
             'end_time_local',
-            'alert_clusters'
+            'alert_clusters',
         ]
+
+    def _get_latest_history(self, obj: Alert):
+        """
+        Patrón Caché de Instancia Unificado para Serializadores (Safe for 1:1 and 1:N).
+        """
+        if not hasattr(self, '_history_cache'):
+            self._history_cache = {}
+
+        if obj.id not in self._history_cache:
+            histories = list(obj.historic_alert.all())
+            self._history_cache[obj.id] = (
+                max(histories, key=lambda h: h.created_at) if histories else None
+            )
+
+        return self._history_cache[obj.id]
+
+    def _get_district_map(self) -> dict[str, str]:
+        """
+            Carga el catálogo de distritos en memoria RAM una sola vez para toda la transacción HTTP.
+            Evita consultas N+1 a la tabla de distritos/UBIGEOs.
+        """
+        if not hasattr(self, '_district_map_cache'):
+            self._district_map_cache = dict(
+                District.objects.values_list('ubigeo', 'name')
+            )
+        return self._district_map_cache
 
     def get_start_time_local(self, obj) -> str | None:
         if obj.start_time_utc:
@@ -205,17 +245,66 @@ class AlertListSerializer(serializers.ModelSerializer):
             return obj.end_time_utc.astimezone(LIMA_TZ).isoformat()
         return None
 
+    def get_status(self, obj: Alert) -> str:
+        """
+        Extrae la Etapa (Estado) actual delegando la resolución al mapa hash en memoria O(1).
+        """
+        latest_history = self._get_latest_history(obj)
+        if latest_history and latest_history.status:
+            return latest_history.status.name
+        return "Desconocido"
+
+    def get_phase(self, obj: Alert) -> str:
+        """
+        Extrae la Fase Operativa actual desde el historial más reciente precargado O(1).
+        """
+        latest_history = self._get_latest_history(obj)
+        if latest_history and latest_history.phase:
+            return latest_history.phase.name
+        return "Sin Fase"
+
     def get_alert_clusters(self, obj):
-        return [
-            {
+        """
+            Genera el listado de centroides y UBIGEOs usando los objetos precargados en memoria RAM.
+        """
+        clusters_data = []
+
+        for ac in obj.alerts_clusters_alerts.all():
+            cluster = ac.cluster
+            if not cluster:
+                continue
+
+            raw_ubigeos = cluster.affected_ubigeos or []
+            enriched_ubigeos = self.get_reached_ubigeos(obj, raw_ubigeos)
+
+            point_geom = ac.representative_point
+
+            clusters_data.append({
                 "representative_point": {
                     "type": "Point",
-                    "coordinates": [ac.representative_point.x, ac.representative_point.y]
-                } if ac.representative_point else None
+                    "coordinates": [round(point_geom.x, 5), round(point_geom.y, 5)]
+                } if point_geom else None,
+                "affected_ubigeos": enriched_ubigeos
+            })
+
+        return clusters_data
+    
+    def get_reached_ubigeos(self, obj: Alert, affected_ubigeos: list[str]):
+        """
+            Entrega los UBIGEOs afectados en formato compatible con el Front. 
+            Incluye nombres de distritos precargados desde memoria RAM.
+        """
+        district_map = self._get_district_map()
+            
+        enriched_ubigeos = [
+            {
+                "ubigeo": ubigeo,
+                "name": district_map.get(ubigeo)
             }
-            for ac in obj.alerts_clusters_alerts.all()
+            for ubigeo in affected_ubigeos
         ]
 
+        return enriched_ubigeos
 
 # ==============================================================================
 # SERIALIZADOR DE DETALLE DE ALERTAS
@@ -233,13 +322,19 @@ class AlertDetailSerializer(serializers.ModelSerializer):
     
     historic_alert = AlertHistorySecondarySerializer(many=True, read_only=True)
     result = AlertResultSecondarySerializer(read_only=True, source='alerts_results_alert')
-    natural_phenomena = NaturalPhenomenaLightSerializer(read_only=True)
+
+    natural_phenomena_name = serializers.SlugRelatedField(
+        source='natural_phenomena',
+        slug_field='name', # nombre de la tabla natural_phenomena
+        read_only=True
+    )
     
     class Meta:
         model = Alert
         fields = [
             'id',
             'code',
+            'natural_phenomena_name',
             'status',
             'phase',
             'max_intensity_mm_h',
@@ -250,8 +345,28 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             'clusters',
             'historic_alert',
             'result',
-            'natural_phenomena',
         ]
+
+    def _get_latest_history(self, obj: Alert):
+        """
+        Método privado de caché de instancia para resolver el último historial en O(1)
+        sin repetir la iteración en get_status y get_phase.
+        """
+        if not hasattr(self, '_cached_latest_history'):
+            histories = list(obj.historic_alert.all())
+            self._cached_latest_history = max(histories, key=lambda h: h.created_at) if histories else None
+        return self._cached_latest_history
+
+    def _get_district_map(self) -> dict[str, str]:
+        """
+            Carga el catálogo de distritos en memoria RAM una sola vez para toda la transacción HTTP.
+            Evita consultas N+1 a la tabla de distritos/UBIGEOs.
+        """
+        if not hasattr(self, '_district_map_cache'):
+            self._district_map_cache = dict(
+                District.objects.values_list('ubigeo', 'name')
+            )
+        return self._district_map_cache
 
     def get_start_time_local(self, obj) -> str | None:
         if obj.start_time_utc:
@@ -263,35 +378,25 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             return obj.end_time_utc.astimezone(LIMA_TZ).isoformat()
         return None
     
-    def get_status(self, obj) -> str:
-        """
-            Extrae la Etapa (Estado) actual usando las relaciones precargadas en memoria.
-        """
-        # Se aprovecha el prefetch sin golpear la BD de nuevo
-        histories = sorted(obj.historic_alert.all(), key=lambda h: h.created_at, reverse=True)
-        if histories and histories[0].status:
-            return histories[0].status.name
-        return "Desconocido"
+    def get_status(self, obj: Alert) -> str:
+        latest = self._get_latest_history(obj)
+        return latest.status.name if latest and latest.status else "Desconocido"
 
-    def get_phase(self, obj) -> str:
-        """
-            Extrae la Fase actual usando las relaciones precargadas en memoria.
-        """
-        histories = sorted(obj.historic_alert.all(), key=lambda h: h.created_at, reverse=True)
-        if histories and histories[0].phase:
-            return histories[0].phase.name
-        return "Sin Fase"
-
+    def get_phase(self, obj: Alert) -> str:
+        latest = self._get_latest_history(obj)
+        return latest.phase.name if latest and latest.phase else "Sin Fase"
+    
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_alert_cluster_components(self, obj):
         components = []
-        # Prevenimos duplicados si un componente es impactado en varios time_steps
         seen_components = set()
         
         for ac in obj.alerts_clusters_alerts.all():
-            for acc in ac.alerts_clusters_components_alert_clusters.all():
+            for acc in ac.alerts_clusters_components_clusters.all():
                 comp = acc.component
                 if comp.id not in seen_components:
                     components.append({
+                        'id': comp.id,
                         "component": f"{comp.code} - {comp.name}"
                     })
                     seen_components.add(comp.id)
@@ -302,13 +407,36 @@ class AlertDetailSerializer(serializers.ModelSerializer):
         clusters = []
         for ac in obj.alerts_clusters_alerts.all():
             cluster = ac.cluster
+            if not cluster:
+                continue
+
+            raw_ubigeos = cluster.affected_ubigeos or []
+            enriched_districts = self.get_reached_ubigeos(obj, raw_ubigeos)
+
             clusters.append({
                 "max_intensity_mm_h": cluster.max_intensity_mm_h,
-                "timestamp_str": cluster.timestamp_str,
+                "timestamp_str": cluster.timestamp_utc,
                 "threshold": cluster.threshold.name if cluster.threshold else None,
-                "affected_districts": cluster.affected_ubigeos
+                "affected_districts": enriched_districts
             })
         return clusters
+
+    def get_reached_ubigeos(self, obj: Alert, affected_ubigeos: list[str]):
+        """
+            Entrega los UBIGEOs afectados en formato compatible con el Front. 
+            Incluye nombres de distritos precargados desde memoria RAM.
+        """
+        district_map = self._get_district_map()
+            
+        enriched_ubigeos = [
+            {
+                "ubigeo": u_code,
+                "name": district_map.get(str(u_code), f"Distrito {u_code}")
+            }
+                for u_code in affected_ubigeos
+            ]
+
+        return enriched_ubigeos
 
 # ==============================================================================
 # SERIALIZADOR DE TRANSICIÓN DE ESTADOS DE LA ALERTA

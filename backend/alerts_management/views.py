@@ -182,11 +182,14 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = Alert.objects.select_related(
             'natural_phenomena',
-            'max_threshold'
+            'max_threshold',
+            'alerts_results_alert'
         ).prefetch_related(
             'historic_alert__status',
             'historic_alert__phase',
+            'alerts_clusters_alerts__cluster',
             'alerts_clusters_alerts__cluster__threshold',
+            'alerts_clusters_alerts__alerts_clusters_components_clusters__component'
         )
 
         upcoming_only = self.request.query_params.get('upcoming_only', 'false').lower() == 'true'
