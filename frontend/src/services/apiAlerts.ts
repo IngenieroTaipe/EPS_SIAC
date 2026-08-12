@@ -11,11 +11,6 @@ interface PaginatedResponse<T> {
   results: T[];
 }
 
-function unwrap<T>(data: T[] | PaginatedResponse<T>): T[] {
-  if (Array.isArray(data)) return data;
-  return data.results ?? [];
-}
-
 // ============================================================================
 // INTERFACES — Respuesta del listado (AlertListSerializer)
 // ============================================================================
@@ -139,12 +134,30 @@ export interface AlertUpdateResultPayload {
 
 export const apiAlerts = {
   /**
-   * Obtener lista de alertas.
-   * El backend puede devolver un array plano o paginado; `unwrap` maneja ambos.
+   * Obtener lista de alertas recorriendo TODAS las páginas del backend.
+   * El backend devuelve un array plano o una respuesta paginada con
+   * `next` (URL de la siguiente página). `unwrap` maneja ambos casos;
+   * aquí iteramos `next` hasta agotar resultados para reunir todas las
+   * alertas en un solo array (el tabular de histórico necesita verlas
+   * todas, incluyendo las no-confirmadas que no aparecen en el mapa).
    */
   async listAlerts(): Promise<BackendAlertListItem[]> {
-    const res = await httpClient.get('/alerts/alerts/');
-    return unwrap<BackendAlertListItem>(res.data);
+    const all: BackendAlertListItem[] = [];
+    let url: string | null = '/alerts/alerts/';
+    // Mientras haya una página siguiente, la seguimos (patrón del
+    // `listComponents` de apiComponentes.ts).
+    while (url) {
+      const res = await httpClient.get(url);
+      const data = res.data as BackendAlertListItem[] | PaginatedResponse<BackendAlertListItem>;
+      if (Array.isArray(data)) {
+        all.push(...data);
+        url = null;
+      } else {
+        all.push(...(data.results ?? []));
+        url = data.next ?? null;
+      }
+    }
+    return all;
   },
 
   /**

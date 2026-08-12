@@ -8,7 +8,13 @@ import {
   type EstadoAlertaHistorica,
 } from '../types';
 import { ESTADO_VISUAL, UMBRAL_LABEL } from '../alerta-utils';
-import { formatFechaHora, tiempoTranscurrido } from '../stepper-utils';
+import {
+  formatFechaHora,
+  tiempoTranscurrido,
+  fechaReferenciaTiempo,
+  labelTiempoTranscurrido,
+  fechaConfirmacion,
+} from '../stepper-utils';
 
 /**
  * AlertaDetailSheet — panel lateral derecho con el detalle de una alerta
@@ -128,12 +134,25 @@ export function AlertaDetailSheet({
           </h3>
           <dl className="grid grid-cols-1 gap-x-4 gap-y-3">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Tiempo transcurrido" value={tiempoTranscurrido(a.fechaCreacion)} />
               <Field
-                label="Fecha de creación"
-                value={formatFechaHora(a.fechaCreacion)}
-                mono
+                label={`Tiempo transcurrido (${labelTiempoTranscurrido(a).toLowerCase()})`}
+                value={tiempoTranscurrido(fechaReferenciaTiempo(a))}
               />
+              {fechaConfirmacion(a)
+                ? (
+                    <Field
+                      label="Fecha de confirmación"
+                      value={formatFechaHora(fechaConfirmacion(a))}
+                      mono
+                    />
+                  )
+                : (
+                    <Field
+                      label="Fecha de predicción"
+                      value={formatFechaHora(a.fechaCreacion)}
+                      mono
+                    />
+                  )}
             </div>
           </dl>
         </section>

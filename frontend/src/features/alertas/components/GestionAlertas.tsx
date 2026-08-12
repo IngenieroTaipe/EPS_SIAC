@@ -189,6 +189,10 @@ export function GestionAlertas() {
   const [reporteAcciones, setReporteAcciones] = useState<string>('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Override del siguiente estado destino (usado por botones secundarios
+  // como "Marcar como No Confirmado"). Debe vivir aquí, antes de los early
+  // returns, para respetar rules-of-hooks.
+  const [siguienteOverride, setSiguienteOverride] = useState<EstadoAlertaHistorica | null>(null);
 
   // ── Persistencia temporal de reportes en sessionStorage ──────────────
   // El backend tiene un bug en `AlertTransitionSerializer.validate` (línea
@@ -320,8 +324,12 @@ export function GestionAlertas() {
     );
   }
 
-  const siguiente = NEXT_ESTADO[alerta.estado] ?? alerta.estado;
-  const isEstadoFinal = siguiente === alerta.estado;
+  const siguienteBase = NEXT_ESTADO[alerta.estado] ?? alerta.estado;
+  // Si el operador presionó un botón secundario (p. ej. "Marcar como No
+  // Confirmado"), `siguienteOverride` decide el destino. Si no, cae al
+  // siguiente natural según NEXT_ESTADO.
+  const siguiente = siguienteOverride ?? siguienteBase;
+  const isEstadoFinal = siguienteBase === alerta.estado;
 
   // Transición automática: las alertas en 'predicho' pasan a
   // 'en-espera-confirmacion' SOLO vía Celery cuando start_time_utc <=
@@ -338,6 +346,11 @@ export function GestionAlertas() {
         ? 'Estado final alcanzado'
         : 'Guardar y Cambiar Estado';
 
+  // El botón "Marcar como No Confirmado" solo aparece en en-espera-confirmacion.
+  // Es el operador diciendo "la alerta no se confirmó, descartar". El
+  // backend permite este paso vía PATCH con status_name=NO CONFIRMADO.
+  const canNoConfirmar = alerta.estado === 'en-espera-confirmacion';
+
   const siguienteLabel = ESTADO_LABEL[siguiente];
   const siguienteColorClass = COLOR_CLASSES[siguiente];
 
@@ -348,6 +361,15 @@ export function GestionAlertas() {
   const accionesReadOnly = !isReporteAccionesEditable(alerta.estado);
 
   function handleGuardarYCambiarEstado() {
+    setSiguienteOverride(null);
+    setShowConfirm(true);
+  }
+
+  // Botón "Marcar como No Confirmado" en en-espera-confirmacion: setea
+  // el override y abre el mismo modal de confirmación. El modal usa
+  // `siguiente` que ahora será 'no-confirmado'.
+  function handleNoConfirmar() {
+    setSiguienteOverride('no-confirmado');
     setShowConfirm(true);
   }
 
@@ -380,6 +402,7 @@ export function GestionAlertas() {
         if (reporteDanosKey) sessionStorage.removeItem(reporteDanosKey);
         if (reporteAccionesKey) sessionStorage.removeItem(reporteAccionesKey);
       }
+      setSiguienteOverride(null);
       setShowConfirm(false);
     } catch (err) {
       console.error('Error transicionando la alerta:', err);
@@ -444,6 +467,28 @@ export function GestionAlertas() {
         >
           Cancelar
         </button>
+
+        {/* "Marcar como No Confirmado" — solo en en-espera-confirmacion.
+            Acción secundaria (outline gris) para distinguirla del CTA
+            principal "Guardar y Cambiar Estado". Usa el mismo modal de
+            confirmación pero tintado con el color de 'no-confirmado'. */}
+        {canNoConfirmar && (
+          <button
+            type="button"
+            onClick={handleNoConfirmar}
+            disabled={isSaving}
+            className={cn(
+              'px-6 py-2.5 rounded-xl inline-flex justify-start items-center gap-2',
+              'bg-alerts-status-no-confirmado text-text-invert-primary',
+              'text-sm font-medium font-sans',
+              'hover:opacity-80 transition-colors',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-alerts-status-no-confirmado focus-visible:ring-offset-2',
+              isSaving && 'opacity-50 cursor-not-allowed',
+            )}
+          >
+            Marcar como No Confirmado
+          </button>
+        )}
 
         {/* Guardar y Cambiar Estado → abre modal de confirmación tintado */}
         <button
