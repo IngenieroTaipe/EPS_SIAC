@@ -21,6 +21,10 @@ from places.models import (
     District
 )
 
+from organization.models import (
+    Branch
+)
+
 from core_shared.constants import LIMA_TZ
 
 # ==============================================================================
@@ -229,6 +233,22 @@ class AlertListSerializer(serializers.ModelSerializer):
 
         return self._history_cache[obj.id]
 
+    def _get_operational_ubigeos_set(self) -> set[str]:
+        """
+            Extrae y memoriza en RAM un 'set' con los códigos de UBIGEO que poseen al menos 
+            una sucursal (Branch) activa.
+        """
+        if not hasattr(self, '_operational_ubigeos_cache'):
+            # UBIGEOs de distritos asociados a Unidades Operativas activas
+            active_branches_ubigeos = Branch.objects.filter(
+                status=True,
+                district__deleted_at__isnull=True
+            ).values_list('district__ubigeo', flat=True).distinct()
+
+            self._operational_ubigeos_cache = set(active_branches_ubigeos)
+
+        return self._operational_ubigeos_cache
+
     def _get_district_map(self) -> dict[str, str]:
         """
             Carga el catálogo de distritos en memoria RAM una sola vez para toda la transacción HTTP.
@@ -300,13 +320,15 @@ class AlertListSerializer(serializers.ModelSerializer):
             Incluye nombres de distritos precargados desde memoria RAM.
         """
         district_map = self._get_district_map()
-            
+        operational_ubigeos_set = self._get_operational_ubigeos_set()
+        
         enriched_ubigeos = [
             {
                 "ubigeo": ubigeo,
                 "name": district_map.get(ubigeo)
             }
             for ubigeo in affected_ubigeos
+            if ubigeo in operational_ubigeos_set
         ]
 
         return enriched_ubigeos
@@ -358,6 +380,22 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             )
         return self._district_map_cache
 
+    def _get_operational_ubigeos_set(self) -> set[str]:
+        """
+            Extrae y memoriza en RAM un 'set' con los códigos de UBIGEO que poseen al menos 
+            una sucursal (Branch) activa.
+        """
+        if not hasattr(self, '_operational_ubigeos_cache'):
+            # UBIGEOs de distritos asociados a Unidades Operativas activas
+            active_branches_ubigeos = Branch.objects.filter(
+                status=True,
+                district__deleted_at__isnull=True
+            ).values_list('district__ubigeo', flat=True).distinct()
+
+            self._operational_ubigeos_cache = set(active_branches_ubigeos)
+
+        return self._operational_ubigeos_cache
+        
     def get_start_time_local(self, obj) -> str | None:
         if obj.start_time_utc:
             return obj.start_time_utc.astimezone(LIMA_TZ).isoformat()
@@ -409,13 +447,15 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             Incluye nombres de distritos precargados desde memoria RAM.
         """
         district_map = self._get_district_map()
-            
+        operational_ubigeos_set = self._get_operational_ubigeos_set()
+
         enriched_ubigeos = [
             {
-                "ubigeo": u_code,
-                "name": district_map.get(str(u_code), f"Distrito {u_code}")
+                "ubigeo": ubigeo,
+                "name": district_map.get(str(ubigeo), f"Distrito {ubigeo}")
             }
-                for u_code in affected_ubigeos
+                for ubigeo in affected_ubigeos
+                if ubigeo in operational_ubigeos_set
             ]
 
         return enriched_ubigeos
