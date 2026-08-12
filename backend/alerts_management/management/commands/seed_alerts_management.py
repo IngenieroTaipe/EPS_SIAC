@@ -77,6 +77,7 @@ class Command(BaseCommand):
             self.style.MIGRATE_HEADING("Procesando Alert Status Phases")
         )
 
+        # d: indica que el estado no tiene fase asignada (solo existe como estado independiente) (no se asignará una fase, pero debemos agregar algo para no tener problemas en la lectura posteriormente)
         alert_status_phases = [
             {'alert_status': 'PREDICHO', 'alert_phase': 'd'},
             {'alert_status': 'EN ESPERA DE CONFIRMACIÓN', 'alert_phase':'d'},

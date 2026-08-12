@@ -186,7 +186,7 @@ class AlertManagementService:
         notification_obj = AlertNotification.objects.create(
             alert_history=initial_history,
             channel=NotificationChannel.TELEGRAM,
-            notification_type=NotificationType.NEW_ALERT,
+            notification_type=NotificationType.INITIAL,
             is_sent=False,
             notification_reason="Emisión de nueva alerta predicha por detección de hotspot meteorológico."
         )
@@ -258,7 +258,7 @@ class AlertManagementService:
 
         matching_cluster = AlertClusters.objects.filter(
             alert__in=active_alerts,
-            alert__history__status__name="Predicho",
+            alert__historic_alert__status__name="Predicho",
             is_active_forecast=True,
             alert__end_time_utc__gte=cutoff_start,
             cluster__geometry__intersects=geometry

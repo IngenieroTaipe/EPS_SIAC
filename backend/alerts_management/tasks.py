@@ -217,8 +217,7 @@ def process_state_machine_timeouts_task():
         if latest_history and latest_history.status.name == "PREDICHO":
             AlertStateMachineService.transition_to_state_phase(
                 alert=alert,
-                status_name="EN ESPERA DE CONFIRMACIÓN",
-                phase_name="SIN FASE"
+                status_name="EN ESPERA DE CONFIRMACIÓN"
             )
             logger.info(f"[FSM Worker] Alerta #{alert.code} pasó a 'En Espera de Confirmación'.")
 
@@ -238,7 +237,6 @@ def process_state_machine_timeouts_task():
         if latest_history.id == history.id:
             AlertStateMachineService.transition_to_state_phase(
                 alert=alert,
-                status_name="NO CONFIRMADO",
-                phase_name="SIN FASE"
+                status_name="NO CONFIRMADO"
             )
             logger.warning(f"[FSM Worker] Alerta #{alert.code} caducó por timeout de 1h -> Migrada a 'No Confirmado'.")
