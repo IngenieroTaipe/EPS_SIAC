@@ -4,3 +4,6 @@ INERTIA_HOURS = 2
 
 # Mínimo de horas previas requeridas para que una alerta sea listada cuando se utiliza el filtro correspondiente
 MINIMUM_HOURS_TO_START_FILTER = 6
+
+# Número máximo de unidades operativas visibles en el mensaje de alerta
+MAXIMUM_VISIBLE_OPERATIVE_UNITS = 3

@@ -2,7 +2,7 @@ import logging
 import requests
 from typing import Tuple, Dict, Any, Optional, Union, List
 from django.conf import settings
-
+from alerts_management.constants import MAXIMUM_VISIBLE_OPERATIVE_UNITS
 logger = logging.getLogger(__name__)
 
 
@@ -135,19 +135,31 @@ class TelegramService:
             @return:
                 `str:` Mensaje formateado.
         """
-        # Formatear la lista de unidades operativas en una cadena legible
+        # =========================================================================
+        # TRUNCAMIENTO ADAPTATIVO DE UNIDADES OPERATIVAS (PROCESS IN BATCH)
+        # =========================================================================
         if isinstance(unidades_operativas, list):
-            unidades_str = ", ".join([u.upper() for u in unidades_operativas])
+            total_unidades = len(unidades_operativas)
+            
+            if total_unidades > MAXIMUM_VISIBLE_OPERATIVE_UNITS:
+                visible_list = [u.upper() for u in unidades_operativas[:MAXIMUM_VISIBLE_OPERATIVE_UNITS]]
+                remanente = total_unidades - MAXIMUM_VISIBLE_OPERATIVE_UNITS
+                unidades_str = f"{', '.join(visible_list)} Y {remanente} MÁS"
+            
+            else:
+                unidades_str = ", ".join([u.upper() for u in unidades_operativas])
         else:
             unidades_str = unidades_operativas.upper()
 
-        # Determinar si el evento abarca el mismo día o varios días
+        # =========================================================================
+        # FORMATEO DEL HORIZONTE TEMPORAL
+        # =========================================================================
         if fecha_inicio == fecha_fin:
-            rango_tiempo = f"🗓️ <b>{fecha_inicio}</b>  🕙 <b>{hora_inicio} UTC a {hora_fin} UTC</b>"
+            rango_tiempo = f"🗓️ <b>{fecha_inicio}</b> \n 🕙 <b>{hora_inicio} a {hora_fin}</b>"
         else:
             rango_tiempo = (
-                f"🗓️ <b>Inicio:</b> {fecha_inicio} - {hora_inicio} UTC\n"
-                f"🗓️ <b>Fin:</b> {fecha_fin} - {hora_fin} UTC"
+                f"🗓️ <b>Inicio:</b> {fecha_inicio} \n 🕙 <b>{hora_inicio}</b>\n"
+                f"🗓️ <b>Fin:</b> {fecha_fin} \n 🕙 <b>{hora_fin}</b>"
             )
 
         return (
@@ -156,6 +168,5 @@ class TelegramService:
             f"{rango_tiempo}\n\n"
             f"📊 <b>Detalles del evento:</b>\n"
             f"• <b>Código de Alerta:</b> <code>{codigo}</code>\n"
-            f"• <b>Localidades / Sectores Abarcados:</b> {localidades}\n\n"
-            f"🔗 <a href='http://localhost:5173/'>Ver más detalles aquí</a>"
+            f"🔗 <a href='https://localhost'>Ver más detalles aquí</a>"
         )

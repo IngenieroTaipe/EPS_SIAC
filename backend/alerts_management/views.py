@@ -193,10 +193,11 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
         upcoming_only = self.request.query_params.get('upcoming_only', 'false').lower() == 'true'
+
         if upcoming_only:
             threshold_time = timezone.now() + timedelta(hours=MINIMUM_HOURS_TO_START_FILTER)
             qs = qs.filter(start_time_utc__gte=threshold_time)
-            
+
         return qs
 
     def get_serializer_class(self):

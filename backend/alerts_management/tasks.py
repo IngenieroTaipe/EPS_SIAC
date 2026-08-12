@@ -8,12 +8,13 @@ from django.utils import timezone
 from datetime import timedelta
 
 from alerts_management.models import Alert, AlertNotification, NotificationChannel, AlertHistory
-from alerts_management.services.telegram_service import TelegramService
 from alerts_management.services.infrastructure_intersection_service import InfrastructureIntersectionService
 from alerts_management.services.alert_management_service import AlertManagementService
 from alerts_management.services.alert_state_machine_service import AlertStateMachineService
+from alerts_management.services.notification_service import NotificationDomainService
+from alerts_management.services.telegram_dispatcher import TelegramNotificationDispatcher
+
 from core_predictive.models import GFSRequest, NaturalPhenomena
-from core_shared.constants import LIMA_TZ
 
 logger = logging.getLogger(__name__)
 
@@ -23,111 +24,54 @@ logger = logging.getLogger(__name__)
     max_retries=3,
     default_retry_delay=30
 )
-def send_telegram_notification_task(self, notification_id: int):
+def send_telegram_notification_task(self, notification_id: int) -> bool:
     """
-    Worker Asíncrono de Celery:
-    Toma el ID de un registro AlertNotification, construye el mensaje formateado en HTML 
-    con las Unidades Operativas y el horizonte temporal, y realiza el despacho mediante TelegramService.
-    
-    Si la alerta posee un punto representativo de impacto (representative_point en PostGIS), 
-    adjunta el mapa interactivo mediante sendLocation.
+    Worker Asíncrono de Celery (Thin Coordinator Pattern):
+    Delegación exclusiva de orquestación, reintentos y tolerancia a fallos.
     """
     logger.info(f"[Celery Worker] Procesando despacho de notificación #{notification_id}...")
 
     try:
-        # === Recuperar la notificación y precargar relaciones ===
-        notification = AlertNotification.objects.select_related(
-            'alert_history__alert',
-            'alert_history__alert__natural_phenomena'
-        ).get(pk=notification_id)
-
-        # === Verificar si la notificación se envió ===
-        logger.info(f"Notificasción estado: {notification.is_sent}")
-        if notification.is_sent:
-            logger.info(f"Notificación #{notification_id} ya se encuentra marcada como enviada. Omitiendo.")
+        # === Recuperación de datos y geoprocesamiento de dominio ===
+        payload = NotificationDomainService.get_notification_payload(notification_id)
+        if not payload:
+            # Notificación no existe o ya fue enviada
             return True
 
-        alert = notification.alert_history.alert
-        telegram_service = TelegramService()
-
-        # === Extraer Unidades Operativas (Distritos / Sectores impactados) ===
-        if hasattr(alert, 'districts') and alert.districts.exists():
-            unidades = list(alert.districts.values_list('name', flat=True))
-        elif hasattr(alert, 'district') and alert.district:
-            unidades = [alert.district.name]
-        else:
-            unidades = ["Selva Central - Cobertura EPS"]
-
-        # === Extraer el snapshot activo y su punto representativo (PointField EPSG:4326) ===
-        active_snapshot = alert.alerts_clusters_alerts.filter(is_active_forecast=True).first()
-
-        start_local = alert.start_time_utc.astimezone(LIMA_TZ)
-        end_local = alert.end_time_utc.astimezone(LIMA_TZ) if alert.end_time_utc else None
-        # === Construir el mensaje de texto formateado en HTML ===
-        message_text = TelegramService.generate_alert_message(
-            unidades_operativas=unidades,
-            intensidad=f"{alert.max_intensity_mm_h} mm/h",
-            fecha_inicio=start_local.strftime("%Y-%m-%d"),
-            hora_inicio=start_local.strftime("%H:%M"),
-            fecha_fin=end_local.strftime("%Y-%m-%d") if end_local else start_local.strftime("%Y-%m-%d"),
-            hora_fin=end_local.strftime("%H:%M") if end_local else "23:59",
-            codigo=alert.code,
-            localidades="Sectores críticos e infraestructura de la EPS"
-        )
-
-        # === Ejecutar envío del mensaje principal de texto ===
-        success, response = telegram_service.send_message(message_text)
+        # === Despacho a través de la infraestructura de red ===
+        dispatcher = TelegramNotificationDispatcher()
+        success, is_config_error, error_msg = dispatcher.dispatch(payload)
 
         if success:
-            # === Si existe punto representativo espacial en PostGIS, despachar la ubicación geográfica ===
-            if active_snapshot and active_snapshot.representative_point:
-                lat = active_snapshot.representative_point.y
-                lon = active_snapshot.representative_point.x
-                
-                logger.info(f"Enviando mapa geográfico a Telegram (Lat: {lat}, Lon: {lon})...")
-                telegram_service.send_location(latitude=lat, longitude=lon)
-
-            # === Marcar la notificación como enviada en la bitácora SQL ===
-            notification.is_sent = True
-            notification.sent_at = timezone.now()
-            notification.save()
-            
-            logger.info(f"Notificación #{notification_id} despachada exitosamente para Alerta #{alert.code}.")
+            # === Marcar como enviada de forma atómica ===
+            NotificationDomainService.mark_as_sent(notification_id)
+            logger.info(f"[Celery Worker] Notificación #{notification_id} despachada exitosamente.")
             return True
 
-        # === Envío fallido ===
-        error_str = str(response) if response is not None else "response=None"
-        is_config_error = "no están configurados" in error_str or "no configurad" in error_str
-
+        # === Manejo de error de configuración (No reintentar) ===
         if is_config_error:
-            # Error de configuración: no tiene sentido reintentar, no se resolverá solo.
-            logger.warning(
-                f"[Telegram] Notificación #{notification_id} NO enviada: credenciales no configuradas. "
-                f"Marcando como omitida para evitar bucle de reintentos."
-            )
-            return False
-
-        # Error transitorio (HTTP 5xx, timeout, red, API de Telegram caída) -> reintentar
-        logger.error(f"Error transitorio al procesar notificación Telegram #{notification_id}: {error_str}")
-        raise self.retry(exc=Exception(error_str))
-
-    except AlertNotification.DoesNotExist:
-        logger.error(f"Error: La notificación #{notification_id} no existe en la base de datos.")
-        return False
-
-    except Retry:
-        # self.retry() lanza esta excepción: debe propagarse sin capturarla como error genérico.
-        raise
-
-    except Exception as exc:
-        # Error inesperado (BD, serialización, etc.). Si es de config, abortar; si no, reintentar.
-        error_str = str(exc)
-        if "no están configurados" in error_str or "no configurad" in error_str:
             logger.warning(
                 f"[Telegram] Notificación #{notification_id} omitida: credenciales no configuradas."
             )
             return False
-        logger.error(f"Error inesperado al procesar notificación Telegram #{notification_id}: {error_str}")
+
+        # === Error transitorio -> Reintentar en Celery ===
+        logger.error(f"[Telegram] Error transitorio en notificación #{notification_id}: {error_msg}")
+        raise self.retry(exc=Exception(error_msg))
+
+    except Retry:
+        # === Excepción nativa de Celery: debe propagarse directamente ===
+        logger.error(f"[Telegram] Error transitorio en notificación #{notification_id}: {error_msg}")
+        raise
+
+    except Exception as exc:
+        # === Error no esperado -> Reintentar en Celery ===
+        error_str = str(exc)
+        if "no están configurados" in error_str or "no configurad" in error_str:
+            logger.warning(f"[Telegram] Notificación #{notification_id} omitida por falta de credenciales.")
+            return False
+
+        logger.error(f"[Telegram] Error no esperado en notificación #{notification_id}: {error_str}")
         raise self.retry(exc=exc)
 
 @shared_task(name="alerts_management.tasks.dispatch_hourly_alerts")

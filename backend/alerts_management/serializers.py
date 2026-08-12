@@ -499,7 +499,7 @@ class AlertTransitionSerializer(serializers.ModelSerializer):
         if attrs.get("damage_report") is not None and not attrs.get("taken_actions"):
             raise serializers.ValidationError({"taken_actions": "Debe registrar las acciones tomadas para marcar la alerta como ATENDIDA."})
         
-        if attrs.get("real_start_time") > timezone.now():
+        if attrs.get("real_start_time") is not None and attrs.get("real_start_time") > timezone.now():
             raise serializers.ValidationError({"real_start_time": "No puede establecer una hora real de inicio mayor a la hora actual."})
 
         if attrs.get("real_start_time") and not attrs.get("status_name") == "CONFIRMADO":
