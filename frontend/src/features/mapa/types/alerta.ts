@@ -81,4 +81,4 @@ export interface AlertasResponse {
  * Decision: 12 (barrio aprox.). Ajusta aquí para ambas.
  */
 export const ALERT_ZOOM_DETAIL = 11;
-export const COMPONENT_ZOOM_MIN = 10;
+export const COMPONENT_ZOOM_MIN = 5;
