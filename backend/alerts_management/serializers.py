@@ -160,19 +160,30 @@ class AlertHistorySecondarySerializer(serializers.ModelSerializer):
     status_name = serializers.CharField(source='status.name', read_only=True)
     phase_name = serializers.CharField(source='phase.name', read_only=True)
 
+    created_at = serializers.SerializerMethodField()
+    
     class Meta:
         model = AlertHistory
-        fields = ['status_name', 'phase_name']
+        fields = ['status_name', 'phase_name', 'created_at']
+        ordering = ['-created_at']
 
+    def get_created_at(self, obj: AlertHistory) -> str:
+        return obj.created_at.astimezone(LIMA_TZ).isoformat()
 
 class AlertResultSecondarySerializer(serializers.ModelSerializer):
+    created_at = serializers.SerializerMethodField()
+
     class Meta:
         model = AlertResult
         fields = [
             'has_damage',
             'damage_report',
             'taken_actions',
+            'created_at'
         ]
+
+    def get_created_at(self, obj: AlertResult) -> str:
+        return obj.created_at.astimezone(LIMA_TZ).isoformat()
 
 # ==============================================================================
 # SERIALIZADORES DE LISTA DE ALERTAS
@@ -188,11 +199,7 @@ class AlertListSerializer(serializers.ModelSerializer):
 
     start_time_local = serializers.SerializerMethodField()
     end_time_local = serializers.SerializerMethodField()
-
-
-    status = serializers.SerializerMethodField()
-    phase = serializers.SerializerMethodField()
-    # ubigeos = serializers.SerializerMethodField()
+    historic_alert = AlertHistorySecondarySerializer(many=True, read_only=True)
 
     class Meta:
         model = Alert
@@ -200,13 +207,12 @@ class AlertListSerializer(serializers.ModelSerializer):
             'id',
             'code',
             'natural_phenomena_name',
-            'status',
-            'phase',
             'max_intensity_mm_h',
             'max_threshold',
             'start_time_local',
             'end_time_local',
             'alert_clusters',
+            'historic_alert'
         ]
 
     def _get_latest_history(self, obj: Alert):
@@ -316,9 +322,6 @@ class AlertDetailSerializer(serializers.ModelSerializer):
 
     start_time_local = serializers.SerializerMethodField()
     end_time_local = serializers.SerializerMethodField()
-
-    status = serializers.SerializerMethodField()
-    phase = serializers.SerializerMethodField()
     
     historic_alert = AlertHistorySecondarySerializer(many=True, read_only=True)
     result = AlertResultSecondarySerializer(read_only=True, source='alerts_results_alert')
@@ -335,8 +338,6 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             'id',
             'code',
             'natural_phenomena_name',
-            'status',
-            'phase',
             'max_intensity_mm_h',
             'max_threshold',
             'start_time_local',
@@ -346,16 +347,6 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             'historic_alert',
             'result',
         ]
-
-    def _get_latest_history(self, obj: Alert):
-        """
-        Método privado de caché de instancia para resolver el último historial en O(1)
-        sin repetir la iteración en get_status y get_phase.
-        """
-        if not hasattr(self, '_cached_latest_history'):
-            histories = list(obj.historic_alert.all())
-            self._cached_latest_history = max(histories, key=lambda h: h.created_at) if histories else None
-        return self._cached_latest_history
 
     def _get_district_map(self) -> dict[str, str]:
         """
@@ -377,14 +368,6 @@ class AlertDetailSerializer(serializers.ModelSerializer):
         if obj.end_time_utc:
             return obj.end_time_utc.astimezone(LIMA_TZ).isoformat()
         return None
-    
-    def get_status(self, obj: Alert) -> str:
-        latest = self._get_latest_history(obj)
-        return latest.status.name if latest and latest.status else "Desconocido"
-
-    def get_phase(self, obj: Alert) -> str:
-        latest = self._get_latest_history(obj)
-        return latest.phase.name if latest and latest.phase else "Sin Fase"
     
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_alert_cluster_components(self, obj):
@@ -415,7 +398,7 @@ class AlertDetailSerializer(serializers.ModelSerializer):
 
             clusters.append({
                 "max_intensity_mm_h": cluster.max_intensity_mm_h,
-                "timestamp_str": cluster.timestamp_utc,
+                "timestamp_str": cluster.timestamp_utc.astimezone(LIMA_TZ).isoformat(),
                 "threshold": cluster.threshold.name if cluster.threshold else None,
                 "affected_districts": enriched_districts
             })
