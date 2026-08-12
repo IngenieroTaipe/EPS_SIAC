@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/shared/context/AuthContext.hooks';
+import loginEPS from '@/assets/images/login.png';
 
 /**
  * LoginPage — formulario de inicio de sesión.
@@ -111,6 +112,17 @@ export function LoginPage() {
             {isLoggingIn ? 'Ingresando…' : 'Ingresar'}
           </button>
 
+          {/* Botón Cancelar — redirige a la homepage pública */}
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="self-stretch h-12 px-3 bg-button-stroke text-white text-base font-medium font-sans leading-4 tracking-wide
+            hover:bg-input-stroke-main transition-colors
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-button-stroke focus-visible:ring-offset-2"
+          >
+            Cancelar
+          </button>
+
           {loginError && (
             <p className="self-stretch text-red-600 text-sm font-sans">
               {loginError}
@@ -121,10 +133,14 @@ export function LoginPage() {
         <div className="self-stretch h-0 outline outline-1 outline-offset-[-0.5px] outline-zinc-200" />
       </div>
 
-      {/* ── Lado derecho: imagen del login (placeholder vacío) ────────────────
-          Sustituir el contenido por <img src="..." /> cuando el usuario
-          decida qué imagen va aquí. */}
-      <div className="flex-1 self-stretch bg-slate-100 hidden lg:block" aria-label="Imagen del login (pendiente)" />
+      {/* ── Lado derecho: logo institucional de la EPS ────────────────────── */}
+      <div className="flex-1 self-stretch bg-slate-100 hidden lg:flex items-center justify-center">
+        <img
+          src={loginEPS}
+          alt="Logo institucional de la EPS"
+          className="w-full max-h-full object-contain"
+        />
+      </div>
     </div>
   );
 }

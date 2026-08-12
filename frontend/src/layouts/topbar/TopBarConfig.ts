@@ -143,7 +143,6 @@ export const topBarConfig: TopBarPageConfig[] = [
     route: '/componentes',
     title: 'Mapa de Componentes',
     widgets: [
-      { kind: 'stats', components: '128 Componentes', critical: '6 en Estado Crítico' },
       { kind: 'updatedAt' },
     ],
   },
