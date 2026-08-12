@@ -268,5 +268,32 @@
         "code": "3005",
         "name": "EBR AYACUCHO 5",
         "specification": "Estación de bombeo sur"
+    },
+    {
+        "district_ubigeo": "081304",
+        "type_name": "Unidades de Desinfección",
+        "physical_status": "R",
+        "operational_status": "001",
+        "code": "0001",
+        "name": "MACHU PICHU",
+        "specification": "machu pichu"
+    },
+    {
+        "district_ubigeo": "081301",
+        "type_name": "Reservorio",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "0001",
+        "name": "RESERVORIO URUBAMBA",
+        "specification": "Reservorio principal Urubamba"
+    },
+    {
+        "district_ubigeo": "081306",
+        "type_name": "Captación",
+        "physical_status": "B",
+        "operational_status": "001",
+        "code": "0001",
+        "name": "CAPTACION OLLANTAYTAMBO",
+        "specification": "Captacion principal Ollantaytambo"
     }
 ]

@@ -215,6 +215,28 @@ class Command(BaseCommand):
                     [-75.4110, -10.5840],
                     [-75.4130, -10.5860]
                 ]
+            },
+            # ==== CUSCO (Machu Picchu & Sacred Valley) ====
+            {
+                "ubigeo": "081304",
+                "type_name": "Unidades de Desinfección",
+                "code": "0001",
+                "criticality_name": "ALTA",
+                "coords": [[-72.544938, -13.162960]]
+            },
+            {
+                "ubigeo": "081301",
+                "type_name": "Reservorio",
+                "code": "0001",
+                "criticality_name": "ALTA",
+                "coords": [[-72.1150, -13.3050]]
+            },
+            {
+                "ubigeo": "081306",
+                "type_name": "Captación",
+                "code": "0001",
+                "criticality_name": "ALTA",
+                "coords": [[-72.2600, -13.2550]]
             }
         ]
 

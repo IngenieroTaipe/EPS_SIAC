@@ -78,7 +78,7 @@ class AlertStateMachineService:
             
             # === Validar las reglas estrictas del diagrama de transición ===
             if current_history:
-                cls._validate_transition_rules(alert, current_history, status_name, phase_name, payload)
+                cls._validate_transition_rules(current_history, status_name, phase_name)
 
             # === Crear la nueva línea en el histórico de bitácora ===
             new_history = AlertHistory.objects.create(
@@ -146,35 +146,62 @@ class AlertStateMachineService:
     def _validate_transition_rules(
         cls, 
         current_history: AlertHistory, 
-        target_status: str, 
-    ):
+        status_name: str, 
+        phase_name: str | None = None
+    ) -> None:
         """
-            Evalúa la matriz de permisos de transición y ventanas temporales de inmutabilidad del ciclo de vida.
+        Evalúa la matriz de permisos de transición y ventanas temporales de inmutabilidad 
+        del ciclo de vida, integrando Estado y Fase Operativa de manera atómica.
 
-            `@params`:
-                - `current_history` (`AlertHistory`): Registro histórico actual de la alerta.
-                - `target_status` (`str`): Estado al cual se intenta transicionar.
+        `@params`:
+            - `alert`: Instancia de la alerta (Alert).
+            - `current_history` (`AlertHistory`): Registro histórico activo de la alerta.
+            - `status_name` (`str`): Estado destino.
+            - `phase_name` (`str | None`): Fase destino.
+            - `payload` (`dict | None`): Metadatos adicionales de la transición.
         """
         current_status = current_history.alert_status_phase.alert_status.name
         current_phase = current_history.alert_status_phase.alert_phase.name
         now = timezone.now()
 
-        # === RESTRICCIÓN: De 'No Confirmado' a 'Confirmado' solo dentro de las 2 horas posteriores ===
-        if current_status == "NO CONFIRMADO" and target_status == "CONFIRMADO":
+        # =========================================================================
+        # 1. RESTRICCIONES DE ESTADO (STATUS RULES)
+        # =========================================================================
+
+        # Ventana de arrepentimiento estricta (2 horas)
+        if current_status == "NO CONFIRMADO" and status_name == "CONFIRMADO":
             time_in_no_confirmed = now - current_history.created_at
             if time_in_no_confirmed > timedelta(hours=2):
-                raise ValidationError("Se superó la ventana de arrepentimiento de 2 horas para confirmar esta alerta.")
+                raise ValidationError("Se superó la ventana operativa de 2 horas para confirmar esta alerta.")
 
-        # === RESTRICCIÓN: Una vez en 'Confirmado', NO se puede volver a 'No Confirmado' ni 'Predicho' ===
-        if current_status == "CONFIRMADO" and target_status in ["NO CONFIRMADO", "PREDICHO", "EN ESPERA DE CONFIRMACIÓN"]:
-            raise ValidationError("Una alerta en estado Confirmado no puede regresar a estados previos de predicción.")
+        # Inmutabilidad descendente desde estados confirmados
+        if current_status == "CONFIRMADO" and status_name in ["NO CONFIRMADO", "PREDICHO", "EN ESPERA DE CONFIRMACIÓN"]:
+            raise ValidationError(f"Una alerta en estado '{current_status}' no puede degradarse a '{status_name}'.")
 
-        # === RESTRICCIÓN: Fase 'Atendido' es inmutable (Cierre definitivo) ===
+        # =========================================================================
+        # 2. RESTRICCIONES DE FASE (PHASE RULES)
+        # =========================================================================
+        
+        target_phase = phase_name or current_phase
+
+        # Bloqueo de retroceso desde fase ATENDIDO
+        if current_phase == "ATENDIDO" and target_phase != "ATENDIDO":
+            raise ValidationError("Una alerta en fase 'ATENDIDO' no puede regresar a fases operativas previas.")
+
+        # Inmutabilidad temporal de cierre (Cierre definitivo a los 2 días)
         if current_phase == "ATENDIDO":
             time_since_attended = now - current_history.created_at
             if time_since_attended > timedelta(days=2):
-                raise ValidationError("El ciclo de la alerta está Atendido y sellado. Se superó el plazo de 2 días para modificar reportes.")
+                raise ValidationError("El ciclo de la alerta está sellado. Se superó el plazo de 2 días para modificar reportes históricos.")
 
+        # =========================================================================
+        # 3. RESTRICCIONES CRUZADAS (STATE-PHASE COUPLING)
+        # =========================================================================
+        
+        # Un evento no puede cerrarse (ATENDIDO) si sigue siendo una mera predicción
+        if target_phase == "ATENDIDO" and status_name in ["PREDICHO", "EN ESPERA DE CONFIRMACIÓN"]:
+            raise ValidationError("No se puede mover la alerta a fase 'ATENDIDO' sin antes haberla confirmado o descartado.")
+            
     @classmethod
     def _apply_state_side_effects(
         cls,
