@@ -31,24 +31,30 @@ import SuccessNumberIconUrl from '@/assets/icons/success-number.svg?url';
 
 /**
  * Mapa estado → icono URL (vista individual / detalle).
+ * `no-confirmado` está contemplado en el tipo pero NO se dibuja en el
+ * mapa (solo aparece en el tabular). `predicho` reusa el icono warning
+ * igual que `en-espera-confirmacion`. `en-espera-reporte` se mapea al
+ * mismo icono de `en-proceso-atencion` por decisión del equipo.
  */
 const ICON_DETALLE: Record<EstadoAlerta, string> = {
   'confirmado': DangerLeyendaIconUrl,
   'en-espera-confirmacion': WarningLeyendaIconUrl,
+  'en-espera-reporte': InProcessResolveLeyendaIconUrl,
   'atendido': SuccessLeyendaIconUrl,
   'en-proceso-atencion': InProcessResolveLeyendaIconUrl,
   'no-confirmado': WarningLeyendaIconUrl,
-  'predicho': InProcessResolveLeyendaIconUrl,
+  'predicho': WarningLeyendaIconUrl,
 };
 
 /**
  * Mapa estado → icono URL (vista agrupada / cluster con número).
- * Nota: el `in-process` y `predicho` no tienen variante "number"
+ * Nota: el `in-process` y `en-espera-reporte` no tienen variante "number"
  * (por decisión de diseño), así que se excluyen del agrupamiento.
  */
 const ICON_AGRUPADO: Partial<Record<EstadoAlerta, string>> = {
   'confirmado': DangerNumberIconUrl,
   'en-espera-confirmacion': WarningNumberIconUrl,
+  'predicho': WarningNumberIconUrl,
   'atendido': SuccessNumberIconUrl,
 };
 
@@ -58,6 +64,7 @@ const ICON_AGRUPADO: Partial<Record<EstadoAlerta, string>> = {
 const COLOR_NUMERO: Record<EstadoAlerta, string> = {
   'confirmado': 'var(--eps-danger-main)',
   'en-espera-confirmacion': 'var(--eps-warning-dark)',
+  'en-espera-reporte': 'var(--eps-alerts-status-en-proceso-atencion)',
   'atendido': 'var(--eps-success-main)',
   'en-proceso-atencion': 'var(--eps-alerts-status-en-proceso-atencion)',
   'no-confirmado': 'var(--eps-text-primary)',
@@ -100,10 +107,13 @@ interface AlertLayerProps {
 /** Estado dominante entre varios (para colorear el cluster). */
 function estadoDominante(estados: EstadoAlerta[]): EstadoAlerta {
   if (estados.includes('confirmado')) return 'confirmado';
+  if (estados.includes('en-proceso-atencion')) return 'en-proceso-atencion';
+  if (estados.includes('en-espera-reporte')) return 'en-espera-reporte';
   if (estados.includes('en-espera-confirmacion')) return 'en-espera-confirmacion';
+  if (estados.includes('predicho')) return 'predicho';
   if (estados.includes('atendido')) return 'atendido';
-  // Para estados sin icono "number" (predicho, no-confirmado, en-proceso),
-  // se cae al último — pero estos alertas no deberían formar parte del cluster.
+  // Para estados sin icono "number" (no-confirmado), se cae al último —
+  // pero estos alertas no deberían formar parte del cluster.
   return estados[0] ?? 'no-confirmado';
 }
 

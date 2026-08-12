@@ -81,9 +81,16 @@ export interface ReporteAcciones {
 export interface AlertaHistorica {
   /** ID estable, ej. "PK-0001". */
   id: string;
+  /**
+   * ID numérico (PK) del backend para llamadas HTTP. El backend cambió
+   * `lookup_field` de `code` a `id`; este campo se usa para los PATCH
+   * de transición y para navegar a `/alertas/:id/editar`. Puede faltar
+   * en mocks legacy → los callers caen a `id` (code) como fallback.
+   */
+  backendId?: number;
   /** Unidad operativa asignada. */
   unidadOperativa: string;
-  /** Distrito afectado. */
+  /** Distrito afectado. En desuso: el sheet ya no muestra distrito (solo UO). */
   distrito: string;
   /** Estado actual del flujo. */
   estado: EstadoAlertaHistorica;

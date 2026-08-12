@@ -8,7 +8,13 @@ import {
   type EstadoAlertaHistorica,
 } from '../types';
 import { ESTADO_VISUAL, UMBRAL_LABEL } from '../alerta-utils';
-import { formatFechaHora, tiempoTranscurrido } from '../stepper-utils';
+import {
+  formatFechaHora,
+  tiempoTranscurrido,
+  fechaReferenciaTiempo,
+  labelTiempoTranscurrido,
+  fechaConfirmacion,
+} from '../stepper-utils';
 
 /**
  * AlertaDetailSheet — panel lateral derecho con el detalle de una alerta
@@ -26,10 +32,11 @@ import { formatFechaHora, tiempoTranscurrido } from '../stepper-utils';
  * Contenido (compacto, sólo lectura):
  *   - Header: tipo/estado + código (bold navy) + botón cerrar.
  *   - Body:   badges de estado/umbral + ficha de identificación (código,
- *              unidad operativa, distrito) + contexto meteorológico
+ *              unidad operativa) + contexto meteorológico
  *              (fenómeno, fechas de creación / notificación / predicción,
  *              umbral) + historial compacto de transiciones.
- *   - Footer: botón "Editar alerta" → /alertas/:code/editar.
+ *   - Footer: botón "Editar alerta" → /alertas/:id/editar (id numérico
+ *     del backend como preferido; cae a `id` string en mocks/legacy).
  */
 interface AlertaDetailSheetProps {
   /** Alerta a mostrar. `null` indica sheet cerrado. */
@@ -82,9 +89,11 @@ export function AlertaDetailSheet({
           <h2 className="text-primary-main text-lg font-bold font-sans leading-tight">
             {a.id}
           </h2>
-          <span className="text-text-secondary text-sm font-sans">
-            Unidad Operativa <strong className="text-text-primary">{a.unidadOperativa || '—'}</strong>
-          </span>
+          {a.unidadOperativa && (
+            <span className="text-text-secondary text-sm font-sans">
+              Unidad Operativa <strong className="text-text-primary">{a.unidadOperativa}</strong>
+            </span>
+          )}
         </div>
         <button
           type="button"
@@ -124,14 +133,26 @@ export function AlertaDetailSheet({
             Información de identificación
           </h3>
           <dl className="grid grid-cols-1 gap-x-4 gap-y-3">
-            <Field label="Distrito" value={a.distrito || '—'} />
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Tiempo transcurrido" value={tiempoTranscurrido(a.fechaCreacion)} />
               <Field
-                label="Fecha de creación"
-                value={formatFechaHora(a.fechaCreacion)}
-                mono
+                label={`Tiempo transcurrido (${labelTiempoTranscurrido(a).toLowerCase()})`}
+                value={tiempoTranscurrido(fechaReferenciaTiempo(a))}
               />
+              {fechaConfirmacion(a)
+                ? (
+                    <Field
+                      label="Fecha de confirmación"
+                      value={formatFechaHora(fechaConfirmacion(a))}
+                      mono
+                    />
+                  )
+                : (
+                    <Field
+                      label="Fecha de predicción"
+                      value={formatFechaHora(a.fechaCreacion)}
+                      mono
+                    />
+                  )}
             </div>
           </dl>
         </section>
@@ -206,7 +227,10 @@ export function AlertaDetailSheet({
       <div className="p-5 border-t border-input-stroke-main">
         <button
           type="button"
-          onClick={() => navigate(`/alertas/${encodeURIComponent(a.id)}/editar`)}
+          onClick={() => {
+            const editId = a.backendId ?? a.id;
+            navigate(`/alertas/${encodeURIComponent(editId)}/editar`);
+          }}
           className="w-full inline-flex items-center justify-center gap-2
                      px-4 py-2.5 rounded-lg bg-primary-main text-text-invert-primary
                      text-sm font-bold font-sans

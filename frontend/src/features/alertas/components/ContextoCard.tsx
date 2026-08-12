@@ -1,4 +1,4 @@
-import { formatFechaHora } from '../stepper-utils';
+import { formatFechaHora, fechaConfirmacion } from '../stepper-utils';
 import type { AlertaHistorica, UmbralPrecipitacion } from '../types';
 
 /** Etiquetas legibles para los umbrales. */
@@ -13,7 +13,9 @@ const UMBRAL_LABEL: Record<UmbralPrecipitacion, string> = {
  * Tarjeta "Contexto Meteorológico".
  * Muestra:
  *   - Fenómeno climático
- *   - Fecha y Hora de Creación de la alerta
+ *   - Fecha y Hora de Creación de la alerta (o de Confirmación si ya fue
+ *     confirmada — el operador prefiere esa referencia temporal una vez
+ *     la alerta avanza del estado Predicho).
  *   - Umbral de precipitación (con su etiqueta legible)
  *   - Fecha y Hora de Notificación
  *   - Fecha y Hora de Predicción (inicio del fenómeno)
@@ -25,6 +27,14 @@ interface ContextoCardProps {
 }
 
 export function ContextoCard({ alerta }: ContextoCardProps) {
+  // Si la alerta ya fue confirmada, mostramos "Fecha de Confirmación";
+  // si no, "Fecha de Creación" (predicción). Refleja el UX acordado.
+  const fechaConf = fechaConfirmacion(alerta);
+  const fechaLabel = fechaConf
+    ? 'Fecha y Hora de Confirmación de la alerta'
+    : 'Fecha y Hora de Creación de la alerta';
+  const fechaValue = formatFechaHora(fechaConf || alerta.fechaCreacion);
+
   return (
     <div className="self-stretch bg-background-main rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main px-6 py-5 flex flex-col items-start gap-4">
       <h2 className="self-stretch text-text-primary text-base font-bold font-sans leading-6">
@@ -34,8 +44,8 @@ export function ContextoCard({ alerta }: ContextoCardProps) {
       <div className="self-stretch inline-flex justify-center items-start gap-4">
         <Campo label="Fenómeno climático" value={alerta.fenomeno} />
         <Campo
-          label="Fecha y Hora de Creación de la alerta"
-          value={formatFechaHora(alerta.fechaCreacion)}
+          label={fechaLabel}
+          value={fechaValue}
           withClock
         />
       </div>

@@ -28,14 +28,35 @@
  *     resolve) y número total encima indicando cuántas alertas hay en la zona.
  */
 
-/** Estado de la alerta — coincide con los tokens `alerts.status.*` de Tailwind. */
+/**
+ * Estado de la alerta — coincide con los tokens `alerts.status.*` de Tailwind.
+ *
+ * `no-confirmado` existe en el tipo pero NO se renderiza en el mapa (solo
+ * en el tabular). Las demás variants sí tienen icono en `AlertLayer` /
+ * `ClusterAlertLayer`. `en-espera-reporte` se incluye aquí para que el
+ * adapter pueda emitirlo sin romper el `EstadoAlerta` del marker.
+ */
 export type EstadoAlerta =
   | 'no-confirmado'
   | 'confirmado'
   | 'en-espera-confirmacion'
+  | 'en-espera-reporte'
   | 'en-proceso-atencion'
   | 'atendido'
   | 'predicho';
+
+/**
+ * Estados que SÍ se dibujan en el mapa (tienen icono de detalle).
+ * `no-confirmado` se excluye intencionalmente: solo aparece en el tabular.
+ */
+export const ESTADOS_EN_MAPA: ReadonlySet<EstadoAlerta> = new Set<EstadoAlerta>([
+  'predicho',
+  'en-espera-confirmacion',
+  'confirmado',
+  'en-espera-reporte',
+  'en-proceso-atencion',
+  'atendido',
+]);
 
 /**
  * Tipo de vista de la alerta — lo decide el AlertLayer según el zoom.

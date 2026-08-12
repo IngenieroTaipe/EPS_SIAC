@@ -3,7 +3,7 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import type { Alerta, EstadoAlerta } from '../types/alerta';
-import { ALERT_ZOOM_DETAIL } from '../types/alerta';
+import { ALERT_ZOOM_DETAIL, ESTADOS_EN_MAPA } from '../types/alerta';
 
 // Iconos de leyenda (vista detalle individual).
 import DangerLeyendaIconUrl from '@/assets/icons/danger-leyenda.svg?url';
@@ -23,15 +23,17 @@ const Lany = L as any;
 const ICON_DETALLE: Record<EstadoAlerta, string> = {
   'confirmado': DangerLeyendaIconUrl,
   'en-espera-confirmacion': WarningLeyendaIconUrl,
+  'en-espera-reporte': InProcessResolveLeyendaIconUrl,
   'atendido': SuccessLeyendaIconUrl,
   'en-proceso-atencion': InProcessResolveLeyendaIconUrl,
   'no-confirmado': WarningLeyendaIconUrl,
-  'predicho': InProcessResolveLeyendaIconUrl,
+  'predicho': WarningLeyendaIconUrl,
 };
 
 const ICON_CLUSTER: Partial<Record<EstadoAlerta, string>> = {
   'confirmado': DangerNumberIconUrl,
   'en-espera-confirmacion': WarningNumberIconUrl,
+  'predicho': WarningNumberIconUrl,
   'atendido': SuccessNumberIconUrl,
 };
 
@@ -47,10 +49,17 @@ const ESTADOS_CON_PULSO = new Set<EstadoAlerta>([
   'atendido',
 ]);
 
-/** Prioridad: rojo > amarillo > verde. */
+/**
+ * Prioridad del cluster: rojo > cyan > rojo-reportes > naranja > amarillo > verde.
+ * Si el dominante no tiene icono `*-number.svg` (en-proceso-atencion /
+ * en-espera-reporte), el `makeClusterIcon` cae al fallback DangerNumber.
+ */
 function estadoDominante(estados: EstadoAlerta[]): EstadoAlerta {
   if (estados.includes('confirmado')) return 'confirmado';
+  if (estados.includes('en-proceso-atencion')) return 'en-proceso-atencion';
+  if (estados.includes('en-espera-reporte')) return 'en-espera-reporte';
   if (estados.includes('en-espera-confirmacion')) return 'en-espera-confirmacion';
+  if (estados.includes('predicho')) return 'predicho';
   if (estados.includes('atendido')) return 'atendido';
   return estados[0] ?? 'no-confirmado';
 }
@@ -171,7 +180,12 @@ export function ClusterAlertLayer({
   useEffect(() => {
     clusterGroup.clearLayers();
 
+    // Solo se dibujan las alertas que tienen icono de detalle asignado
+    // (ver `ESTADOS_EN_MAPA` en types/alerta.ts). Excluye explícitamente
+    // `no-confirmado`, que solo vive en el tabular.
     for (const alerta of alertas) {
+      if (!ESTADOS_EN_MAPA.has(alerta.estado)) continue;
+
       const isSelected = selectedAlertId === alerta.id;
       const icon = makeDetalleIcon(alerta.estado, isSelected);
       const marker = Lany.marker([alerta.lat, alerta.lng], {
@@ -184,6 +198,7 @@ export function ClusterAlertLayer({
       const colorMap: Record<EstadoAlerta, string> = {
         'confirmado': 'var(--eps-danger-main)',
         'en-espera-confirmacion': 'var(--eps-warning-main)',
+        'en-espera-reporte': 'var(--eps-alerts-status-en-proceso-atencion)',
         'atendido': 'var(--eps-success-main)',
         'en-proceso-atencion': 'var(--eps-alerts-status-en-proceso-atencion)',
         'no-confirmado': 'var(--eps-text-primary)',

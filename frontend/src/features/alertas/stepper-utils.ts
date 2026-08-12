@@ -48,13 +48,10 @@ export function calcularPasos(
 
   // Fechas por fase (extraídas del historico de la alerta).
   // Notificado: la fecha de notificación.
-  // Confirmado: la fecha en que se confirmó (busca 'confirmado' en historico).
+  // Confirmado: la fecha en que se confirmó (primera entrada post-confirmación).
   // Atendido: la fecha final o de atención (busca 'atendido' o último registro).
   const fechaNotificado = alerta.fechaNotificacion;
-  const histConfirmado = alerta.historico.find(
-    (h: HistoricoEstado) => h.estado === 'confirmado',
-  );
-  const fechaConfirmado = histConfirmado?.fecha ?? alerta.fechaRealInicio;
+  const fechaConfirmado = fechaConfirmacion(alerta);
   const histAtendido = alerta.historico.find(
     (h: HistoricoEstado) => h.estado === 'atendido',
   );
@@ -158,4 +155,90 @@ export function tiempoTranscurrido(iso: string): string {
   } catch {
     return '—';
   }
+}
+
+// ============================================================================
+// Helpers de "tiempo transcurrido" y "fecha de confirmación"
+// ============================================================================
+
+/**
+ * Devuelve la fecha (ISO 8601) desde la cual se debe contar el "tiempo
+ * transcurrido" que se muestra en `EstadoActualCard` y en el sheet de
+ * detalle de la alerta.
+ *
+ * Reglas (según UX decidido con el usuario):
+ *   - `predicho` y `en-espera-confirmacion`: desde la **creación de la
+ *     alerta** (su fecha de predicción). El operador todavía no la ha
+ *     confirmado, así que el reloj arranca cuando la alerta nació.
+ *   - `no-confirmado`: desde la **creación** también (es terminal e
+ *     indica cuánto hace que se descartó desde la predicción).
+ *   - `confirmado`, `en-espera-reporte`, `en-proceso-atencion`,
+ *     `atendido`: desde la **fecha de confirmación** (la entrada del
+ *     histórico con `estado === 'confirmado'`). Una vez que el operador
+ *     confirma, el reloj relevante es "hace cuánto se confirmó".
+ *
+ * Si la alerta está confirmada pero por alguna razón no hay entrada de
+ * histórico `confirmado` (no debería pasar), caemos a `fechaRealInicio`
+ * y, si tampoco existe, a `fechaCreacion`.
+ */
+export function fechaReferenciaTiempo(alerta: AlertaHistorica): string {
+  const estadosPreConfirmacion: EstadoAlertaHistorica[] = [
+    'predicho',
+    'en-espera-confirmacion',
+    'no-confirmado',
+  ];
+  if (estadosPreConfirmacion.includes(alerta.estado)) {
+    return alerta.fechaCreacion;
+  }
+  return fechaConfirmacion(alerta) || alerta.fechaCreacion;
+}
+
+/**
+ * Resuelve la fecha (ISO 8601) en que la alerta fue confirmada (la
+ * entrada del histórico donde la alerta saltó a la rama CONFIRMADA,
+ * es decir, salió de la fase de predicción/espera).
+ *
+ * El adapter mapea "CONFIRMADO + EN ESPERA DE REPORTE" →
+ * 'en-espera-reporte', "CONFIRMADO + EN PROCESO DE ATENCIÓN" →
+ * 'en-proceso-atencion', etc. Por eso NO basta con buscar
+ * `h.estado === 'confirmado'` literalmente. En su lugar, buscamos la
+ * PRIMERA entrada del histórico (cronológicamente la más antigua)
+ * cuyo estado esté en la rama CONFIRMADA (cualquiera que no sea
+ * 'predicho', 'en-espera-confirmacion' o 'no-confirmado').
+ *
+ * `historic_alert` del backend está ordenado desc por `created_at`, así
+ * que `.filter(...).pop()` devuelve la entrada MÁS ANTIGUA que matchee
+ * (que cronológicamente es el momento exacto de la confirmación).
+ *
+ * Devuelve '' si la alerta nunca fue confirmada (sigue en predicho,
+ * en-espera-confirmacion o fue descartada como no-confirmado).
+ */
+export function fechaConfirmacion(alerta: AlertaHistorica): string {
+  const postConfirmacion = alerta.historico.filter(
+    (h: HistoricoEstado) =>
+      h.estado !== 'predicho' &&
+      h.estado !== 'en-espera-confirmacion' &&
+      h.estado !== 'no-confirmado',
+  );
+  // `.pop()` = la entrada más antigua (porque el histórico está desc).
+  return postConfirmacion[postConfirmacion.length - 1]?.fecha
+      ?? alerta.fechaRealInicio
+      ?? '';
+}
+
+/**
+ * Etiqueta legible para mostrar bajo el valor de "Tiempo transcurrido".
+ * Refleja la regla de `fechaReferenciaTiempo`: "Desde la predicción"
+ * para los estados pre-confirmación, "Desde la confirmación" para los
+ * demás.
+ */
+export function labelTiempoTranscurrido(alerta: AlertaHistorica): string {
+  const estadosPreConfirmacion: EstadoAlertaHistorica[] = [
+    'predicho',
+    'en-espera-confirmacion',
+    'no-confirmado',
+  ];
+  return estadosPreConfirmacion.includes(alerta.estado)
+    ? 'Desde la predicción'
+    : 'Desde la confirmación';
 }

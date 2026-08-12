@@ -1,4 +1,8 @@
-import { tiempoTranscurrido } from '../stepper-utils';
+import {
+  tiempoTranscurrido,
+  fechaReferenciaTiempo,
+  labelTiempoTranscurrido,
+} from '../stepper-utils';
 import { ESTADO_LABEL, type AlertaHistorica, type EstadoAlertaHistorica } from '../types';
 
 /**
@@ -82,7 +86,11 @@ const STATUS_CLASSES: Record<EstadoAlertaHistorica, {
 export function EstadoActualCard({ alerta }: EstadoActualCardProps) {
   const cls = STATUS_CLASSES[alerta.estado];
   const label = ESTADO_LABEL[alerta.estado];
-  const tiempo = tiempoTranscurrido(alerta.fechaCreacion);
+  // El "tiempo transcurrido" se cuenta desde la fecha de referencia según
+  // el estado: desde la predicción para los pre-confirmación, desde la
+  // confirmación para los demás (ver `fechaReferenciaTiempo`).
+  const tiempo = tiempoTranscurrido(fechaReferenciaTiempo(alerta));
+  const tiempoLabel = labelTiempoTranscurrido(alerta);
 
   return (
     <div className="self-stretch bg-background-main rounded-2xl outline outline-1 outline-offset-[-1px] outline-input-stroke-main px-6 py-5 flex flex-col items-start gap-4">
@@ -123,7 +131,7 @@ export function EstadoActualCard({ alerta }: EstadoActualCardProps) {
               </span>
             </div>
             <span className="self-stretch text-text-secondary text-xs font-normal font-sans leading-4">
-              Desde la creación de la alerta
+              {tiempoLabel}
             </span>
           </div>
         </div>

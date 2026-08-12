@@ -8,8 +8,11 @@ import {
   type AlertaHistorica,
 } from '@/features/alertas/types';
 import { ESTADOS_FILTRABLES } from '@/features/alertas/alerta-utils';
-import { apiAlerts } from '@/services/apiAlerts';
-import { mapAlertListToFrontend } from '@/features/alertas/alertAdapters';
+import { apiAlerts, type BackendAlertListItem } from '@/services/apiAlerts';
+import {
+  mapAlertListToFrontend,
+  buildBranchByUbigeo,
+} from '@/features/alertas/alertAdapters';
 import { FilterableSelect, type FilterableOption } from '@/shared/components/FilterableSelect';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
 import { UNIDAD_TODAS } from '@/shared/context/UnidadOperativaContext';
@@ -58,8 +61,10 @@ export function HistoricoAlertasPage() {
 
   const { selectedNombre, setSelectedNombre, branches } = useUnidadOperativa();
 
-  const [alertas, setAlertas] = useState<AlertaHistorica[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Datos crudos del backend: se cargan una sola vez, y el mapeo a
+  // `AlertaHistorica` (que usa `branches`) se deriva con useMemo.
+  const [rawItems, setRawItems] = useState<BackendAlertListItem[]>([]);
 
   // ── Filtros ────────────────────────────────────────────────────────
   const [busqueda, setBusqueda] = useState<string>('');
@@ -74,17 +79,28 @@ export function HistoricoAlertasPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(preselectId);
 
-  // Cargar alertas del backend al montar.
+  // Cargar alertas del backend al montar (una sola vez). El mapeo final a
+  // `AlertaHistorica` (que sí usa branches para resolver UO) se hace en
+  // el useMemo siguiente, así evitamos refetch cuando cambian branches.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- secuencia de
        carga (loading true → fetch → loading false), patrón canónico. */
     setIsLoading(true);
     apiAlerts.listAlerts()
-      .then((items) => setAlertas(items.map(mapAlertListToFrontend)))
+      .then(setRawItems)
       .catch((err) => console.error('Error cargando alertas:', err))
       .finally(() => setIsLoading(false));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  // Mapa de branches que se deriva directamente de las branches del
+  // contexto (sin necesidad de useEffect/setState).
+  const branchMap = useMemo(() => buildBranchByUbigeo(branches), [branches]);
+
+  const alertas = useMemo<AlertaHistorica[]>(
+    () => rawItems.map((it) => mapAlertListToFrontend(it, branchMap)),
+    [rawItems, branchMap],
+  );
 
   // ── Opciones de filtros ───────────────────────────────────────────
   /** Opciones Unidad Operativa: "Todas" + branches activos. */
