@@ -73,10 +73,23 @@ class AlertStateMachineService:
             # === Obtener estado/fase actual de la alerta ===
             current_history = AlertHistory.objects.filter(alert=alert).order_by('-created_at').first()
 
+            if status_name == "CONFIRMADO" and (not phase_name or phase_name == "SIN FASE"):
+                phase_name = 'EN ESPERA DE REPORTE'
+            
             status, phase = cls._get_status_phase_instance(status_name, phase_name)
 
             # === Validar las reglas estrictas del diagrama de transición ===
             if current_history:
+                if current_history.status == status and current_history.phase == phase:
+                    logger.info(
+                        f"[StateMachine] Alerta #{alert.code} ya se encuentra en "
+                        f"Estado: '{status_name}' | Fase: '{phase_name}'. Se omite la inserción."
+                    )
+                    # Opcional: Aplicar efectos secundarios en caso de actualización de payload
+                    if payload:
+                        cls._apply_state_side_effects(alert=alert, status=status, phase=phase, payload=payload)
+                    return current_history
+
                 cls._validate_transition_rules(current_history, status, phase)
 
             # === Crear la nueva línea en el histórico de bitácora ===
@@ -125,8 +138,8 @@ class AlertStateMachineService:
                 - `ValidationError`: Si la combinación Estado/Fase no existe en el sistema.
         """
                     
-        status = AlertStatus.objects.filter(name=status_name).first()
-        phase = AlertPhase.objects.filter(name=phase_name).first()
+        status = AlertStatus.objects.filter(name=status_name).first() if status_name else None
+        phase = AlertPhase.objects.filter(name=phase_name).first() if phase_name else None
 
         return status, phase
 
@@ -170,13 +183,15 @@ class AlertStateMachineService:
         params = {"alert_status": status}
         if phase:
             params["alert_phase"] = phase
-            
+
         if not AlertStatusPhase.objects.filter(**params).exists():
             raise ValidationError(f"❌ La combinación Estado '{status_name}' y Fase '{phase_name}' no está registrada en el sistema.")
 
         # =========================================================================
         # RESTRICCIONES DE ESTADO (STATUS RULES)
         # =========================================================================
+        if current_status == "PREDICHO" and status_name != "EN ESPERA DE CONFIRMACIÓN":
+            raise ValidationError(f"Una alerta en estado '{current_status}' solo puede pasar a estado 'EN ESPERA DE CONFIRMACIÓN'.")
 
         # Ventana de arrepentimiento estricta (2 horas)
         if current_status == "NO CONFIRMADO" and status_name == "CONFIRMADO":
@@ -217,9 +232,9 @@ class AlertStateMachineService:
     def _apply_state_side_effects(
         cls,
         alert: Alert,
-        payload: dict,
-        status: AlertStatus,
-        phase: AlertPhase = None
+        status: AlertStatus | None = None,
+        phase: AlertPhase | None = None,
+        payload: dict | None = None
     ):
         """
             Aplica las transformaciones de dominio y escrituras en base de datos asociadas a la transición (Alert y AlertResult).
@@ -268,8 +283,10 @@ class AlertStateMachineService:
         # === CASO: Fase 'Atendido' -> Cierre definitivo ===
         if phase_name == "ATENDIDO":
             actions_taken = payload.get("taken_actions")
-            if not actions_taken:
-                raise ValidationError("REQUISITO OBLIGATORIO: Debe registrar la descripción de las acciones tomadas para marcar como Atendido.")
+            damage_report = payload.get("damage_report", None)
+
+            if not actions_taken and damage_report is not None :
+                raise ValidationError("REQUISITO OBLIGATORIO: Debe registrar la descripción de las acciones tomadas o el reporte de daños para marcar como Atendido.")
 
             result_obj, _ = AlertResult.objects.get_or_create(alert=alert)
             result_obj.taken_actions = actions_taken

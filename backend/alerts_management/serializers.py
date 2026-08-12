@@ -428,25 +428,26 @@ class AlertTransitionSerializer(serializers.ModelSerializer):
     Serializador para la actualización de estado, fase y resultados sobre una Alerta existente.
     """
     status_name = serializers.ChoiceField(
-        choices=["Confirmado", "No Confirmado"],
+        choices=["CONFIRMADO", "NO CONFIRMADO"],
         required=False,
         write_only=True
     )
     phase_name = serializers.ChoiceField(
-        choices=["En Espera de Reporte", "En Proceso de Atención", "Atendido"],
+        choices=["EN ESPERA DE REPORTE", "EN PROCESO DE ATENCIÓN", "ATENDIDO"],
         required=False,
         write_only=True
     )
 
-    has_damage = serializers.BooleanField(required=False, write_only=True)
-    damage_report = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    taken_actions = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    real_start_time = serializers.DateTimeField(required=False, write_only=True, help_text="Hora real de inicio de la alerta")
+    has_damage = serializers.BooleanField(required=False, write_only=True, help_text="Indica si la alerta tuvo daños")
+    damage_report = serializers.CharField(required=False, allow_blank=True, write_only=True, help_text="Reporte de daños")
+    taken_actions = serializers.CharField(required=False, allow_blank=True, write_only=True, help_text="Acciones tomadas")
 
     class Meta:
         model = Alert
         fields = [
             'id', 'code', 
-            'status_name', 'phase_name', 
+            'status_name', 'phase_name', 'real_start_time',
             'has_damage', 'damage_report', 'taken_actions'
         ]
         read_only_fields = ['id', 'code']
@@ -454,10 +455,16 @@ class AlertTransitionSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs.get("has_damage") is True and not attrs.get("damage_report"):
             raise serializers.ValidationError({"damage_report": "Debe especificar el reporte si declara que existieron daños."})
-        
-        if attrs.get("phase_name") == "ATENDIDO" and not attrs.get("taken_actions"):
+
+        if attrs.get("damage_report") is not None and not attrs.get("taken_actions"):
             raise serializers.ValidationError({"taken_actions": "Debe registrar las acciones tomadas para marcar la alerta como ATENDIDA."})
-            
+        
+        if attrs.get("real_start_time") > timezone.now():
+            raise serializers.ValidationError({"real_start_time": "No puede establecer una hora real de inicio mayor a la hora actual."})
+
+        if attrs.get("real_start_time") and not attrs.get("status_name") == "CONFIRMADO":
+            raise serializers.ValidationError({"real_start_time": "No puede establecer una hora real de inicio sin marcar la alerta como CONFIRMADA."})
+        
         return attrs
 
 # ==============================================================================

@@ -230,6 +230,7 @@ class AlertHistory(AuditCreateModel):
         verbose_name = 'Histórico de Alertas'
         verbose_name_plural = 'Históricos de Alertas'
         ordering = ['-created_at']
+        unique_together = ('alert', 'status', 'phase')
         indexes = [
             models.Index(fields=['alert', 'created_at']),
         ]

@@ -163,7 +163,7 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
         - Permite la búsqueda en base a campos como: Nombre.
         - Permite el ordenamiento en base a campos como: Nombre    
     """
-    lookup_field = 'code'
+    lookup_field = 'id'
     permission_classes = [IsAdminUserOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     
@@ -212,7 +212,7 @@ class AlertTransitionViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     """
     ViewSet para actualizar el estado, fase de una Alerta (PATCH).
     """
-    lookup_field = 'code'
+    lookup_field = 'id'
     queryset = Alert.objects.all()
     serializer_class = AlertTransitionSerializer
     permission_classes = [IsAuthenticated]
@@ -220,8 +220,8 @@ class AlertTransitionViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
     @extend_schema(
         summary="Transicionar estado/fase de la alerta",
         description=(
-            "Actualiza el estado ('Confirmado', 'No Confirmado') y fase ('En Espera de Reporte', "
-            "'En Proceso de Atención', 'Atendido') de una alerta, aplicando reglas FSM y efectos secundarios."
+            "Actualiza el estado ('CONFIRMADO', 'NO CONFIRMADO') y fase ('EN ESPERA DE REPORTE', "
+            "'EN PROCESO DE ATENCIÓN', 'ATENDIDO') de una alerta, aplicando reglas FSM y efectos secundarios."
         ),
         request=AlertTransitionSerializer,
         responses={
@@ -231,10 +231,9 @@ class AlertTransitionViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
         }
     )
     def partial_update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
         instance = self.get_object()
         
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         
         data = serializer.validated_data
@@ -260,7 +259,8 @@ class AlertTransitionViewSet(mixins.UpdateModelMixin, viewsets.GenericViewSet):
             return Response(response_serializer.data, status=status.HTTP_200_OK)
 
         except DjangoValidationError as e:
-            return Response({"error": e.message}, status=status.HTTP_400_BAD_REQUEST)
+            error_detail = e.message_dict if hasattr(e, 'message_dict') else e.messages
+            return Response({"error": error_detail}, status=status.HTTP_400_BAD_REQUEST)
 
 @extend_schema_view(
     partial_update=extend_schema(tags=['Alerts / AlertResult'], summary="Actualizar resultados de las alertas"),
