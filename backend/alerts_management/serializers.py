@@ -161,11 +161,10 @@ class AlertHistorySecondarySerializer(serializers.ModelSerializer):
     phase_name = serializers.CharField(source='phase.name', read_only=True)
 
     created_at = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = AlertHistory
         fields = ['status_name', 'phase_name', 'created_at']
-        ordering = ['-created_at']
 
     def get_created_at(self, obj: AlertHistory) -> str:
         return obj.created_at.astimezone(LIMA_TZ).isoformat()

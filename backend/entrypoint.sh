@@ -27,6 +27,8 @@ if [ "$CONTAINER_ROLE" = "api" ]; then
     #python manage.py shell -c "from core_predictive.tasks import run_scheduled_gfs_download; result = run_scheduled_gfs_download(); print(result)"
 
     # python manage.py shell -c "from alerts_management.tasks import dispatch_hourly_alerts_task; dispatch_hourly_alerts_task();"
+    # python manage.py shell -c "from alerts_management.tasks import process_state_machine_timeouts_task; process_state_machine_timeouts_task();"
+
 
     echo "=== [ROLE: API] Inicialización de Base de Datos Completada ==="
 else

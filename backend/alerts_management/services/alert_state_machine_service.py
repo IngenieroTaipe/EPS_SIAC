@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 
 from alerts_management.models import (
-    Alert, AlertHistory, AlertStatusPhase, 
+    Alert, AlertHistory, AlertStatusPhase, AlertStatus, AlertPhase,
     AlertResult, AlertNotification, NotificationChannel, NotificationType
 )
 
@@ -70,46 +70,38 @@ class AlertStateMachineService:
             phase_name = cls.DEFAULT_CONFIRMED_PHASE
             
         with transaction.atomic():
-            # === Obtener combinaciones Fase - Estado ===
-            target_status_phase = cls._get_status_phase_instance(status_name, phase_name)
-            
             # === Obtener estado/fase actual de la alerta ===
             current_history = AlertHistory.objects.filter(alert=alert).order_by('-created_at').first()
-            
+
+            status, phase = cls._get_status_phase_instance(status_name, phase_name)
+
             # === Validar las reglas estrictas del diagrama de transición ===
             if current_history:
-                cls._validate_transition_rules(current_history, status_name, phase_name)
+                cls._validate_transition_rules(current_history, status, phase)
 
             # === Crear la nueva línea en el histórico de bitácora ===
             new_history = AlertHistory.objects.create(
                 alert=alert,
-                alert_status_phase=target_status_phase,
+                status=status,
+                phase=phase,
                 created_by=user
             )
 
             # === Aplicar efectos secundarios por estado (Efectos de Dominio) ===
-            cls._apply_state_side_effects(alert, status_name, phase_name, payload)
+            cls._apply_state_side_effects(alert, status, phase, payload)
 
             #  === Disparar la Notificación ===
-            notification_type = cls._resolve_notification_type(status_name)
-            
-            # == Registrar ==
-            notification_obj = AlertNotification.objects.create(
-                alert_history=new_history,
-                channel=NotificationChannel.TELEGRAM,
-                notification_type=notification_type,
-                is_sent=False,
-                notification_reason=f"Cambio de estado a {status_name} / Fase: {phase_name}"
-            )
+            notification_obj = cls._create_notification(new_history)
 
             # CONEXIÓN ASÍNCRONA: Se dispara al cerrar el commit en PostgreSQL
-            from alerts_management.tasks import send_telegram_notification_task
-            transaction.on_commit(
-                lambda: send_telegram_notification_task.apply_async(
-                    args=[notification_obj.id],
-                    countdown=1
+            if notification_obj:
+                from alerts_management.tasks import send_telegram_notification_task
+                transaction.on_commit(
+                    lambda: send_telegram_notification_task.apply_async(
+                        args=[notification_obj.id],
+                        countdown=1
+                    )
                 )
-            )
 
             logger.info(f"✅ [StateMachine] Alerta #{alert.code} migró a Estado: '{status_name}' | Fase: '{phase_name}'")
             return new_history
@@ -132,22 +124,18 @@ class AlertStateMachineService:
             `@raises`:
                 - `ValidationError`: Si la combinación Estado/Fase no existe en el sistema.
         """
-        try:
-            params = {"alert_status__name": status_name}
-            if phase_name:
-                params["alert_phase__name"] = phase_name
-            
-            return AlertStatusPhase.objects.get(**params)
-        
-        except AlertStatusPhase.DoesNotExist:
-            raise ValidationError(f"❌ La combinación Estado '{status_name}' y Fase '{phase_name}' no está registrada en el sistema.")
+                    
+        status = AlertStatus.objects.filter(name=status_name).first()
+        phase = AlertPhase.objects.filter(name=phase_name).first()
+
+        return status, phase
 
     @classmethod
     def _validate_transition_rules(
         cls, 
         current_history: AlertHistory, 
-        status_name: str, 
-        phase_name: str | None = None
+        status: AlertStatus, 
+        phase: AlertPhase | None = None
     ) -> None:
         """
         Evalúa la matriz de permisos de transición y ventanas temporales de inmutabilidad 
@@ -160,12 +148,34 @@ class AlertStateMachineService:
             - `phase_name` (`str | None`): Fase destino.
             - `payload` (`dict | None`): Metadatos adicionales de la transición.
         """
-        current_status = current_history.alert_status_phase.alert_status.name
-        current_phase = current_history.alert_status_phase.alert_phase.name
+        current_status = (
+            current_history.status.name 
+            if current_history and current_history.status 
+            else "DESCONOCIDO"
+        )
+        
+        current_phase = (
+            current_history.phase.name 
+            if current_history and current_history.phase 
+            else "SIN FASE"
+        )
         now = timezone.now()
 
+        status_name = status.name if status else None
+        phase_name = phase.name if phase else None
+
         # =========================================================================
-        # 1. RESTRICCIONES DE ESTADO (STATUS RULES)
+        # VALIDAR COMBINACIÓN
+        # =========================================================================
+        params = {"alert_status": status}
+        if phase:
+            params["alert_phase"] = phase
+            
+        if not AlertStatusPhase.objects.filter(**params).exists():
+            raise ValidationError(f"❌ La combinación Estado '{status_name}' y Fase '{phase_name}' no está registrada en el sistema.")
+
+        # =========================================================================
+        # RESTRICCIONES DE ESTADO (STATUS RULES)
         # =========================================================================
 
         # Ventana de arrepentimiento estricta (2 horas)
@@ -179,7 +189,7 @@ class AlertStateMachineService:
             raise ValidationError(f"Una alerta en estado '{current_status}' no puede degradarse a '{status_name}'.")
 
         # =========================================================================
-        # 2. RESTRICCIONES DE FASE (PHASE RULES)
+        # RESTRICCIONES DE FASE (PHASE RULES)
         # =========================================================================
         
         target_phase = phase_name or current_phase
@@ -195,20 +205,21 @@ class AlertStateMachineService:
                 raise ValidationError("El ciclo de la alerta está sellado. Se superó el plazo de 2 días para modificar reportes históricos.")
 
         # =========================================================================
-        # 3. RESTRICCIONES CRUZADAS (STATE-PHASE COUPLING)
+        # RESTRICCIONES CRUZADAS (STATE-PHASE COUPLING)
         # =========================================================================
         
         # Un evento no puede cerrarse (ATENDIDO) si sigue siendo una mera predicción
         if target_phase == "ATENDIDO" and status_name in ["PREDICHO", "EN ESPERA DE CONFIRMACIÓN"]:
             raise ValidationError("No se puede mover la alerta a fase 'ATENDIDO' sin antes haberla confirmado o descartado.")
-            
+
+
     @classmethod
     def _apply_state_side_effects(
         cls,
         alert: Alert,
         payload: dict,
-        status_name: str,
-        phase_name: str = None
+        status: AlertStatus,
+        phase: AlertPhase = None
     ):
         """
             Aplica las transformaciones de dominio y escrituras en base de datos asociadas a la transición (Alert y AlertResult).
@@ -226,6 +237,9 @@ class AlertStateMachineService:
                 - `phase_name` (`Optional[str]`): Nombre de la fase destino.
         """
         now = timezone.now()
+
+        status_name = status.name if status else None
+        phase_name = phase.name if phase else None
 
         # === CASO: Entrada a Confirmado -> Instanciar o actualizar AlertResult ===
         if status_name == "CONFIRMADO":
@@ -265,12 +279,29 @@ class AlertStateMachineService:
             alert.end_time_utc = now
             alert.save()
     
+    @classmethod
+    def _create_notification(cls, history: AlertHistory):        
+        #  === Disparar la Notificación ===
+        notification_type = cls._resolve_notification_type(history.status)
+        
+        if notification_type:
+            # == Registrar ==
+            notification_obj = AlertNotification.objects.create(
+                alert_history=history,
+                channel=NotificationChannel.TELEGRAM,
+                notification_type=notification_type,
+                is_sent=False,
+                notification_reason=f"Cambio de estado a {history.status.name} | Fase: {history.alert_phase.name}"
+            )
+
+            return notification_obj
+
+        return None
+    
     @staticmethod
-    def _resolve_notification_type(status_name: str) -> str:
+    def _resolve_notification_type(status: AlertStatus) -> str:
         """Determina el tipo de notificación según el estado alcanzado."""
         mapping = {
-            "PREDICH": NotificationType.NEW_ALERT,
-            "CONFIRMADO": NotificationType.CONFIRMED,
-            "NO CONFIRMADO": NotificationType.CANCELLED
+            "PREDICHO": NotificationType.INITIAL,
         }
-        return mapping.get(status_name, NotificationType.NEW_ALERT)
+        return mapping.get(status.name)
