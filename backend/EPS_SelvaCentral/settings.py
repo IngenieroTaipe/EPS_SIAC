@@ -44,6 +44,12 @@ DEBUG = env("DEBUG", default=False)
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS", default=["*", "localhost"])
 
+# Proxy inverso (Caddy): confiar en X-Forwarded-Proto para que Django sepa
+# que la conexión original venía por HTTPS y arme URLs absolutas con https://
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+SECURE_SSL_REDIRECT = False
+
 # Application definition
 
 INSTALLED_APPS = [

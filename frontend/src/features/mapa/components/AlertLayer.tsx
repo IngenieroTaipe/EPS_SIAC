@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Marker, Tooltip, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { mockAlertas } from '../data/mockAlertas';
+import { apiAlerts, type BackendAlertListItem } from '@/services/apiAlerts';
+import { deriveMapAlertas } from '@/features/mapa/utils/deriveMapAlertas';
 import type { Alerta, EstadoAlerta } from '../types/alerta';
 import { ALERT_ZOOM_DETAIL } from '../types/alerta';
 
@@ -96,7 +97,7 @@ const COLOR_NUMERO: Record<EstadoAlerta, string> = {
  *   GET /api/alerts/?unidad=ID → { alertas: Alerta[] }
  */
 interface AlertLayerProps {
-  /** Datos a renderizar (default: mock). */
+  /** Datos a renderizar (si se omite, se cargan desde el backend). */
   data?: { alertas: Alerta[] };
   /** ID de la alerta seleccionada (resaltar + evento de bloque). */
   selectedAlertId?: string | null;
@@ -411,35 +412,49 @@ function agrupar(alertas: Alerta[], zoom: number): Cluster[] {
 }
 
 export function AlertLayer({
-  data = mockAlertas,
+  data,
   selectedAlertId,
   onAlertaClick,
 }: AlertLayerProps) {
+  // Si no se pasan datos externos, se cargan desde el backend.
+  const [fetchedAlertas, setFetchedAlertas] = useState<Alerta[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    apiAlerts
+      .listAlerts()
+      .then((items: BackendAlertListItem[]) => {
+        if (!cancelled) setFetchedAlertas(deriveMapAlertas(items));
+      })
+      .catch((err) => {
+        console.error('Error cargando alertas:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const alertas = data?.alertas ?? fetchedAlertas;
+
   const [zoom, setZoom] = useState(() => {
-    // Inicialización diferida — evitar leer el contexto antes del mount.
-    return 13; // Default zoom del mapa (ver BaseMap).
+    return 13;
   });
 
-  // Reaccionar a cambios de zoom.
   useMapEventsAny({
     zoomend: (e: { target: { getZoom: () => number } }) => setZoom(e.target.getZoom()),
   });
 
   const showDetalle = zoom >= ALERT_ZOOM_DETAIL;
 
-  // Clusters computados solo cuando están necesarios (zoom bajo).
-  // El radio de clustering depende del zoom: a menor zoom, mayor radio.
   const clusters = useMemo(() => {
     if (showDetalle) return [];
-    return agrupar(data.alertas, zoom);
-  }, [data, showDetalle, zoom]);
+    return agrupar(alertas, zoom);
+  }, [alertas, showDetalle, zoom]);
 
   return (
     <>
       {showDetalle
         ? (
-            // ── Vista detalle: cada alerta con su icono individual ──
-            data.alertas.map((alerta) => {
+            alertas.map((alerta) => {
               const isSelected = selectedAlertId === alerta.id;
               return (
                 <MarkerAny
@@ -454,21 +469,18 @@ export function AlertLayer({
                     click: () => onAlertaClick?.(alerta.id),
                   }}
                 >
-                  {/* Tooltip del detalle */}
                 <TooltipAlerta alerta={alerta} />
                 </MarkerAny>
               );
             })
           )
         : (
-            // ── Vista agrupada: clusters con número encima ──
             clusters.map((cluster, idx) => (
               <MarkerAny
                 key={`cluster-${idx}`}
                 position={[cluster.lat, cluster.lng]}
                 icon={makeAgrupadoIcon(cluster.estado, cluster.count)}
               >
-                {/* Tooltip del cluster */}
               <TooltipCluster cluster={cluster} />
               </MarkerAny>
             ))
