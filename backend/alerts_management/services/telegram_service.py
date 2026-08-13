@@ -168,5 +168,5 @@ class TelegramService:
             f"{rango_tiempo}\n\n"
             f"📊 <b>Detalles del evento:</b>\n"
             f"• <b>Código de Alerta:</b> <code>{codigo}</code>\n"
-            f"🔗 <a href='https://localhost'>Ver más detalles aquí</a>"
+            f"🔗 <a href='https://eps-siac.duckdns.org/'>Ver más detalles aquí</a>"
         )

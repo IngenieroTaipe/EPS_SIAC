@@ -52,7 +52,7 @@ class TelegramNotificationDispatcher:
 
         # === Envío de Ubicación Espacial (PointField EPSG:4326) ===
         has_location = payload.latitude is not None and payload.longitude is not None
-        
+
         if has_location:
             logger.info(
                 f"[Telegram Dispatcher] Enviando centroide del clúster "
