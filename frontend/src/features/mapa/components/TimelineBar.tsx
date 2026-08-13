@@ -65,8 +65,7 @@ interface DaySegment {
  *
  * Características:
  *   - Eje de tiempo continuo multi-día con etiquetas de día + horas (dos
- *     filas). Scroll horizontal en mobile (track min-w fijo + overflow-x-auto
- *     en el contenedor) y layout fluido en desktop.
+ *     filas). Scroll horizontal en mobile.
  *   - Franja roja fija que marca `realSlot` (hora real de Perú), independiente
  *     del thumb de exploración.
  *   - Thumb arrastrable (pointer events) + tooltip con la hora seleccionada
@@ -76,14 +75,6 @@ interface DaySegment {
  *   - Al llegar al final del eje, el playback detiene y vuelve al slot 0
  *     (sin rebote). Cualquier drag manual cancela el playback.
  *   - Diseño compacto: botón play size-8, track h-7, font-bold en etiquetas.
- *
- * Interacción móvil:
- *   Cuando el track es más ancho que el viewport (overflow activo, detectado
- *   vía `parent.scrollWidth > parent.clientWidth`), el drag con pointer events
- *   se desactiva para no competir con el scroll táctil nativo (touch-pan-x).
- *   En su lugar, el usuario navega con swipe y selecciona una hora tocando
- *   su marca (`onClick`). En desktop (sin overflow), se usa drag/ext del
- *   thumb via pointer events como antes.
  *
  * Cronología: este componente NO hace aritmética de Date. Toda la resolución
  * de horarios vive en `PrecipitationTimelineProvider` (que conoce los
@@ -127,24 +118,14 @@ export function TimelineBar({
   // ── Medición del track para drag y posicionamiento en % ───────────────
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [trackWidth, setTrackWidth] = useState(0);
-  // Si el track interior es más ancho que su contenedor (= overflow activo),
-  // estamos en móvil: usamos scroll nativo + click en vez de drag.
-  const [isScrollable, setIsScrollable] = useState(false);
 
   useLayoutEffect(() => {
     const el = trackRef.current;
     if (!el) return;
-    const parent = el.parentElement;
-    const measure = () => {
-      setTrackWidth(el.clientWidth);
-      if (parent) {
-        setIsScrollable(parent.scrollWidth > parent.clientWidth + 1);
-      }
-    };
+    const measure = () => setTrackWidth(el.clientWidth);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    if (parent) ro.observe(parent);
     return () => ro.disconnect();
   }, []);
 
@@ -210,17 +191,7 @@ export function TimelineBar({
 
   const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (totalSlots === 0) return;
-    // En móvil (scroll activo) dejamos que el navegador haga pan horizontal
-    // nativo; el usuario selecciona horas con tap (handleTrackClick).
-    if (isScrollable) return;
     startDrag(e.clientX);
-  };
-
-  // Tap/click discreto sobre una marca de hora: principal mecanismo de
-  // selección en móvil (cuando el track scrollea) y fallback en desktop.
-  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (totalSlots === 0) return;
-    selectFromClientX(e.clientX);
   };
 
   // ── Posicionamiento de thumb / línea roja en % ──────────────────────
@@ -232,31 +203,6 @@ export function TimelineBar({
   const tooltipHourLabel = labelForSlot(selectedSlot);
   const disabled = totalSlots === 0;
 
-  // ── Auto-scroll del track en móvil para mantener el thumb visible ────
-  // Durante el playback, el thumb viaja por el eje (760px) y si el track
-  // scrollea, puede salir del viewport visible. Detecta el caso y centra
-  // el contenedor en el thumb. No opera en desktop (no hay overflow).
-  const trackParentRef = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    trackParentRef.current = trackRef.current?.parentElement ?? null;
-  }, []);
-  useEffect(() => {
-    if (!isScrollable) return;
-    const el = trackRef.current;
-    const parent = trackParentRef.current;
-    if (!el || !parent) return;
-    const thumbPx = (clamp(selectedSlot, 0, maxSlot) / maxSlot) * el.clientWidth;
-    const viewStart = parent.scrollLeft;
-    const viewEnd = viewStart + parent.clientWidth;
-    // Sólo scrollea si el thumb sale del viewport (con margen de 24px).
-    if (thumbPx < viewStart + 24 || thumbPx > viewEnd - 24) {
-      parent.scrollTo({
-        left: Math.max(0, thumbPx - parent.clientWidth / 2),
-        behavior: 'smooth',
-      });
-    }
-  }, [selectedSlot, isScrollable, maxSlot]);
-
   return (
     <div
       role="group"
@@ -265,10 +211,7 @@ export function TimelineBar({
         'relative z-[1100] w-full',
         'flex items-stretch bg-background-main/95 backdrop-blur',
         'shadow-[0px_-5px_5px_0px_rgba(0,0,0,0.25)]',
-        'px-2 sm:px-3 py-1 select-none',
-        // `touch-pan-x` en móvil permite scroll horizontal nativo del track;
-        // `touch-none` en >=sm deja el drag vía pointer events libre.
-        'touch-pan-x sm:touch-none',
+        'px-3 py-1 select-none touch-none',
         disabled && 'pointer-events-none opacity-50',
       )}
     >
@@ -280,7 +223,7 @@ export function TimelineBar({
         aria-label={isPlaying ? 'Pausar animación' : 'Reproducir animación'}
         aria-pressed={isPlaying}
         className={cn(
-          'shrink-0 size-8 sm:size-8 rounded-full inline-flex items-center justify-center',
+          'shrink-0 size-8 rounded-full inline-flex items-center justify-center',
           'bg-primary-main text-text-invert-primary transition-colors',
           'hover:bg-primary-light focus:outline-none',
           'focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2',
@@ -295,7 +238,7 @@ export function TimelineBar({
       </button>
 
       {/* ── Cuerpo de la barra (dos filas + track) ────────────────────── */}
-      <div className="relative flex-1 ml-2 sm:ml-3 min-w-0 flex flex-col gap-0.5">
+      <div className="relative flex-1 ml-3 min-w-0 flex flex-col gap-0.5">
         {/* Tooltip flotante sobre el thumb; sólo mientras se arrastra. */}
         {isDragging && (
           <div
@@ -341,32 +284,12 @@ export function TimelineBar({
           })}
         </div>
 
-        {/* Fila inferior: track + marcas de hora.
-            En móvil el contenedor exterior activa `overflow-x-auto` (sólo
-            cuando el track interior desborda, que es el caso en `<sm` por
-            el `min-w-[760px]`), lo que permite swipe horizontal nativo.
-            En desktop el track ocupa todo el ancho disponible sin scroll. */}
-        <div
-          className={cn(
-            'relative flex-1 min-h-0',
-            '-mx-2 px-2 sm:mx-0 sm:px-0',
-            // Sólo aplicamos overflow cuando hay overflow (móvil). En desktop
-            // dejamos `overflow-visible` para no recortar el tooltip/dropdown.
-            isScrollable
-              ? 'overflow-x-auto overflow-y-hidden'
-              : 'overflow-visible',
-          )}
-        >
+        {/* Fila inferior: track + marcas de hora (sin scroll horizontal). */}
+        <div className="relative">
           <div
             ref={trackRef}
             onPointerDown={handleTrackPointerDown}
-            onClick={handleTrackClick}
-            className={cn(
-              'relative h-7 cursor-pointer',
-              // Móvil: ancho fijo para garantizar marcas legibles (>=44px
-              // cada una para 18 slots → ~760px). Desktop: ocupa todo el ancho.
-              'min-w-[760px] sm:min-w-full',
-            )}
+            className="relative h-7 w-full cursor-pointer"
           >
             {/* Línea base del track */}
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] rounded-full bg-input-stroke-main/40" />
