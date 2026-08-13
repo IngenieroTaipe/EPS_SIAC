@@ -2,6 +2,9 @@
 # Production (El $SITE_ADDRESS debe ser dado desde Docker)
 # ==========================================
 {$SITE_ADDRESS} {
+    # Certificados auto-generados (caddy)
+    tls internal
+
     # Raíz de archivos estáticos
     root * /srv
 
@@ -17,6 +20,12 @@
         # Habilita el filtro de Cross-Site Scripting en navegadores heredados
         X-XSS-Protection "1; mode=block"
     }
+
+    # Redirección de peticiones API al backend Django
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+
 
     # Resuelve el enrutamiento de React: si el archivo solicitado no existe, sirve index.html
     try_files {path} /index.html

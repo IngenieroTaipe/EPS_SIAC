@@ -28,7 +28,7 @@ if [ "$CONTAINER_ROLE" = "api" ]; then
 
     # python manage.py shell -c "from alerts_management.tasks import dispatch_hourly_alerts_task; dispatch_hourly_alerts_task();"
     # python manage.py shell -c "from alerts_management.tasks import process_state_machine_timeouts_task; process_state_machine_timeouts_task();"
-
+    # python manage.py shell -c "from alerts_management.tasks import process_forecast_and_adapt_alerts_task; result = process_forecast_and_adapt_alerts_task(1); print(result)"
 
     echo "=== [ROLE: API] Inicialización de Base de Datos Completada ==="
 else

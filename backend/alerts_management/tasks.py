@@ -5,16 +5,14 @@ import logging
 from celery import shared_task
 from celery.exceptions import Retry
 from django.utils import timezone
+from django.db.models import OuterRef, Subquery
 from datetime import timedelta
 
 from alerts_management.models import Alert, AlertNotification, NotificationChannel, AlertHistory
-from alerts_management.services.infrastructure_intersection_service import InfrastructureIntersectionService
-from alerts_management.services.alert_management_service import AlertManagementService
+from alerts_management.services.forecast_pipeline_service import ForecastPipelineDomainService
 from alerts_management.services.alert_state_machine_service import AlertStateMachineService
 from alerts_management.services.notification_service import NotificationDomainService
 from alerts_management.services.telegram_dispatcher import TelegramNotificationDispatcher
-
-from core_predictive.models import GFSRequest, NaturalPhenomena
 
 logger = logging.getLogger(__name__)
 
@@ -89,16 +87,26 @@ def dispatch_hourly_alerts_task():
         channel=NotificationChannel.TELEGRAM
     ).select_related('alert_history__alert')
 
+    dispatched_count = 0
+    stagger_delay = 0
+
     for notification in pending_notifications:
         alert = notification.alert_history.alert
 
-        # === Regla de Despacho: Solo enviar si está dentro de la ventana de 6 horas O si es Cancelación/Reprogramación ===
-        if alert.start_time_utc <= six_hours_future or notification.notification_type in ['CANCELLED', 'RESCHEDULED']:
-            
-            # Ejecución asíncrona de la lógica del worker
-            send_telegram_notification_task.delay(notification.id)
-            
-            logger.info(f"✅ [Worker] Notificación ID #{notification.id} despachada para Alerta {alert.code}")
+        # Regla de Despacho: Solo enviar si está dentro de la ventana de 6 horas O si es Cancelación/Reprogramación
+        is_in_window = alert.start_time_utc <= six_hours_future
+        is_priority_type = notification.notification_type in ['CANCELLED', 'RESCHEDULED']
+        
+        if is_in_window or is_priority_type:
+            send_telegram_notification_task.apply_async(
+                args=[notification.id],
+                countdown=stagger_delay
+            )
+            dispatched_count += 1
+            stagger_delay += 3 # Necesario para que el mensaje y el punto estén sincronizados (no cambiar)
+            logger.info(f"✅ [Worker Beat] Encolada Notificación ID #{notification.id} para Alerta #{alert.code}")
+
+    return dispatched_count
 
 @shared_task(
     name="alerts_management.tasks.process_forecast_and_adapt_alerts",
@@ -108,37 +116,24 @@ def dispatch_hourly_alerts_task():
 )
 def process_forecast_and_adapt_alerts_task(self, gfs_request_id: int):
     """
-        Tarea Celery Asíncrona:
-            Se desencadena ÚNICAMENTE si la descarga e ingesta del archivo GFS fue exitosa.
-            Ejecuta las Etapas 3, 4 y 5 del Pipeline de Alertas.
+    Tarea Celery Asíncrona:
+    Delegación de la adaptación espacial al servicio de dominio del pipeline.
     """
     logger.info(f"[Celery Task] Iniciando procesamiento de alertas para GFSRequest #{gfs_request_id}...")
 
     try:
-        natural_phenomena = NaturalPhenomena.objects.filter(name="LLUVIAS INTENSAS").first()
+        success, persisted_count, msg = ForecastPipelineDomainService.execute_forecast_adaptation(gfs_request_id)
+        if not success:
+            logger.error(f"[Celery Task Error] Falló el pipeline para GFSRequest #{gfs_request_id}: {msg}")
+            raise self.retry(exc=Exception(msg))
 
-        # === Validar existencia y estado nominal de la solicitud ===
-        gfs_request = GFSRequest.objects.filter(pk=gfs_request_id, status='COMPLETED').first()
-        if not gfs_request:
-            logger.warning(f"[Celery Task] GFSRequest #{gfs_request_id} no existe o no está en estado COMPLETED. Abortando.")
-            return 0
-
-        # === Intersectar clústeres con los componentes de la EPS ===
-        impacted_clusters = InfrastructureIntersectionService.get_impacted_components_by_clusteres(gfs_request_id)
-        
-        if not impacted_clusters:
-            logger.info(f"[Celery Task] No se detectó impacto en infraestructura para GFSRequest #{gfs_request_id}.")
-            return 0
-
-        # === Adaptadmos las alertas al nuevo pronóstico ===
-        persisted_count = AlertManagementService.adapt_alerts_to_gfs_forecast(gfs_request_id, natural_phenomena.id, impacted_clusters)
-        
-        logger.info(f"[Celery Task] Finalizada exitosamente la adaptación de las alertas al nuevo pronóstico para GFSRequest #{gfs_request_id}. Snapshots procesados: {persisted_count}")
         return persisted_count
 
+    except Retry:
+        raise
+
     except Exception as exc:
-        logger.error(f"[Celery Task Error] Falló la adaptación de las alertas al nuevo pronóstico para GFSRequest #{gfs_request_id}: {str(exc)}")
-        # Reintento automático en caso de fallos temporales de concurrencia en la BD
+        logger.error(f"[Celery Task Error] Excepción inesperada en GFSRequest #{gfs_request_id}: {str(exc)}")
         raise self.retry(exc=exc)
 
 @shared_task(name="alerts_management.tasks.process_state_machine_timeouts")
@@ -149,38 +144,51 @@ def process_state_machine_timeouts_task():
             2. Transiciona 'En Espera de Confirmación' -> 'No Confirmado' al cumplir 60 min de inacción.
     """
     now = timezone.now()
+    one_hour_ago = now - timedelta(hours=1)
+    
+    latest_history_id_subquery = Subquery(
+        AlertHistory.objects.filter(
+            alert=OuterRef('pk')
+        ).order_by('-created_at').values('id')[:1]
+    )
 
     # === EVALUAR: Llega la hora 'start_time_utc' del fenómeno -> Migrar a 'En Espera de Confirmación' ===
     predicted_alerts = Alert.objects.filter(
         start_time_utc__lte=now,
+        historic_alert__id=latest_history_id_subquery,
         historic_alert__status__name="PREDICHO"
     ).distinct()
 
+    migrated_to_waiting = 0
     for alert in predicted_alerts:
-        latest_history = alert.historic_alert.order_by('-created_at').first()
-        if latest_history and latest_history.status.name == "PREDICHO":
-            AlertStateMachineService.transition_to_state_phase(
-                alert=alert,
-                status_name="EN ESPERA DE CONFIRMACIÓN"
-            )
-            logger.info(f"[FSM Worker] Alerta #{alert.code} pasó a 'En Espera de Confirmación'.")
+        AlertStateMachineService.transition_to_state_phase(
+            alert=alert,
+            status_name="EN ESPERA DE CONFIRMACIÓN"
+        )
+        migrated_to_waiting += 1
+        logger.info(f"[FSM Worker] Alerta #{alert.code} pasó a 'En Espera de Confirmación'.")
 
     # === EVALUAR: Pasan > 1 hora en 'En Espera de Confirmación' sin acción -> Migrar a 'No Confirmado' ===
-    one_hour_ago = now - timedelta(hours=1)
-    
     waiting_histories = AlertHistory.objects.filter(
+            id=Subquery(
+            AlertHistory.objects.filter(
+                alert=OuterRef('alert_id')
+            ).order_by('-created_at').values('id')[:1]
+        ),
         status__name="EN ESPERA DE CONFIRMACIÓN",
         created_at__lte=one_hour_ago
     ).select_related('alert')
 
+    migrated_to_unconfirmed = 0
     for history in waiting_histories:
-        alert = history.alert
-        latest_history = alert.historic_alert.order_by('-created_at').first()
-        
-        # Verificar si la alerta sigue en 'En Espera de Confirmación' (Sin acción de usuario)
-        if latest_history.id == history.id:
-            AlertStateMachineService.transition_to_state_phase(
-                alert=alert,
-                status_name="NO CONFIRMADO"
-            )
-            logger.warning(f"[FSM Worker] Alerta #{alert.code} caducó por timeout de 1h -> Migrada a 'No Confirmado'.")
+        AlertStateMachineService.transition_to_state_phase(
+            alert=history.alert,
+            status_name="NO CONFIRMADO"
+        )
+        migrated_to_unconfirmed += 1
+        logger.warning(f"[FSM Worker] Alerta #{history.alert.code} caducó por timeout de 1h -> Migrada a 'No Confirmado'.")
+
+    return {
+        "migrated_to_waiting": migrated_to_waiting,
+        "migrated_to_unconfirmed": migrated_to_unconfirmed
+    }

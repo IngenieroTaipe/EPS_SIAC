@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Tuple
 
 from alerts_management.services.notification_service import NotificationPayloadDTO
@@ -50,14 +51,20 @@ class TelegramNotificationDispatcher:
             return False, is_config_error, error_str
 
         # === Envío de Ubicación Espacial (PointField EPSG:4326) ===
-        if payload.latitude is not None and payload.longitude is not None:
+        has_location = payload.latitude is not None and payload.longitude is not None
+        
+        if has_location:
             logger.info(
                 f"[Telegram Dispatcher] Enviando centroide del clúster "
                 f"(Lat: {payload.latitude}, Lon: {payload.longitude})..."
             )
-            self.telegram_service.send_location(
+            loc_success, loc_response = self.telegram_service.send_location(
                 latitude=payload.latitude, 
                 longitude=payload.longitude
             )
+            if not loc_success:
+                error_str = str(loc_response) if loc_response is not None else "Location response=None"
+                logger.error(f"[Telegram Dispatcher] Fallo al enviar ubicación: {error_str}")
+                return False, False, f"Fallo al enviar ubicación: {error_str}"
 
         return True, False, ""

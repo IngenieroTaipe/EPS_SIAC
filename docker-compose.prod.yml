@@ -1,13 +1,12 @@
 services:
   # =========== DATABASE =========== 
   db_postgis:
-    environment:
-      - POSTGRES_USER
-      - POSTGRES_PASSWORD
-      - POSTGRES_DB
-    # Indicamos la ruta del .env de produccion
     env_file:
       - ./backend/.env.prod
+    volumes:
+      - db_data:/var/lib/postgresql
+    networks:
+      - eps_siac_network
 
   # =========== API (DJANGO) =========== 
   api:
@@ -18,6 +17,10 @@ services:
       - ./backend/.env.prod
     volumes:
       - gfs_media_data:/app/storage
+    environment:
+      - CONTAINER_ROLE=api
+    networks:
+      - eps_siac_network
       
   # =========== CELERY () =========== 
   celery_worker:
@@ -28,9 +31,15 @@ services:
     command: celery -A EPS_SelvaCentral worker --loglevel=info --concurrency=2
     volumes:
       - gfs_media_data:/app/storage
+    env_file:
+      - ./backend/.env.prod
+    environment:
+      - CONTAINER_ROLE=worker
     depends_on:
       - redis
       - api
+    networks:
+      - eps_siac_network
     
   celery_beat:
     build:
@@ -38,6 +47,12 @@ services:
       target: prod
     container_name: eps_siac_celery_beat
     command: celery -A EPS_SelvaCentral beat --loglevel=info
+    env_file:
+      - ./backend/.env.prod
+    environment:
+      - CONTAINER_ROLE=beat
+    networks:
+      - eps_siac_network
     depends_on:
       - redis
       - celery_worker
@@ -53,13 +68,13 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
-    environment:
-      # Utilizamos la variable declarada en el env_file del frontend
-      - SITE_ADDRESS
     env_file:
       - ./frontend/.env.prod
+    networks:
+      - eps_siac_network
 
 volumes:
+  db_data:
   caddy_data:
   caddy_config:
   gfs_media_data:
