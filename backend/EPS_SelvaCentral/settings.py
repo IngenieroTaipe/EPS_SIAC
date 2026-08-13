@@ -266,15 +266,15 @@ CELERY_BEAT_SCHEDULE = {
 
         # === Programación de ejecución (08:15 y 20:15 UTC todos los días) ===
         # Los valores se establecen en base a las horas de ejecución del modelo, solo que 1 hora después para evitar problemas y garantizar la descarga.
-        # 00/24 UTC + 1:00 (periodo adicional) => 22:54 + 1:00 (23:54 -> Perú)
-        # 06 UTC + 1:00 (periodo adicional) => 04:50 + 1:00 (05:50 -> Perú)
-        # 12 UTC + 1:00 (periodo adicional) => 10:50 + 1:00 (11:50 -> Perú)
-        # 18 UTC + 1:00 (periodo adicional) => 16:50 + 1:00 (17:50 -> Perú)
+        # 00/24 UTC + 1:00 (periodo adicional) => 22:54 + 1:00 (23:54 -> Perú (UTC-5), 4:50 (UTC))
+        # 06 UTC + 1:00 (periodo adicional) => 04:50 + 1:00 (05:50 -> Perú (UTC-5), 10:50 (UTC))
+        # 12 UTC + 1:00 (periodo adicional) => 10:50 + 1:00 (11:50 -> Perú (UTC-5), 16:50 (UTC))
+        # 18 UTC + 1:00 (periodo adicional) => 16:50 + 1:00 (17:50 -> Perú (UTC-5), 22:50 (UTC))
         #
         # === FIX ===
         # `minute=0` hace que Celery dispare solo 1 vez por hora en vez de 60 (minute='*').
         # Ver https://docs.celeryq.dev/en/stable/userguide/periodic-tasks.html#crontab-schedules
-        'schedule': crontab(hour='5,11,17,23', minute=50),
+        'schedule': crontab(hour='4,10,16,22', minute=50),
     },
 
     'despacho-horario-alertas-telegram': {
