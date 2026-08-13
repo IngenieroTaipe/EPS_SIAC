@@ -73,7 +73,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     env_file:
-      - ./frontend/.env.prod
+      - ./frontend/.env.production
     networks:
       - eps_siac_network
 

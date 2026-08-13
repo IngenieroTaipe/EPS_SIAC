@@ -14,28 +14,6 @@ class Command(BaseCommand):
         )
 
         coords_data = [
-            # ==== NUEVOS COMPONENTES EN ZONAS DE PRECIPITACION ====
-            # LORETO
-            {"ubigeo": "160101", "type_name": "Captación", "code": "1001", "criticality_name": "ALTA", "coords": [[-76.50, -3.50]]},
-            {"ubigeo": "160101", "type_name": "Reservorio", "code": "1002", "criticality_name": "ALTA", "coords": [[-76.51, -3.51]]},
-            {"ubigeo": "160101", "type_name": "Planta de Tratamiento de Agua Potable", "code": "1003", "criticality_name": "ALTA", "coords": [[-76.52, -3.52]]},
-            {"ubigeo": "160101", "type_name": "Fuente", "code": "1004", "criticality_name": "MEDIA", "coords": [[-76.53, -3.53]]},
-            {"ubigeo": "160101", "type_name": "Estación de Bombeo y Rebombeo de Agua Potable", "code": "1005", "criticality_name": "MEDIA", "coords": [[-76.54, -3.54]]},
-
-            # UCAYALI
-            {"ubigeo": "250101", "type_name": "Captación", "code": "2001", "criticality_name": "ALTA", "coords": [[-74.50, -6.50]]},
-            {"ubigeo": "250101", "type_name": "Reservorio", "code": "2002", "criticality_name": "ALTA", "coords": [[-74.51, -6.51]]},
-            {"ubigeo": "250101", "type_name": "Planta de Tratamiento de Agua Potable", "code": "2003", "criticality_name": "ALTA", "coords": [[-74.52, -6.52]]},
-            {"ubigeo": "250101", "type_name": "Fuente", "code": "2004", "criticality_name": "MEDIA", "coords": [[-74.53, -6.53]]},
-            {"ubigeo": "250101", "type_name": "Estación de Bombeo y Rebombeo de Agua Potable", "code": "2005", "criticality_name": "MEDIA", "coords": [[-74.54, -6.54]]},
-
-            # AYACUCHO (Zona de la alerta)
-            {"ubigeo": "050101", "type_name": "Captación", "code": "3001", "criticality_name": "ALTA", "coords": [[-74.00, -13.50]]},
-            {"ubigeo": "050101", "type_name": "Reservorio", "code": "3002", "criticality_name": "ALTA", "coords": [[-74.01, -13.51]]},
-            {"ubigeo": "050101", "type_name": "Planta de Tratamiento de Agua Potable", "code": "3003", "criticality_name": "ALTA", "coords": [[-74.02, -13.52]]},
-            {"ubigeo": "050101", "type_name": "Fuente", "code": "3004", "criticality_name": "MEDIA", "coords": [[-74.03, -13.53]]},
-            {"ubigeo": "050101", "type_name": "Estación de Bombeo y Rebombeo de Agua Potable", "code": "3005", "criticality_name": "MEDIA", "coords": [[-74.04, -13.54]]},
-
             # ==== 120301 (San Ramon / Chanchamayo area) ====
             {
                 "ubigeo": "120301",
@@ -169,15 +147,6 @@ class Command(BaseCommand):
                 ]
             },
 
-            # ==== 120305 (San Luis de Shuaro) ====
-            {
-                "ubigeo": "120305",
-                "type_name": "Estación de Bombeo y Rebombeo de Agua Potable",
-                "code": "0008",
-                "criticality_name": "MEDIA",
-                "coords": [[-75.2500, -10.9000]]
-            },
-
             # ==== 190301 (Oxapampa) ====
             {
                 "ubigeo": "190301",
@@ -216,28 +185,6 @@ class Command(BaseCommand):
                     [-75.4130, -10.5860]
                 ]
             },
-            # ==== CUSCO (Machu Picchu & Sacred Valley) ====
-            {
-                "ubigeo": "081304",
-                "type_name": "Unidades de Desinfección",
-                "code": "0001",
-                "criticality_name": "ALTA",
-                "coords": [[-72.544938, -13.162960]]
-            },
-            {
-                "ubigeo": "081301",
-                "type_name": "Reservorio",
-                "code": "0001",
-                "criticality_name": "ALTA",
-                "coords": [[-72.1150, -13.3050]]
-            },
-            {
-                "ubigeo": "081306",
-                "type_name": "Captación",
-                "code": "0001",
-                "criticality_name": "ALTA",
-                "coords": [[-72.2600, -13.2550]]
-            }
         ]
 
         self.stdout.write("Procesando ComponentCoords")
