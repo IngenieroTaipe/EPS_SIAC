@@ -1,5 +1,5 @@
 services:
-  # =========== DATABASE =========== 
+  # =========== DATABASE ===========
   db_postgis:
     env_file:
       - ./backend/.env.prod
@@ -8,7 +8,7 @@ services:
     networks:
       - eps_siac_network
 
-  # =========== API (DJANGO) =========== 
+  # =========== API (DJANGO) ===========
   api:
     build:
       context: ./backend
@@ -21,8 +21,8 @@ services:
       - CONTAINER_ROLE=api
     networks:
       - eps_siac_network
-      
-  # =========== CELERY () =========== 
+
+  # =========== CELERY () ===========
   celery_worker:
     build:
       context: ./backend
@@ -42,7 +42,7 @@ services:
         condition: service_healthy
     networks:
       - eps_siac_network
-    
+
   celery_beat:
     build:
       context: ./backend
@@ -61,7 +61,7 @@ services:
       celery_worker:
         condition: service_started
 
-  # =========== FRONTEND (REACT) =========== 
+  # =========== FRONTEND (REACT) ===========
   frontend:
     build:
       context: ./frontend

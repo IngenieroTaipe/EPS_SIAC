@@ -36,6 +36,9 @@ ENV NODE_ENV=production
 # Aumentamos el límite de memoria asignado a Node en caso de proyectos grandes
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
+# Eliminamos el .env por defecto para que no se incruste localhost:8000 en el build
+RUN rm -f .env
+
 # Compilamos los archivos y generamos la carpeta /app/dist
 RUN npm run build
 
