@@ -31,54 +31,67 @@ interface EstadoActualCardProps {
   alerta: AlertaHistorica;
 }
 
-/** Mapa estado → clases Tailwind (color sólido + fill). */
+/**
+ * Mapa estado → clases Tailwind.
+ *
+ * El badge del estado ahora usa el color SÓLIDO del token (sin el "fill"
+ * de 50% de opacidad) como fondo, con texto contrastante encima. Por
+ * eso cada estado define `text` distinto:
+ *   - Colores oscuros (rojo, cyan, gris) → texto blanco
+ *     (`text-text-invert-primary`), buen contraste.
+ *   - Colores claros (amarillo #f9d800, verde #1eff6b, naranja #ffb03d)
+ *     → texto navy (`text-text-primary`), mucho mejor contraste que
+ *     texto blanco sobre fondo claro.
+ * Resultado: el badge se ve "más oscuro"/con mayor contraste de fondo,
+ * que era el objetivo pedido.
+ */
 const STATUS_CLASSES: Record<EstadoAlertaHistorica, {
-  bgFill: string;
+  bg: string;
   outline: string;
   text: string;
   dot: string;
 }> = {
   'predicho': {
-    bgFill: 'bg-alerts-status-fill-predicho',
+    bg: 'bg-alerts-status-predicho',
     outline: 'outline-alerts-status-predicho',
-    text: 'text-alerts-status-predicho',
+    text: 'text-text-primary',
     dot: 'bg-alerts-status-predicho',
   },
   'en-espera-confirmacion': {
-    bgFill: 'bg-alerts-status-fill-en-espera-confirmacion',
+    bg: 'bg-alerts-status-en-espera-confirmacion',
     outline: 'outline-alerts-status-en-espera-confirmacion',
-    text: 'text-alerts-status-en-espera-confirmacion',
+    text: 'text-text-primary',
     dot: 'bg-alerts-status-en-espera-confirmacion',
   },
   'no-confirmado': {
-    bgFill: 'bg-alerts-status-fill-no-confirmado',
+    bg: 'bg-alerts-status-no-confirmado',
     outline: 'outline-alerts-status-no-confirmado',
-    text: 'text-alerts-status-no-confirmado',
+    text: 'text-text-invert-primary',
     dot: 'bg-alerts-status-no-confirmado',
   },
   'confirmado': {
-    bgFill: 'bg-alerts-status-fill-confirmado-reporte',
+    bg: 'bg-alerts-status-confirmado-reporte',
     outline: 'outline-alerts-status-confirmado-reporte',
-    text: 'text-alerts-status-confirmado-reporte',
+    text: 'text-text-invert-primary',
     dot: 'bg-alerts-status-confirmado-reporte',
   },
   'en-espera-reporte': {
     // Reusa los colores de confirmado (no hay token propio en paleta).
-    bgFill: 'bg-alerts-status-fill-confirmado-reporte',
+    bg: 'bg-alerts-status-confirmado-reporte',
     outline: 'outline-alerts-status-confirmado-reporte',
-    text: 'text-alerts-status-confirmado-reporte',
+    text: 'text-text-invert-primary',
     dot: 'bg-alerts-status-confirmado-reporte',
   },
   'en-proceso-atencion': {
-    bgFill: 'bg-alerts-status-fill-en-proceso-atencion',
+    bg: 'bg-alerts-status-en-proceso-atencion',
     outline: 'outline-alerts-status-en-proceso-atencion',
-    text: 'text-alerts-status-en-proceso-atencion',
+    text: 'text-text-invert-primary',
     dot: 'bg-alerts-status-en-proceso-atencion',
   },
   'atendido': {
-    bgFill: 'bg-alerts-status-fill-atendido',
+    bg: 'bg-alerts-status-atendido',
     outline: 'outline-alerts-status-atendido',
-    text: 'text-alerts-status-atendido',
+    text: 'text-text-primary',
     dot: 'bg-alerts-status-atendido',
   },
 };
@@ -105,7 +118,7 @@ export function EstadoActualCard({ alerta }: EstadoActualCardProps) {
           </span>
 
           <div
-            className={`self-stretch px-4 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] inline-flex justify-start items-center gap-3 ${cls.bgFill} ${cls.outline}`}
+            className={`self-stretch px-4 py-2.5 rounded-xl outline outline-2 outline-offset-[-1px] inline-flex justify-start items-center gap-3 ${cls.bg} ${cls.outline}`}
           >
             <div className="flex justify-start items-center gap-1.5">
               {/* Círculo sólido del color del estado (token circle.svg conceptual) */}
