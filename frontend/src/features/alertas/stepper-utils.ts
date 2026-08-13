@@ -74,11 +74,20 @@ export function calcularPasos(
     if (idx < idxActual) estadoPaso = 'hecho';
     else if (idx === idxActual) estadoPaso = 'proceso';
     else estadoPaso = 'falta';
+
+    // La fecha solo se asigna a pasos que ya pasaron o son el actual.
+    // Para pasos 'falta' (aún no alcanzados) forzamos `fecha = undefined`
+    // aunque `fechas[fase]` tenga un valor (puede pasar con mocks legacy
+    // o si el histórico trae entradas que no corresponden a la fase
+    // actual del flujo — p. ej. una alerta `no-confirmado` no debería
+    // mostrar fecha de "Confirmado" ni de "Atendido").
+    const fecha = estadoPaso === 'falta' ? undefined : fechas[fase];
+
     return {
       fase,
       label: labels[fase],
       estado: estadoPaso,
-      fecha: fechas[fase],
+      fecha,
     };
   });
 }

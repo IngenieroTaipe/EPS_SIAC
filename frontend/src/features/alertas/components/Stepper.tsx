@@ -60,7 +60,7 @@ export function Stepper({ alerta }: StepperProps) {
               </div>
               {paso.fecha && (
                 <div className="flex flex-col items-center">
-                  <span className="text-text-status-placeholder text-xs font-normal font-sans leading-4">
+                  <span className="text-text-secondary text-xs font-normal font-sans leading-4">
                     {formatFechaCorta(paso.fecha)}
                     <br />
                     {formatHora(paso.fecha)}
