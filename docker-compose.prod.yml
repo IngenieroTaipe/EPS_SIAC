@@ -36,8 +36,10 @@ services:
     environment:
       - CONTAINER_ROLE=worker
     depends_on:
-      - redis
-      - api
+      redis:
+        condition: service_started
+      api:
+        condition: service_healthy
     networks:
       - eps_siac_network
     
@@ -54,8 +56,10 @@ services:
     networks:
       - eps_siac_network
     depends_on:
-      - redis
-      - celery_worker
+      redis:
+        condition: service_started
+      celery_worker:
+        condition: service_started
 
   # =========== FRONTEND (REACT) =========== 
   frontend:

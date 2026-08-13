@@ -51,8 +51,7 @@ COPY --from=build-stage /app/dist /srv
 COPY Caddyfile /etc/caddy/Caddyfile
 
 # Puertos por defecto
-EXPOSE 80
-EXPOSE 443
+EXPOSE 80 443
 
 # Ejecutamos Caddy sirviendo los archivos estáticos
-CMD ["caddy", "file-server", "--root", "/srv"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

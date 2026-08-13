@@ -68,4 +68,13 @@ WORKDIR /app
 
 EXPOSE 8000
 
-CMD ["gunicorn", "EPS_SelvaCentral.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+CMD [ \
+  "gunicorn", \
+  "EPS_SelvaCentral.wsgi:application", \
+  "--bind", "0.0.0.0:8000", \
+  "--workers", "3", \
+  "--access-logfile", "-", \
+  "--error-logfile", "-", \
+  "--log-level", "info", \
+  "--access-logformat", "%(h)s %(l)s %(u)s %(t)s \"%(r)s\" %(s)s %(b)s \"%(f)s\" \"%(a)s\"" \
+]

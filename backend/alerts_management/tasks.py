@@ -3,6 +3,7 @@
 import logging
 # pyrefly: ignore [missing-import]
 from celery import shared_task
+# pyrefly: ignore [missing-import]
 from celery.exceptions import Retry
 from django.utils import timezone
 from django.db.models import OuterRef, Subquery
@@ -72,8 +73,13 @@ def send_telegram_notification_task(self, notification_id: int) -> bool:
         logger.error(f"[Telegram] Error no esperado en notificación #{notification_id}: {error_str}")
         raise self.retry(exc=exc)
 
-@shared_task(name="alerts_management.tasks.dispatch_hourly_alerts")
-def dispatch_hourly_alerts_task():
+@shared_task(
+    name="alerts_management.tasks.dispatch_hourly_alerts",
+    bind=True, 
+    max_retries=3, 
+    default_retry_delay=10
+)
+def dispatch_hourly_alerts_task(self):
     """
         Worker Horario (Celery Beat):
         Filtra notificaciones no despachadas en el horizonte operativo <= 6 horas.

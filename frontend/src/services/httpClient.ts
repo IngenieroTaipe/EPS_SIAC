@@ -8,7 +8,7 @@ const ACCESS_TOKEN_KEY = 'eps_access_token';
 const REFRESH_TOKEN_KEY = 'eps_refresh_token';
 
 const baseURL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+  import.meta.env.VITE_API_BASE_URL ?? 'api/v1';
 
 export const httpClient: AxiosInstance = axios.create({
   baseURL,

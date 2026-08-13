@@ -23,13 +23,21 @@
 
     # Redirección de peticiones API al backend Django
     handle /api/* {
-        reverse_proxy api:8000
+        reverse_proxy api:8000 {
+            #  Inyecta el nombre del host original (epsselvacentral.siac) hacia Django
+            header_up Host {host}
+            #  Preserva la IP real del cliente que realiza la petición
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            #  Indica a Django que la solicitud original venía cifrada en HTTPS
+            header_up X-Forwarded-Proto {scheme}
+        
+        }
     }
 
-
-    # Resuelve el enrutamiento de React: si el archivo solicitado no existe, sirve index.html
-    try_files {path} /index.html
-
-    # Levanta el servidor de archivos estáticos
-    file_server
+    # Resuelve el enrutamiento de React
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
 }
