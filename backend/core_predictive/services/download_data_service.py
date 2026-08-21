@@ -55,15 +55,6 @@ class GFSDataService(StorageService):
         """
             El método Orquestador Principal se encarga de coordinar la descarga por lotes
             y ensamblado de pasadas horarias de la NOAA GFS.
-
-            === FIX ===
-            Antes: iteraba por una matriz de runs (18Z hoy, 12Z hoy, 06Z hoy, ... ayer)
-            cayendo en "fallback" al primer run que existiera. Eso disfrazaba el
-            `request_code` (ej. AUTO_..._18Z) con datos del run 12Z y rompía el eje
-            temporal del timeline (.solapamiento de timestamps HISTORIC/FORECAST).
-            Ahora: parsea `request_code` (ej. `AUTO_20260805_18Z`), extrae fecha+run-hour
-            objetivo e intenta ÚNICAMENTE ese run. Si NOAA no publicó todavía, lanza
-            `ValidationError` y Celery reintenta en 30 min (configurado en `tasks.py`).
         """
         if total_hours > 120:
             raise ValidationError("El máximo de horas permitido para paso horario de 1h en GFS es 120h.")

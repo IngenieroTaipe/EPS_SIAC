@@ -117,18 +117,18 @@ class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         tags=['Predictive / GFS Active Cells'],
-        summary="Obtener las celdas activas de la ventana extendida de 18 horas de GFS (T-6h a T+12h)",
+        summary="Obtener las celdas activas de la ventana histórica de 6 horas de GFS (T-6h a T+0h)",
         responses={200: GFSActiveCellGeoJSONSerializer(many=True)}
     )
-    @action(detail=False, methods=['get'], url_path='window-18h')
-    def get_18h_window_cells(self, request):
-        return GeoJSONResponseService.build_18h_window_cells_response(
+    @action(detail=False, methods=['get'], url_path='historic-window')
+    def get_historic_window_cells(self, request):
+        return GeoJSONResponseService.build_historic_window_cells_response(
             model_class=GFSActiveCell,
             properties_fields=[
                 'gfs_request_id', 'max_intensity_mm_h', 'timestamps',
                 'intensity_series', 'threshold_names', 'district_ubigeos'
             ],
-            cache_key="gfs_window_18h_cells_geojson"
+            cache_key="gfs_historic_window_cells_geojson"
         )
 
 @extend_schema_view(
@@ -163,16 +163,16 @@ class GFSClusterSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
         summary="Obtener los clústeres activos de la ventana extendida de 18 horas de GFS (T-6h a T+12h)",
         responses={200: GFSClusterSnapshotGeoJSONSerializer(many=True)}
     )
-    @action(detail=False, methods=['get'], url_path='window-18h')
-    def get_18h_window_clusters(self, request):
-        return GeoJSONResponseService.build_18h_window_response(
+    @action(detail=False, methods=['get'], url_path='historic-window')
+    def get_historic_window_clusters(self, request):
+        return GeoJSONResponseService.build_historic_window_response(
             model_class=GFSClusterSnapshot,
             properties_fields=[
                 'gfs_request_id', 'time_step', 'timestamp_utc', 'cluster_index',
                 'total_cells', 'max_intensity_mm_h', 'avg_intensity_mm_h',
                 'threshold_id', 'affected_ubigeos'
             ],
-            cache_key="gfs_window_18h_clusters_geojson"
+            cache_key="gfs_historic_window_clusters_geojson"
         )
 
 @extend_schema_view(

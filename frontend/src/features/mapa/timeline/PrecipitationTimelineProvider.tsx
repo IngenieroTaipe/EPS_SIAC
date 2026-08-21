@@ -198,7 +198,9 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
     const arr: GfsFrame[] = [];
     // HISTORIC: 6 slots, step 1..6, timestamp = previousPet + step horas.
     for (let step = 1; step <= 6; step++) {
+      
       const ts = new Date(previousPet.getTime() + step * MS_PER_HOUR);
+
       arr.push({
         temporal_status: 'HISTORIC',
         time_step: step,
@@ -210,7 +212,7 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
     // === TODO / FUTURE-PROOFING: cuando `GFS_TOTAL_HOURS_FORECAST` suba a 16,
     // cambiar este loop a `step <= 16`. Sincronizar con
     // `backend/.../constants.py` y `geojson_builder.py` (slice `BETWEEN 1 AND 16`).
-    for (let step = 1; step <= 12; step++) {
+    for (let step = 1; step <= 16; step++) {
       const ts = new Date(latestPet.getTime() + step * MS_PER_HOUR);
       arr.push({
         temporal_status: 'FORECAST',

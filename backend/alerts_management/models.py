@@ -95,7 +95,7 @@ class Alert(AuditCreateModel):
     
     max_intensity_mm_h = models.DecimalField(max_digits=6, decimal_places=2, default=0.0)
     max_threshold = models.ForeignKey(
-        'core_predictive.ThresholdsNaturalPhenomena',
+        'core_predictive.Threshold',
         on_delete=models.PROTECT,
         related_name='alerts_max_threshold'
     )

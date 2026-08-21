@@ -9,6 +9,10 @@ from rest_framework.response import Response
 
 from core_predictive.models import GFSRequest
 from core_shared.constants import LIMA_TZ_STR
+from core_predictive.constants import (
+    GFS_TOTAL_HOURS_FORECAST,
+    GFS_TOTAL_HOURS_HISTORIC
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +128,7 @@ class PostGISGeoJSONExtractor:
             return cursor.fetchone()[0]
 
     @classmethod
-    def extract_18h_window_feature_collection(
+    def extract_historic_window_feature_collection(
         cls,
         model_class: Type[models.Model],
         properties_fields: List[str],
@@ -183,7 +187,7 @@ class PostGISGeoJSONExtractor:
                 -- lo cual no ocurre). NO tocar este rango aunque `GFS_TOTAL_HOURS_FORECAST` cambie.
                 SELECT c.*, 'HISTORIC' AS temporal_status
                 FROM {db_table} c
-                WHERE c.gfs_request_id = %s AND c.time_step BETWEEN 1 AND 6
+                WHERE c.gfs_request_id = %s AND c.time_step BETWEEN 1 AND {GFS_TOTAL_HOURS_HISTORIC}
             ),
             latest_slice AS (
                 -- Trae los pasos 1 al 12 de la corrida actual (Presente/Futuro / FORECAST).
@@ -194,7 +198,7 @@ class PostGISGeoJSONExtractor:
                 -- `'window_duration_hours': 18` → `22` unas líneas más abajo.
                 SELECT c.*, 'FORECAST' AS temporal_status
                 FROM {db_table} c
-                WHERE c.gfs_request_id = %s AND c.time_step BETWEEN 1 AND 12
+                WHERE c.gfs_request_id = %s AND c.time_step BETWEEN 1 AND {GFS_TOTAL_HOURS_FORECAST}
             ),
             combined_window AS (
                 SELECT * FROM previous_slice
@@ -210,7 +214,7 @@ class PostGISGeoJSONExtractor:
                     -- === TODO / FUTURE-PROOFING (comentario SQL) ===
                     -- Sincronizar con `GFS_TOTAL_HOURS_FORECAST` + 6 (HISTORIC slice).
                     -- Hoy: 12 + 6 = 18. Con forecast=16: 16 + 6 = 22.
-                    'window_duration_hours', 18,
+                    'window_duration_hours', {GFS_TOTAL_HOURS_FORECAST + GFS_TOTAL_HOURS_HISTORIC},
                     'timezone', '{LIMA_TZ_STR} (UTC-5)',
                     'total_features', COUNT(c.id)
                 ),
@@ -249,21 +253,21 @@ class PostGISGeoJSONExtractor:
             return cursor.fetchone()[0]
 
     @classmethod
-    def extract_18h_window_cells_feature_collection(
+    def extract_historic_window_cells_feature_collection(
         cls,
         model_class: Type[models.Model],
         properties_fields: List[str],
         geometry_field_name: str = "geometry"
     ) -> Dict[str, Any]:
         """
-        Extrae una colección GeoJSON de celdas activas que integra:
-        - TODAS las celdas de la corrida previa (temporal_status='HISTORIC').
-        - TODAS las celdas de la corrida actual (temporal_status='FORECAST').
+            Extrae una colección GeoJSON de celdas activas que integra:
+            - TODAS las celdas de la corrida previa (temporal_status='HISTORIC').
+            - TODAS las celdas de la corrida actual (temporal_status='FORECAST').
 
-        A diferencia de los clústeres, las celdas no tienen columna `time_step`;
-        cada celda ya porta su serie de 12 valores en `intensity_series`.
-        El decide el índice horario según `temporal_status` + `time_step`
-        del frame activo en el timeline.
+            A diferencia de los clústeres, las celdas no tienen columna `time_step`;
+            cada celda ya porta su serie de 12 valores en `intensity_series`.
+            El decide el índice horario según `temporal_status` + `time_step`
+            del frame activo en el timeline.
         """
         completed_requests = list(
             GFSRequest.objects.filter(status='COMPLETED')
@@ -324,7 +328,7 @@ class PostGISGeoJSONExtractor:
                     'latest_request_code', %s,
                     'previous_request_code', %s,
                     'latest_completed_at_local', %s,
-                    'window_duration_hours', 18,
+                    'window_duration_hours', {GFS_TOTAL_HOURS_FORECAST + GFS_TOTAL_HOURS_HISTORIC},
                     'timezone', '{LIMA_TZ_STR} (UTC-5)',
                     'total_features', COUNT(c.id)
                 ),
@@ -417,7 +421,7 @@ class GeoJSONResponseService:
         return Response(geojson_data, status=status.HTTP_200_OK)
 
     @classmethod
-    def build_18h_window_response(
+    def build_historic_window_response(
         cls,
         model_class: Type[models.Model],
         properties_fields: List[str],
@@ -426,14 +430,14 @@ class GeoJSONResponseService:
         cache_timeout_seconds: int = 21600
     ) -> Response:
         """
-        Orquesta la respuesta HTTP para la ventana extendida de 18 horas (T-6h a T+12h).
+            Orquesta la respuesta HTTP para la ventana extendida de {GFS_TOTAL_HOURS_FORECAST + GFS_TOTAL_HOURS_HISTORIC} horas (T-{GFS_TOTAL_HOURS_HISTORIC}h a T+{GFS_TOTAL_HOURS_FORECAST}h).
         """
         cached_geojson = GISCacheManager.get(cache_key)
         if cached_geojson:
-            logger.info(f"[GeoJSON Service] Cache HIT 18h Window: '{cache_key}'")
+            logger.info(f"[GeoJSON Service] Cache HIT {GFS_TOTAL_HOURS_FORECAST + GFS_TOTAL_HOURS_HISTORIC}h Window: '{cache_key}'")
             return Response(cached_geojson, status=status.HTTP_200_OK)
 
-        geojson_data = PostGISGeoJSONExtractor.extract_18h_window_feature_collection(
+        geojson_data = PostGISGeoJSONExtractor.extract_historic_window_feature_collection(
             model_class=model_class,
             properties_fields=properties_fields,
             geometry_field_name=geometry_field_name
@@ -441,12 +445,12 @@ class GeoJSONResponseService:
 
         # === Escribir en caché para futuras consultas ===
         GISCacheManager.set(cache_key, geojson_data, timeout_seconds=cache_timeout_seconds)
-        logger.info(f"✅ [GeoJSON Service] Cache MISS 18h Window. Guardado en Redis: '{cache_key}'")
+        logger.info(f"✅ [GeoJSON Service] Cache MISS {GFS_TOTAL_HOURS_FORECAST + GFS_TOTAL_HOURS_HISTORIC}h Window. Guardado en Redis: '{cache_key}'")
 
         return Response(geojson_data, status=status.HTTP_200_OK)
 
     @classmethod
-    def build_18h_window_cells_response(
+    def build_historic_window_cells_response(
         cls,
         model_class: Type[models.Model],
         properties_fields: List[str],
@@ -462,13 +466,13 @@ class GeoJSONResponseService:
             logger.info(f"[GeoJSON Service] Cache HIT 18h Window Cells: '{cache_key}'")
             return Response(cached_geojson, status=status.HTTP_200_OK)
 
-        geojson_data = PostGISGeoJSONExtractor.extract_18h_window_cells_feature_collection(
+        geojson_data = PostGISGeoJSONExtractor.extract_historic_window_cells_feature_collection(
             model_class=model_class,
             properties_fields=properties_fields,
             geometry_field_name=geometry_field_name
         )
 
         GISCacheManager.set(cache_key, geojson_data, timeout_seconds=cache_timeout_seconds)
-        logger.info(f"✅ [GeoJSON Service] Cache MISS 18h Window Cells. Guardado en Redis: '{cache_key}'")
+        logger.info(f"✅ [GeoJSON Service] Cache MISS {GFS_TOTAL_HOURS_FORECAST + GFS_TOTAL_HOURS_HISTORIC}h Window Cells. Guardado en Redis: '{cache_key}'")
 
         return Response(geojson_data, status=status.HTTP_200_OK) 

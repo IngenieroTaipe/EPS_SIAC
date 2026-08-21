@@ -38,7 +38,7 @@ class ForecastPipelineDomainService:
             return True, 0, msg
 
         # === Intersectar clústeres espacialmente con componentes EPS (PostGIS ST_Intersects) ===
-        impacted_clusters = InfrastructureIntersectionService.get_impacted_components_by_clusteres(gfs_request_id)
+        impacted_clusters = InfrastructureIntersectionService.get_impacted_components_by_clusters(gfs_request_id)
         if not impacted_clusters:
             msg = f"No se detectó impacto en infraestructura para GFSRequest #{gfs_request_id}."
             logger.info(f"[Pipeline Domain] {msg}")

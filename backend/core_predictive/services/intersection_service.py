@@ -84,7 +84,7 @@ class GridIntersectionService:
 
         for cell in cells_to_update:
             ubigeos = cell_to_district.get(cell.id, [])
-            
+
             cell.district_ubigeos = ubigeos
 
             combined_rules: List[ThresholdsNaturalPhenomena] = []

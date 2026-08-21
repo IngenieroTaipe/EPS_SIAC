@@ -9,21 +9,21 @@ import type {
  * Cliente del endpoint de clústeres espacio-temporales GFS.
  *
  * Endpoints:
- *   - /gfs-clusters-snapshots/window-18h/  (~300 clústeres disueltos, 500 KB)
+ *   - /gfs-clusters-snapshots/historic-window/  (~300 clústeres disueltos, 500 KB)
  *   - /gfs-active-cells/latest/             (~12 000 celdas, 7 MB)  [v2]
  */
 export const apiGFS = {
   /** Trae la ventana 18h (T-6h .. T+12h) de la última corrida GFS. */
-  async getWindow18h(): Promise<GfsClusterFeatureCollection> {
+  async getHistoricWindowClusters(): Promise<GfsClusterFeatureCollection> {
     // Caché en localStorage: la ventana 18h sólo cambia por corrida GFS
     // (cada 6h aprox.). TTL de 10 min para respetar el "Última
     // actualización" del TopBar, pero sin re-refetchear en cada navegación.
     // Sobrevive a recargas del navegador.
     return cachedGet(
-      'gfs:window-18h',
+      'gfs:historic-window',
       async () => {
         const res = await httpClient.get(
-          '/core_predictive/gfs-clusters-snapshots/window-18h/',
+          '/core_predictive/gfs-clusters-snapshots/historic-window/',
         );
         return res.data as GfsClusterFeatureCollection;
       },
@@ -51,9 +51,9 @@ export const apiGFS = {
    *
    * Sin caché localStorage (payload ~14 MB excede el límite de 5-10 MB).
    */
-  async getWindow18hCells(): Promise<GfsCellFeatureCollection> {
+  async getHistoricWindowCells(): Promise<GfsCellFeatureCollection> {
     const res = await httpClient.get(
-      '/core_predictive/gfs-active-cells/window-18h/',
+      '/core_predictive/gfs-active-cells/historic-window/',
     );
     return res.data as GfsCellFeatureCollection;
   },

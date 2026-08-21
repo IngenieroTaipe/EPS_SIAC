@@ -16,7 +16,7 @@ import { apiGFS } from '@/services/apiGFS';
  * No bloquea el render: si fallan, el error se descarta aquí (la página
  * volverá a intentarlo al montar, ver requestCache invalidación en error).
  */
-void Promise.allSettled([apiUmbrales.listUmbrales(), apiGFS.getWindow18h()]);
+void Promise.allSettled([apiUmbrales.listUmbrales(), apiGFS.getHistoricWindowClusters(), apiGFS.getHistoricWindowCells()]);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

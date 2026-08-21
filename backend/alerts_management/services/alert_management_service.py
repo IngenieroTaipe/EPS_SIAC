@@ -7,11 +7,15 @@ from django.db import transaction
 from django.utils import timezone
 from django.contrib.gis.geos import GEOSGeometry
 
+from alerts_management.services.infrastructure_intersection_service import (
+    ConsolidatedAlertEvent
+)
 from alerts_management.models import (
     Alert, AlertClusters, AlertClustersComponents, 
     AlertHistory, AlertStatus, AlertNotification, 
     NotificationType, NotificationChannel
 )
+
 from alerts_management.constants import INERTIA_HOURS
 
 logger = logging.getLogger(__name__)
@@ -46,67 +50,44 @@ class AlertManagementService:
             now = timezone.now()
             active_alerts = list(Alert.objects.filter(
                 end_time_utc__gte=now - timedelta(hours=INERTIA_HOURS)
-            ))
+            ).select_related('max_threshold'))
             
             edited_alert_ids: Set[int] = set()
-            persisted_snapshots_count = 0
+            alerts_processed_count = 0
 
-            for record in impacted_records:
-                cluster = record["cluster_snapshot"]
-                components = record["impacted_components"]
-                point_impacted = record["point_impacted"]
-
-                # === Deducir del intervalo temporal del paso [t-1, t] ===
-                step_start_utc, step_end_utc = cls._parse_step_time_window(cluster)
-
-                # === Búsqueda de coincidencia inercial con alertas activas ===
-                matched_alert = cls._find_matching_active_alert(cluster.geometry, step_start_utc, active_alerts)
-
+            for event in impacted_records:
+                matched_alert = cls._find_matching_active_alert(
+                    geometry=event.unified_geometry,
+                    start_time_utc=event.start_time_utc,
+                    active_alerts=active_alerts,
+                    impacted_component_ids=event.impacted_component_ids
+                )
+                
                 if matched_alert:
-                    alert = cls._extend_existing_alert(matched_alert, cluster, step_start_utc, step_end_utc)
+                    alert = cls._extend_existing_alert(matched_alert, event)
+                    logger.info(f"🔄 Alerta histórica #{alert.code} extendida con nuevo horizonte.")
                 else:
-                    alert = cls._create_new_alert_with_fsm(natural_phenomena_id, cluster, step_start_utc, step_end_utc)
-                    active_alerts.append(alert)
+                    alert = cls._create_new_alert_with_fsm(natural_phenomena_id, event)
+                    logger.info(f"✨ Nueva Alerta #{alert.code} creada para cuenca/infraestructura independiente.")
 
                 edited_alert_ids.add(alert.id)
+                alerts_processed_count += 1
 
-                # === Guardar el clúster y sus componentes intersecados ===
-                cls._persist_cluster_snapshot_and_components(alert, cluster, point_impacted, components)
-                persisted_snapshots_count += 1
+                cls._persist_cluster_snapshot_and_components(alert, event)
 
             # === Evaluar reprogramar o cancelar alertas ===
             cls._evaluate_reevaluations_and_cancellations(active_alerts, edited_alert_ids)
 
-            return persisted_snapshots_count
+            return alerts_processed_count
 
     # =========================================================================
-    # 2. SUB-MÉTODOS ESPECIALIZADOS (Descomposición del God Method)
+    # SUB-MÉTODOS ESPECIALIZADOS
     # =========================================================================
-
-    @staticmethod
-    def _parse_step_time_window(
-        cluster: Any
-    ) -> Tuple[datetime, datetime]:
-        """
-            Deduce la hora de inicio y fin del paso de tiempo [t-1, t] a partir del objeto clúster.
-
-            @params:
-                `cluster` (`Any`): Objeto clúster.
-
-            @returns:
-                `Tuple[datetime, datetime]`: Tupla de horas de inicio y fin.
-        """
-        step_end_utc = cluster.timestamp_utc
-        step_start_utc = step_end_utc - timedelta(hours=1)
-        return step_start_utc, step_end_utc
-
     @classmethod
     def _extend_existing_alert(
         cls, 
         alert: Alert, 
-        cluster: Any, 
-        step_start_utc: datetime, 
-        step_end_utc: datetime
+        event: ConsolidatedAlertEvent
     ) -> Alert:
         """
             Actualiza los límites temporales e intensidades de una alerta activa existente,
@@ -121,23 +102,28 @@ class AlertManagementService:
             @returns:
                 `Alert`: Alerta actualizada.
         """
-        if step_end_utc > alert.end_time_utc:
-            alert.end_time_utc = step_end_utc
+        updated_fields = []
 
-        if step_start_utc < alert.start_time_utc:
-            alert.start_time_utc = step_start_utc
+        # === Extender el rango temporal (Hora Final) del pronóstico ===
+        if event.end_time_utc > alert.end_time_utc:
+            alert.end_time_utc = event.end_time_utc
+            updated_fields.append("end_time_utc")
 
-        if float(cluster.max_intensity_mm_h) > float(alert.max_intensity_mm_h):
-            alert.max_intensity_mm_h = cluster.max_intensity_mm_h
-            alert.max_threshold_id = cluster.threshold_id
+        # === Actualizar el rango temporal (Hora Inicial) del pronóstico ===
+        if event.start_time_utc < alert.start_time_utc:
+            alert.start_time_utc = event.start_time_utc
+            updated_fields.append("start_time_utc")
 
-        alert.save()
+        # === Intensidad máxima y Umbral Máximo ===
+        if float(event.max_intensity_mm_h) > float(alert.max_intensity_mm_h):
+            alert.max_intensity_mm_h = event.max_intensity_mm_h
+            alert.max_threshold_id = event.highest_threshold
 
-        # Inactivar pronósticos anteriores en la misma ventana para esta alerta
-        AlertClusters.objects.filter(
-            alert=alert,
-            is_active_forecast=True,
-        ).update(is_active_forecast=False)
+            updated_fields.append("max_intensity_mm_h")
+            updated_fields.append("max_threshold_id")
+
+        if updated_fields:
+            alert.save(update_fields=updated_fields)
 
         return alert
 
@@ -145,9 +131,7 @@ class AlertManagementService:
     def _create_new_alert_with_fsm(
         cls, 
         natural_phenomena_id: int, 
-        cluster: Any, 
-        step_start_utc: datetime, 
-        step_end_utc: datetime
+        event: ConsolidatedAlertEvent
     ) -> Alert:
         """
             Crea una nueva alerta en base de datos, registra su estado inicial 'Predicho' 
@@ -163,13 +147,14 @@ class AlertManagementService:
                 `Alert`: Alerta creada.
         """
         new_code = Alert.generate_next_code()
+
         alert = Alert.objects.create(
             natural_phenomena_id=natural_phenomena_id,
             code=new_code,
-            max_intensity_mm_h=cluster.max_intensity_mm_h,
-            max_threshold_id=cluster.threshold_id,
-            start_time_utc=step_start_utc,
-            end_time_utc=step_end_utc
+            max_intensity_mm_h=event.max_intensity_mm_h,
+            max_threshold=event.highest_threshold,
+            start_time_utc=event.start_time_utc,
+            end_time_utc=event.end_time_utc
         )
 
         target_status = AlertStatus.objects.get(
@@ -179,7 +164,7 @@ class AlertManagementService:
         initial_history = AlertHistory.objects.create(
             alert=alert,
             status=target_status,
-            # phase=None,
+            phase=None,
             created_by=None
         )
 
@@ -197,9 +182,7 @@ class AlertManagementService:
     @staticmethod
     def _persist_cluster_snapshot_and_components(
         alert: Alert, 
-        cluster: Any, 
-        point_impacted: GEOSGeometry, 
-        components: list
+        event: ConsolidatedAlertEvent
     ) -> AlertClusters:
         """
             Crea el snapshot de AlertClusters y realiza la inserción masiva (bulk_create) 
@@ -214,23 +197,41 @@ class AlertManagementService:
             @returns:
                 `AlertClusters`: Snapshots de clúster.
         """
-        alert_cluster = AlertClusters.objects.create(
-            alert=alert,
-            cluster=cluster,
-            representative_point=point_impacted,
-            is_active_forecast=True
-        )
+        components_to_create = []
+        created_count = 0
 
-        comp_records = [
-            AlertClustersComponents(
-                alert_cluster=alert_cluster,
-                component=comp,
-                intensity_at_component=cluster.max_intensity_mm_h
+        for cluster in event.snapshots:
+            alert_cluster, created = AlertClusters.objects.get_or_create(
+                alert=alert,
+                cluster=cluster,
+                defaults= {
+                    'representative_point': event.representative_point,
+                    'is_active_forecast': True
+                }
             )
-            for comp in components
-        ]
-        AlertClustersComponents.objects.bulk_create(comp_records)
-        return alert_cluster
+
+            if not created and not alert_cluster.is_active_forecast:
+                alert_cluster.is_active_forecast = True
+                alert_cluster.save(update_fields=['is_active_forecast'])
+
+            created_count += 1
+
+            # Preparar inserción de componentes en lote
+            for comp in event.impacted_components:
+                components_to_create.append(
+                    AlertClustersComponents(
+                        alert_cluster=alert_cluster,
+                        component=comp,
+                        intensity_at_component=event.max_intensity_mm_h
+                    )
+                )
+        
+        if components_to_create:
+            AlertClustersComponents.objects.bulk_create(
+                components_to_create,
+            )
+        
+        return created_count
 
     # =========================================================================
     # EVALUACIÓN DE CLUSTERS Y NOTIFICACIONES DE ALERTAS
@@ -240,31 +241,67 @@ class AlertManagementService:
     def _find_matching_active_alert(
         cls,
         geometry: GEOSGeometry,
-        timestamp_utc: datetime,
-        active_alerts: list[Alert]
+        start_time_utc: datetime,
+        active_alerts: list[Alert],
+        impacted_component_ids: Set[int]
     ) -> Optional[Alert]:
         """
             Busca intersección espacial directa contra los clústeres activos de alertas en estado 'Predicho'.
 
+            Identifica si el evento espacial corresponde a una alerta activa evaluando:
+                1. Estado PREDICHO en el historial.
+                2. Ventana de inercia temporal.
+                3. Intersección espacial topológica O impacto en los mismos componentes de la EPS.
+
             @params:
                 `geometry` (`GEOSGeometry`): Geometría del clúster.
-                `timestamp_utc` (`datetime`): Marca de tiempo UTC.
+                `start_time_utc` (`datetime`): Marca de tiempo UTC.
                 `active_alerts` (`list[Alert]`): Lista de alertas activas.
 
             @returns:
                 `Optional[Alert]`: Alerta coincidente.
         """
-        cutoff_start = timestamp_utc - timedelta(hours=INERTIA_HOURS)
+        if not active_alerts:
+            return None
+        
+        cutoff_start = start_time_utc - timedelta(hours=INERTIA_HOURS)
 
+        ELIGIBLE_STATUSES = ["PREDICHO", "EN ESPERA DE CONFIRMACIÓN", "CONFIRMADO"]
+        
+        # === Coincidencia por geometría (intersección) ===
         matching_cluster = AlertClusters.objects.filter(
             alert__in=active_alerts,
-            alert__historic_alert__status__name="Predicho",
+            alert__historic_alert__status__name__in=ELIGIBLE_STATUSES,
             is_active_forecast=True,
-            alert__end_time_utc__gte=cutoff_start,
+            alert__end_time_utc__gte=cutoff_start # Similar o menor a la hora de inicio del paso
+        ).exclude(
+            # Se excluyen alertas cerradas definitivamente
+            alert__historic_alert__phase__name="ATENDIDO"
+        ).filter(
+            # === Intersección geométrica ===
             cluster__geometry__intersects=geometry
         ).select_related('alert').first()
-
-        return matching_cluster.alert if matching_cluster else None
+        
+        if matching_cluster:
+            return matching_cluster.alert
+        
+        # === Coincidencia por componentes ===
+        if impacted_component_ids:
+            matching_cluster_components = AlertClustersComponents.objects.filter(
+                alert_cluster__alert__in=active_alerts,
+                alert_cluster__alert__historic_alert__status__name__in=ELIGIBLE_STATUSES,
+                alert_cluster__is_active_forecast=True,
+                # === Intersección por componentes ===
+                component_id__in=impacted_component_ids
+            ).exclude(
+                # Se excluyen alertas cerradas definitivamente
+                alert_cluster__alert__historic_alert__phase__name="ATENDIDO"
+            ).select_related('alert_cluster__alert').first()
+            
+            if matching_cluster_components:
+                return matching_cluster_components.alert_cluster.alert
+        
+        return None
 
     @classmethod
     def _evaluate_reevaluations_and_cancellations(
@@ -274,6 +311,10 @@ class AlertManagementService:
     ) -> None:
         """
             Evalúa reprogramaciones (RESCHEDULED) y cancelaciones (CANCELLED) por disipación hídrica.
+
+            La nueva ejecución del NOAA debería mostrar que los componentes que anteriormente eran afectados por una precipitación deban seguir presentes (ya que la nueva ejecución contiene partes de la predicción anterior - dada la ventana de 16h en el futuro), pero si no existen significa que esta precipitación se disipó o cambió su hora de inicio. Este caso es el que es manejado por el presente método.
+
+            Cabe resaltar que en algunos casos no habrán actualizaciones y tampoco se cambiará la hora de fin u inicio de la precipitación. 
 
             @params:
                 `active_alerts` (`list[Alert]`): Lista de alertas activas.
@@ -285,7 +326,9 @@ class AlertManagementService:
         now = timezone.now()
 
         for alert in active_alerts:
+            # Alertas que no recibieron nuevos snapshots y cuyo inicio sigue en el futuro
             if alert.id not in edited_alert_ids and alert.start_time_utc > now:
+                
                 future_step = AlertClusters.objects.filter(
                     alert=alert,
                     is_active_forecast=True,
@@ -294,11 +337,14 @@ class AlertManagementService:
 
                 latest_history = AlertHistory.objects.filter(alert=alert).order_by('-created_at').first()
 
-                if future_step:
+                # === En caso de que la alerta aún exista debemos analizar si su inicio horario cambio ===
+                if future_step and future_step.cluster:
                     new_start_time = future_step.timestamp_utc
+                    
+                    # === Ajuste de tiempo ===
                     if new_start_time != alert.start_time_utc:
                         alert.start_time_utc = new_start_time
-                        alert.save()
+                        alert.save(update_fields=['start_time_utc'])
 
                         if latest_history:
                             notification_obj = AlertNotification.objects.create(
@@ -306,11 +352,16 @@ class AlertManagementService:
                                 channel=NotificationChannel.TELEGRAM,
                                 notification_type=NotificationType.RESCHEDULED,
                                 is_sent=False,
-                                notification_reason=f"Reprogramación por desplazamiento hídrico. Nueva hora: {new_start_time.strftime('%H:%M UTC')}"
+                                notification_reason=(
+                                    f"Reprogramación por desplazamiento del foco de precipitación. "
+                                    f"Nueva hora: {new_start_time.strftime('%H:%M UTC')}"
+                                )
                             )
                             cls._dispatch_telegram_task(notification_obj.id)
                 else:
+                    # === Inactivar pronóstico y emitir cancelación por disipación de precipitación ===
                     AlertClusters.objects.filter(alert=alert).update(is_active_forecast=False)
+                    
                     if latest_history:
                         notification_obj = AlertNotification.objects.create(
                             alert_history=latest_history,

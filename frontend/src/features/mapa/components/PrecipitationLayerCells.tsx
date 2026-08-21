@@ -56,7 +56,7 @@ export function PrecipitationLayerCells() {
   useEffect(() => {
     let cancelled = false;
     apiGFS
-      .getWindow18hCells()
+      .getHistoricWindowCells()
       .then((geojson: GfsCellFeatureCollection) => {
         if (cancelled) return;
         // Las celdas individuales forman una grilla continua. NO se suavizan

@@ -265,7 +265,7 @@ class NaturalPhenomenasVariables(AuditCompleteModel):
 
 class Threshold(AuditCompleteModel):
     '''
-        Modelo que representa un umbral. Contiene un identificador único, un nombre y una descripción.
+        Modelo que representa un umbral. Contiene un identificador único, un nombre, un nivel de severidad y una descripción.
 
         `@extends AuditCompleteModel`: Hereda de AuditCompleteModel para incluir campos de fecha de creación, actualización y eliminación suave.
 
@@ -278,7 +278,11 @@ class Threshold(AuditCompleteModel):
         `@str`: Devuelve el nombre del umbral como representación en cadena del objeto.
     '''
     name = models.CharField(max_length=100, unique=True, validators=[alpha_name_validator])
-    description = models.TextField(null=True, blank=True, validators=[alpha_name_validator])
+    severity_level = models.PositiveSmallIntegerField(
+        default=1,
+        verbose_name="Nivel de Severidad (Mayor número = Mayor peligro)"
+    )
+    description = models.TextField(null=True, blank=True)
 
     class Meta():
         db_table = 'thresholds'
@@ -286,7 +290,7 @@ class Threshold(AuditCompleteModel):
         verbose_name_plural = 'Umbrales'
 
     def __str__(self):
-        return self.name
+        return f"{self.name} (Nivel {self.severity_level})"
 
 class ThresholdsNaturalPhenomena(AuditCompleteModel):
     '''

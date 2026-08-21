@@ -40,7 +40,7 @@ export function useGfsForecast(): UseGfsForecastResult {
   useEffect(() => {
     let cancelled = false;
     apiGFS
-      .getWindow18h()
+      .getHistoricWindowClusters()
       .then((geojson) => {
         if (cancelled) return;
         // === PRE-PROCESADO UNA SOLA VEZ: suavizado visual de bordes ===
@@ -94,7 +94,7 @@ export function useGfsForecast(): UseGfsForecastResult {
     // Invalida la caché (memoria + localStorage) para que el refetch SIEMPRE
     // consulte al backend. Sin esto, `cachedGet` devolvía el valor cacheado
     // con TTL de 10 min y el polling de 5 min nunca veía corridas nuevas.
-    invalidateCache('gfs:window-18h');
+    invalidateCache('gfs:historic-window');
     setLoading(true);
     setTick((t) => t + 1);
   }

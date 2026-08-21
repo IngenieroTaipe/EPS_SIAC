@@ -16,9 +16,9 @@ class Command(BaseCommand):
         )
 
         criticalities = [
-            {'name': 'Alta', 'description': 'Componente de alta criticidad frente a fenómenos climáticos.'},
-            {'name': 'Media', 'description': 'Componente de media criticidad frente a fenómenos climáticos.'},
-            {'name': 'Baja', 'description': 'Componente de baja criticidad frente a fenómenos climáticos.'}
+            {'name': 'Alta', 'severity_level': 3, 'description': 'Componente de alta criticidad frente a fenómenos climáticos.'},
+            {'name': 'Media', 'severity_level': 2, 'description': 'Componente de media criticidad frente a fenómenos climáticos.'},
+            {'name': 'Baja', 'severity_level': 1, 'description': 'Componente de baja criticidad frente a fenómenos climáticos.'}
         ]
 
         for criticality in criticalities:
@@ -26,6 +26,7 @@ class Command(BaseCommand):
             Criticality.objects.update_or_create(
                 name=name,
                 defaults={
+                    'severity_level': criticality['severity_level'],
                     'description': criticality['description']
                 }
             )

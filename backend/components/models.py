@@ -20,7 +20,11 @@ class Criticality(AuditCompleteModel):
     '''
     # Django crea internamente el campo 'id' de forma automática
     name = models.CharField(max_length=30, unique=True, validators=[alpha_name_validator])
-    description = models.TextField()
+    severity_level = models.PositiveSmallIntegerField(
+        default=1,
+        verbose_name="Nivel de Severidad (Mayor número = Mayor peligro)"
+    )
+    description = models.TextField(blank=True, null=True)
 
     class Meta():
         db_table = 'criticalities'

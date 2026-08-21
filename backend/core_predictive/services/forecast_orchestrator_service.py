@@ -146,6 +146,16 @@ class ForecastRainRequestService:
     def _execute_data_download(self, total_hours: int, start_time: float) -> Tuple[str, str, float, float]:
         """ 
             Sub-método 2: Consume GFSDataService y extrae métricas I/O del archivo descargado. 
+
+            Args:
+                total_hours: Número total de horas a descargar.
+                start_time: Momento en el que inicia el proceso de descarga.
+
+            Returns:
+                - file_path: Ruta del archivo descargado.
+                - file_name: Nombre del archivo descargado.
+                - file_size_mb: Tamaño del archivo descargado en MB.
+                - download_duration: Duración de la descarga en segundos.
         """
         logger.info(f"[Orquestador BD] Iniciando descarga para Request Code: {self.request_obj.request_code}")
 

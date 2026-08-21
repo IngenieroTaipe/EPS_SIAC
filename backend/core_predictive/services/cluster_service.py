@@ -102,8 +102,8 @@ class SpatialClusteringService:
     @classmethod
     def _execute_spatial_dbscan_query(cls, gfs_request_id: int) -> List[Tuple]:
         """
-        Sub-método 3: Ejecuta la consulta SQL/PostGIS de agrupación y disolución espacial.
-        Responsabilidad única: Cómputo Geodésico C/C++ en PostGIS.
+            Sub-método 3: Ejecuta la consulta SQL/PostGIS de agrupación y disolución espacial.
+            Responsabilidad única: Cómputo Geodésico C/C++ en PostGIS.
         """
         cluster_query = """
             -- Extrae la información en bruto desde las celdas de GFS
@@ -222,7 +222,6 @@ class SpatialClusteringService:
         except Exception as e:
             logger.error(f"[PostGIS Error] Falló la ejecución del query de clústeres: {str(e)}")
             return []
-
 
     @classmethod
     def _build_and_classify_snapshots(

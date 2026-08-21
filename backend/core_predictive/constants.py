@@ -35,7 +35,9 @@ GFS_RUN_HOURS = [
 #        - url_path='window-18h' → 'window-22h' (rompería el frontend, dejar como está)
 #   3. frontend/src/features/mapa/timeline/types.ts, PrecipitationTimelineProvider.tsx:
 #        - comentarios "ventana 18h" → "ventana 22h" (cosmético)
-GFS_TOTAL_HOURS_FORECAST = 12
+GFS_TOTAL_HOURS_FORECAST = 16
+GFS_TOTAL_HOURS_HISTORIC = 6
+
 MIN_THRESHOLD_MM_H = 0.1
 
 # Resolución nativa del modelo GFS en grados

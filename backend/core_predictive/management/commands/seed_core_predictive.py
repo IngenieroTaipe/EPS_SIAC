@@ -110,10 +110,10 @@ class Command(BaseCommand):
         )
 
         thresholds = [
-            {'name': 'Extremadamente Lluvioso', 'description': 'Intensidad de lluvia muy alta.'},
-            {'name': 'Muy Lluvioso', 'description': 'Intensidad de lluvia alta.'},
-            {'name': 'Lluvioso', 'description': 'Intensidad de lluvia moderada.'},
-            {'name': 'Moderadamente Lluvioso', 'description': 'Intensidad de lluvia baja.'}
+            {'name': 'Extremadamente Lluvioso', 'severity_level': 4, 'description': 'Intensidad de lluvia muy alta.'},
+            {'name': 'Muy Lluvioso', 'severity_level': 3, 'description': 'Intensidad de lluvia alta.'},
+            {'name': 'Lluvioso', 'severity_level': 2, 'description': 'Intensidad de lluvia moderada.'},
+            {'name': 'Moderadamente Lluvioso', 'severity_level': 1, 'description': 'Intensidad de lluvia baja.'}
         ]
 
         for threshold in thresholds:
@@ -121,7 +121,8 @@ class Command(BaseCommand):
             Threshold.objects.update_or_create(
                 name=name,
                 defaults={
-                    'description' : threshold['description']
+                    'severity_level': threshold['severity_level'],
+                    'description': threshold['description']
                 }
             )
 

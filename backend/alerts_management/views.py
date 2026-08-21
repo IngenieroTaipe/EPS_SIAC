@@ -20,8 +20,6 @@ from alerts_management.models import (
     AlertPhase,
     AlertStatusPhase,
     Alert,
-    AlertHistory,
-    AlertNotification,
     AlertResult
 )
 from alerts_management.serializers import (
@@ -31,9 +29,6 @@ from alerts_management.serializers import (
     AlertListSerializer,
     AlertListSerializer,
     AlertDetailSerializer,
-    AlertHistorySerializer,
-    AlertNotificationSerializer,
-    AlertResultSerializer,
     AlertTransitionSerializer,
     AlertResultUpdateSerializer
 )
