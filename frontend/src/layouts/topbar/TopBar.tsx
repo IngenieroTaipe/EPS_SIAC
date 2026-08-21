@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import {
   topBarConfig,
   fallbackConfig,
@@ -17,11 +18,17 @@ import { cn } from '@/shared/lib/cn';
  * `TopBarConfig.ts`). Cada página define su título y los widgets derechos que
  * debe mostrar.
  *
+ * Comportamiento responsivo:
+ *   - Móvil (<640px): altura compacta (h-16), botón hamburguesa que abre el
+ *     sidebar como drawer, subtítulo oculto, título truncado con `max-w` para
+ *     que no se desborde, widgets con padding reducido.
+ *   - Desktop (>=640px): layout original (h-20, subtítulo visible, etc.).
+ *
  * Estructura visual (todos los headers comparten):
  *
- * ┌─ bg-primary-main h-24 ─────────────────────────────────────────────┐
- * │ │ ┃  Título grande (text-3xl bold blanco)                         │
- * │ │ ┃  Subtítulo "EPS Selva Central" (text-base, weight varía)      │
+ * ┌─ bg-primary-main h-20 (sm+) / h-16 (móvil) ─────────────────────┐
+ * │ │ ┃  Título (truncado en móvil)                                  │
+ * │ │ ┃  Subtítulo "EPS Selva Central" (oculto en móvil)             │
  * │ │                       [widgets derecha]    [Unidad Operativa]   │
  * └───────────────────────────────────────────────────────────────────┘
  *
@@ -32,7 +39,13 @@ import { cn } from '@/shared/lib/cn';
  * aquí solo se renderiza el layout. Si una página no está en el array,
  * se usa `fallbackConfig`.
  */
-export function TopBar() {
+export interface TopBarProps {
+  /** Callback para abrir el sidebar en móvil (drawer). Opcional: si se
+   *  define, el TopBar muestra el botón hamburguesa en <sm. */
+  onOpenSidebar?: () => void;
+}
+
+export function TopBar({ onOpenSidebar }: TopBarProps = {}) {
   const location = useLocation();
 
   // Matching longest-prefix: la primera entrada en `topBarConfig` (en orden
@@ -72,24 +85,45 @@ export function TopBar() {
       className={cn(
         'self-stretch bg-primary-main',
         'outline outline-1 outline-offset-[-1px] outline-white',
-        'h-20 flex items-center',
+        'h-16 sm:h-20 flex items-center',
       )}
       role="banner"
     >
+      {/* ── Botón hamburguesa (móvil): abre sidebar como drawer ──── */}
+      {onOpenSidebar && (
+        <button
+          type="button"
+          onClick={onOpenSidebar}
+          className="sm:hidden ml-2.5 p-2 -my-2 rounded-md text-text-invert-primary
+                     hover:bg-white/10 transition-colors
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-text-invert-primary"
+          aria-label="Abrir menú de navegación"
+          aria-expanded={false}
+          aria-haspopup="menu"
+        >
+          <Menu className="size-6" strokeWidth={2} aria-hidden="true" />
+        </button>
+      )}
+
       {/* ── Línea vertical decorativa antes del título ─────────────── */}
       <div
-        className="w-px h-12 mx-4 bg-text-invert-primary"
+        className="hidden sm:block w-px h-12 mx-4 bg-text-invert-primary"
         aria-hidden="true"
       />
 
       {/* ── Bloque izquierdo: título + subtítulo ───────────────────── */}
-      <div className="pl-1 pr-8 py-[2px] flex flex-col justify-center items-start gap-[2px] overflow-hidden">
-        <h1 className="text-text-invert-primary text-xl font-bold font-sans leading-6 whitespace-nowrap">
+      {/* `min-w-0` + `max-w-*` permite truncar en móvil; `overflow-hidden`
+          evita que el título empuje los widgets derechos fuera del header. */}
+      <div className="pl-1 sm:pr-8 py-[2px] flex flex-col justify-center items-start gap-[2px] overflow-hidden min-w-0">
+        <h1
+          className="text-text-invert-primary text-base sm:text-xl font-bold font-sans leading-6
+                     truncate max-w-[58vw] sm:max-w-none"
+        >
           {cfg.title}
         </h1>
         <p
           className={cn(
-            'text-text-invert-primary text-sm font-sans',
+            'hidden sm:block text-text-invert-primary text-sm font-sans',
             subtitleWeight === 'semibold' ? 'font-semibold' : 'font-normal',
           )}
         >
@@ -98,7 +132,7 @@ export function TopBar() {
       </div>
 
       {/* ── Bloque derecho: widgets + Unidad Operativa ─────────────── */}
-      <div className="ml-auto flex justify-end items-center gap-5 px-2">
+      <div className="ml-auto shrink-0 flex justify-end items-center gap-2 sm:gap-5 px-2">
         {cfg.widgets?.map((widget) => renderWidget(widget))}
         {!isLogin && !hideUnidadOperativa && <UnidadOperativaSelector />}
       </div>

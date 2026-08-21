@@ -67,13 +67,13 @@ function DropdownItem({
       type="button"
       onClick={() => onClick(label)}
       className={cn(
-        'w-36 px-3.5 py-[5px] outline outline-1 outline-offset-[-1px] text-left',
+        'w-32 sm:w-44 px-2.5 sm:px-3.5 py-[5px] outline outline-1 outline-offset-[-1px] text-left',
         'transition-[filter] duration-150 hover:brightness-90 focus:outline-none',
         bgClass,
         outlineClass,
       )}
     >
-      <span className="text-text-invert-primary text-sm font-medium font-sans">
+      <span className="text-text-invert-primary text-xs sm:text-sm font-medium font-sans break-words">
         {label}
       </span>
     </button>
@@ -95,16 +95,16 @@ export function UpdatedAtWidget() {
   const ctx = usePrecipitationTimeline();
   const { label } = useLatestGfsUpdate(ctx?.latestCompletedAt ?? null);
   return (
-    <div className="flex justify-start items-center gap-2.5 pr-5">
+    <div className="flex justify-start items-center gap-1.5 sm:gap-2.5 pr-2 sm:pr-5">
       <RestartIcon
-        className={ICON_SIZE + ' text-text-invert-primary'}
+        className={ICON_SIZE + ' text-text-invert-primary shrink-0'}
         aria-hidden="true"
       />
-      <div className="flex flex-col justify-center items-start leading-tight">
-        <span className="text-text-invert-primary text-xs font-semibold font-sans">
+      <div className="flex flex-col justify-center items-start leading-tight min-w-0">
+        <span className="hidden sm:block text-text-invert-primary text-xs font-semibold font-sans">
           {UPDATED_LABEL_PREFIX}
         </span>
-        <span className="text-text-invert-primary text-sm font-semibold font-sans">
+        <span className="text-text-invert-primary text-xs sm:text-sm font-semibold font-sans truncate">
           {label}
         </span>
       </div>
@@ -116,13 +116,13 @@ export function UpdatedAtWidget() {
 export function AlertBadgeWidget({ text }: { text: string }) {
   return (
     <div className="flex justify-center items-center">
-      <div className="h-10 p-2 bg-secondary-hover rounded-lg outline outline-1 outline-offset-[-1px] outline-secondary-main flex justify-center items-center gap-2.5">
+      <div className="h-9 sm:h-10 px-2 sm:p-2 bg-secondary-hover rounded-lg outline outline-1 outline-offset-[-1px] outline-secondary-main flex justify-center items-center gap-1.5 sm:gap-2.5">
         <AlertIcon
-          className={ICON_SIZE + ' text-secondary-main'}
+          className={ICON_SIZE + ' text-secondary-main shrink-0'}
           strokeWidth={2}
           aria-hidden="true"
         />
-        <span className="text-secondary-main text-sm font-bold font-sans whitespace-nowrap">
+        <span className="text-secondary-main text-xs sm:text-sm font-bold font-sans whitespace-nowrap">
           {text}
         </span>
       </div>
@@ -139,12 +139,12 @@ export function StatsWidget({
   critical: string;
 }) {
   return (
-    <div className="w-64 px-5 py-[3px] flex justify-start items-center gap-4">
+    <div className="hidden sm:flex w-44 lg:w-64 px-3 sm:px-5 py-[3px] justify-start items-center gap-3 sm:gap-4">
       <div className="flex-1 self-stretch inline-flex flex-col justify-center items-start gap-[2px]">
-        <span className="text-text-invert-primary text-lg font-bold font-sans leading-6">
+        <span className="text-text-invert-primary text-base sm:text-lg font-bold font-sans leading-6">
           {components}
         </span>
-        <span className="text-text-invert-primary text-sm font-normal font-sans leading-5">
+        <span className="text-text-invert-primary text-xs sm:text-sm font-normal font-sans leading-5 truncate">
           {critical}
         </span>
       </div>
@@ -192,7 +192,7 @@ export function LoadDataButton() {
         aria-expanded={open}
         aria-haspopup="listbox"
         className={cn(
-          'h-10 px-2.5 py-2 rounded-lg flex justify-center items-center gap-2 transition-colors',
+          'h-9 sm:h-10 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-lg flex justify-center items-center gap-1.5 sm:gap-2 transition-colors',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-text-invert-primary focus-visible:ring-offset-2',
           open
             ? 'bg-primary-extra-light outline outline-1 outline-offset-[-1px] outline-primary-hover-dark shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]'
@@ -200,10 +200,10 @@ export function LoadDataButton() {
         )}
       >
         <ArchivoIcon
-          className={ICON_SIZE + ' text-text-invert-primary'}
+          className={ICON_SIZE + ' text-text-invert-primary shrink-0'}
           aria-hidden="true"
         />
-        <span className="text-text-invert-primary text-sm font-bold font-sans whitespace-nowrap">
+        <span className="hidden sm:inline text-text-invert-primary text-sm font-bold font-sans whitespace-nowrap">
           Cargar Datos
         </span>
       </button>
@@ -247,18 +247,18 @@ export function LoadDataButton() {
 // El layout login es la página `/login` que renderiza el formulario.
 export function LoginButton() {
   return (
-    <div className="px-5 py-3 flex justify-start items-center gap-2.5">
+    <div className="px-2 sm:px-5 py-1.5 sm:py-3 flex justify-start items-center gap-2 sm:gap-2.5">
       <Link
         to="/login"
-        className="w-36 h-10 p-2 bg-primary-light rounded-lg flex justify-center items-center gap-2
+        className="w-28 sm:w-36 h-9 sm:h-10 p-2 bg-primary-light rounded-lg flex justify-center items-center gap-2
         hover:bg-primary-states-hover-light transition-colors
         focus:outline-none focus-visible:ring-2 focus-visible:ring-text-invert-primary focus-visible:ring-offset-2"
       >
-        <span className="text-text-invert-primary text-sm font-bold font-sans whitespace-nowrap">
+        <span className="text-text-invert-primary text-xs sm:text-sm font-bold font-sans whitespace-nowrap">
           Iniciar Sesión
         </span>
         <LogIn
-          className={ICON_SIZE + ' text-text-invert-primary'}
+          className={ICON_SIZE + ' text-text-invert-primary shrink-0'}
           strokeWidth={2}
           aria-hidden="true"
         />
@@ -299,7 +299,7 @@ export function UnidadOperativaSelector() {
         aria-expanded={open}
         aria-haspopup="listbox"
         className={cn(
-          'w-40 h-10 p-2 rounded-lg flex justify-between items-center gap-2 transition-colors',
+          'w-28 sm:w-40 h-9 sm:h-10 p-2 rounded-lg flex justify-between items-center gap-2 transition-colors shrink-0',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-text-invert-primary focus-visible:ring-offset-2',
           open
             ? 'bg-primary-extra-light outline outline-[0.5px] outline-offset-[-0.5px] outline-button-stroke shadow-[0px_3px_5px_0px_rgba(0,0,0,0.25)]'
@@ -307,7 +307,7 @@ export function UnidadOperativaSelector() {
         )}
         aria-label={`${UNIDAD_OPERATIVA_LABEL}: selector`}
       >
-        <span className="text-text-invert-primary text-sm font-bold font-sans whitespace-nowrap overflow-hidden text-ellipsis">
+        <span className="text-text-invert-primary text-xs sm:text-sm font-bold font-sans whitespace-nowrap overflow-hidden text-ellipsis">
           {selectedNombre === UNIDAD_TODAS ? UNIDAD_OPERATIVA_LABEL : selectedNombre}
         </span>
         <FlechaIcon
@@ -324,7 +324,7 @@ export function UnidadOperativaSelector() {
       {open && (
         <div
           role="listbox"
-          className="absolute top-full mt-[5px] left-0 inline-flex flex-col justify-start items-start gap-px z-50"
+          className="absolute top-full mt-[5px] left-0 sm:left-0 inline-flex flex-col justify-start items-start gap-px z-50 max-h-[60vh] overflow-y-auto"
         >
           {opciones.map((option) => (
             <DropdownItem
