@@ -25,6 +25,8 @@ if [ "$CONTAINER_ROLE" = "api" ]; then
     python manage.py seed_alerts_management
     # python manage.py seed_alerts
     # python manage.py shell -c "from core_predictive.tasks import run_scheduled_gfs_download; run_scheduled_gfs_download();"
+    # python manage.py shell -c "from core_predictive.tasks import purge_daily_active_cells_task; purge_daily_active_cells_task();"
+    # python manage.py shell -c "from core_predictive.tasks import purge_weekly_unlinked_clusters_task; purge_weekly_unlinked_clusters_task();"
 
     # python manage.py shell -c "from alerts_management.tasks import dispatch_hourly_alerts_task; dispatch_hourly_alerts_task();"
     # python manage.py shell -c "from alerts_management.tasks import process_state_machine_timeouts_task; process_state_machine_timeouts_task();"

@@ -7,3 +7,6 @@ MINIMUM_HOURS_TO_START_FILTER = 6
 
 # Número máximo de unidades operativas visibles en el mensaje de alerta
 MAXIMUM_VISIBLE_OPERATIVE_UNITS = 3
+
+# Tiempo de espera en segundos para el envío del mensaje de alerta a Telegram (entre mensajes)
+TELEGRAM_DISPATCH_DELAY = 3

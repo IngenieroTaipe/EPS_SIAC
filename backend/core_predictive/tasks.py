@@ -4,12 +4,23 @@ import logging
 # pyrefly: ignore [missing-import]
 from celery import shared_task
 from django.core.cache import cache
+from django.utils import timezone
+from django.db import transaction
+from datetime import timedelta
 
+from core_predictive.models import (
+    GFSActiveCell,
+    GFSClusterSnapshot
+)
 from core_predictive.utils.time_utils import ForecastClockService
 from core_predictive.services.request_factory import GFSRequestFactory
 from core_predictive.services.forecast_orchestrator_service import ForecastRainRequestService
 from core_predictive.services.download_data_service import GFSDataService
-from core_predictive.constants import GFS_TOTAL_HOURS_FORECAST
+from core_predictive.constants import (
+    GFS_TOTAL_HOURS_FORECAST,
+    ACTIVE_CELLS_RETENTION_DAYS,
+    CLUSTER_SNAPSHOTS_RETENTION_DAYS
+)
 
 logger = logging.getLogger(__name__)
 LOCK_EXPIRE_SECONDS = 60 * 60 * 2 # 2 horas TTL
@@ -38,6 +49,9 @@ def _invalidate_gfs_cache():
     logger.info(f"[Cache] Invalidadas {len(GFS_CACHE_KEYS)} keys de GeoJSON GFS.")
 
 
+# =========================================================================
+# DESCARGA DEL PRONÓSTICO NOAA CADA 6 HORAS
+# =========================================================================
 @shared_task(
     name="core_predictive.tasks.run_scheduled_gfs_download",
     bind=True,
@@ -117,3 +131,96 @@ def run_scheduled_gfs_download(self):
     finally:
         # Liberación garantizada del candado distribuido
         cache.delete(lock_id)
+
+# =========================================================================
+# PURGA DIARIA DE CELDAS ACTIVAS (GFSActiveCell)
+# =========================================================================
+@shared_task(
+    name="core_predictive.tasks.purge_daily_active_cells",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=60
+)
+def purge_daily_active_cells_task(self, retention_days: int = ACTIVE_CELLS_RETENTION_DAYS) -> int:
+    """
+    Tarea de Mantenimiento Diario:
+    Elimina registros vectoriales de celdas activas con una antigüedad mayor a retention_days.
+    """
+    cutoff_date = timezone.now() - timedelta(days=retention_days)
+    logger.info(f"[DB Maintenance] Iniciando purga de GFSActiveCell anteriores a: {cutoff_date.isoformat()}...")
+
+    total_deleted = 0
+    BATCH_SIZE = 5000
+
+    try:
+        # Paginación en lotes para evitar bloqueos exclusivos en PostgreSQL
+        while True:
+            cell_ids = list(
+                GFSActiveCell.objects.filter(created_at__lt=cutoff_date)
+                .values_list('id', flat=True)[:BATCH_SIZE]
+            )
+            
+            if not cell_ids:
+                break
+
+            with transaction.atomic():
+                deleted_count, _ = GFSActiveCell.objects.filter(id__in=cell_ids).delete()
+                total_deleted += deleted_count
+
+            logger.info(f"[DB Maintenance] Lote de {len(cell_ids)} celdas depurado...")
+
+        logger.info(f"[DB Maintenance] Purga completada. Total de celdas eliminadas: {total_deleted}")
+        return total_deleted
+
+    except Exception as exc:
+        logger.error(f"[DB Maintenance Error] Fallo al purgar GFSActiveCell: {str(exc)}")
+        raise self.retry(exc=exc)
+    
+
+# =========================================================================
+# PURGA SEMANAL DE CLÚSTERES HUÉRFANOS (GFSClusterSnapshot)
+# =========================================================================
+@shared_task(
+    name="core_predictive.tasks.purge_weekly_unlinked_clusters",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=120
+)
+def purge_weekly_unlinked_clusters_task(self, retention_days: int = CLUSTER_SNAPSHOTS_RETENTION_DAYS) -> int:
+    """
+    Tarea de Mantenimiento Semanal:
+    Elimina los clústeres meteorológicos de más de retention_days que NO estén asociados
+    a ninguna alerta oficial de la EPS (AlertClusters).
+    """
+    cutoff_date = timezone.now() - timedelta(days=retention_days)
+    logger.info(f"[DB Maintenance] Iniciando purga de clústeres huérfanos anteriores a: {cutoff_date.isoformat()}...")
+
+    total_deleted = 0
+    BATCH_SIZE = 1000
+
+    try:
+        while True:
+            # Clústeres que NO existen en la tabla pivote de alertas activas ni históricas
+            unlinked_cluster_ids = list(
+                GFSClusterSnapshot.objects.filter(
+                    created_at__lt=cutoff_date,
+                    alerts_clusters_clusters_snapshots__isnull=True
+                )
+                .values_list('id', flat=True)[:BATCH_SIZE]
+            )
+
+            if not unlinked_cluster_ids:
+                break
+
+            with transaction.atomic():
+                deleted_count, _ = GFSClusterSnapshot.objects.filter(id__in=unlinked_cluster_ids).delete()
+                total_deleted += deleted_count
+
+            logger.info(f"[DB Maintenance] Lote de {len(unlinked_cluster_ids)} clústeres huérfanos depurado...")
+
+        logger.info(f"[DB Maintenance] Purga completada. Total de clústeres huérfanos eliminados: {total_deleted}")
+        return total_deleted
+
+    except Exception as exc:
+        logger.error(f"[DB Maintenance Error] Fallo al purgar GFSClusterSnapshot: {str(exc)}")
+        raise self.retry(exc=exc)

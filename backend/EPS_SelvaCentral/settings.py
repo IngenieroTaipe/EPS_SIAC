@@ -286,6 +286,20 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'alerts_management.tasks.process_state_machine_timeouts',
         'schedule': crontab(minute=5),  # Se ejecuta cada hora al minuto 05 para dar margen
     },
+
+    #Eliminación de Celdas (Todos los dias)
+    'purge-daily-gfs-active-cells': {
+        'task': 'core_predictive.tasks.purge_daily_active_cells',
+        'schedule': crontab(hour=2, minute=10),
+        'kwargs': {'retention_days': 1},
+    },
+
+    #Eliminación de Clústeres (Todos los domingos)
+    'purge-weekly-unlinked-clusters': {
+        'task': 'core_predictive.tasks.purge_weekly_unlinked_clusters',
+        'schedule': crontab(hour=2, minute=10, day_of_week='sunday'),
+        'kwargs': {'retention_days': 7},
+    },
 }
 
 # === Configuración almacenamiento del modelo GFS ===

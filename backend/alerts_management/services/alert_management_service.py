@@ -16,7 +16,10 @@ from alerts_management.models import (
     NotificationType, NotificationChannel
 )
 
-from alerts_management.constants import INERTIA_HOURS
+from alerts_management.constants import (
+    INERTIA_HOURS,
+    TELEGRAM_DISPATCH_DELAY
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +58,9 @@ class AlertManagementService:
             edited_alert_ids: Set[int] = set()
             alerts_processed_count = 0
 
+            # Delay necesario para el envío de mensajes estilizados de Telegram
+            current_dispatch_delay = TELEGRAM_DISPATCH_DELAY
+
             for event in impacted_records:
                 matched_alert = cls._find_matching_active_alert(
                     geometry=event.unified_geometry,
@@ -67,7 +73,12 @@ class AlertManagementService:
                     alert = cls._extend_existing_alert(matched_alert, event)
                     logger.info(f"🔄 Alerta histórica #{alert.code} extendida con nuevo horizonte.")
                 else:
-                    alert = cls._create_new_alert_with_fsm(natural_phenomena_id, event)
+                    alert = cls._create_new_alert_with_fsm(
+                        natural_phenomena_id=natural_phenomena_id,
+                        event=event,
+                        countdown_delay=current_dispatch_delay
+                    )
+                    current_dispatch_delay += TELEGRAM_DISPATCH_DELAY
                     logger.info(f"✨ Nueva Alerta #{alert.code} creada para cuenca/infraestructura independiente.")
 
                 edited_alert_ids.add(alert.id)
@@ -76,7 +87,12 @@ class AlertManagementService:
                 cls._persist_cluster_snapshot_and_components(alert, event)
 
             # === Evaluar reprogramar o cancelar alertas ===
-            cls._evaluate_reevaluations_and_cancellations(active_alerts, edited_alert_ids)
+            cls._evaluate_reevaluations_and_cancellations(
+                active_alerts=active_alerts, 
+                edited_alert_ids=edited_alert_ids,
+                start_delay=current_dispatch_delay,
+                countdown_seconds=TELEGRAM_DISPATCH_DELAY
+            )
 
             return alerts_processed_count
 
@@ -131,7 +147,8 @@ class AlertManagementService:
     def _create_new_alert_with_fsm(
         cls, 
         natural_phenomena_id: int, 
-        event: ConsolidatedAlertEvent
+        event: ConsolidatedAlertEvent,
+        countdown_delay: int
     ) -> Alert:
         """
             Crea una nueva alerta en base de datos, registra su estado inicial 'Predicho' 
@@ -176,7 +193,7 @@ class AlertManagementService:
             notification_reason="Emisión de nueva alerta predicha por detección de hotspot meteorológico."
         )
 
-        cls._dispatch_telegram_task(notification_obj.id)
+        cls._dispatch_telegram_task(notification_obj.id, countdown_seconds=countdown_delay)
         return alert
 
     @staticmethod
@@ -307,7 +324,9 @@ class AlertManagementService:
     def _evaluate_reevaluations_and_cancellations(
         cls,
         active_alerts: list[Alert],
-        edited_alert_ids: Set[int]
+        edited_alert_ids: Set[int],
+        start_delay: int = 3,
+        countdown_seconds: int = 5
     ) -> None:
         """
             Evalúa reprogramaciones (RESCHEDULED) y cancelaciones (CANCELLED) por disipación hídrica.
@@ -357,7 +376,8 @@ class AlertManagementService:
                                     f"Nueva hora: {new_start_time.strftime('%H:%M UTC')}"
                                 )
                             )
-                            cls._dispatch_telegram_task(notification_obj.id)
+                            cls._dispatch_telegram_task(notification_obj.id, countdown_seconds=current_delay)
+                            current_delay += countdown_seconds
                 else:
                     # === Inactivar pronóstico y emitir cancelación por disipación de precipitación ===
                     AlertClusters.objects.filter(alert=alert).update(is_active_forecast=False)
@@ -370,10 +390,11 @@ class AlertManagementService:
                             is_sent=False,
                             notification_reason="Cancelación: La actualización del modelo GFS indica la disipación del fenómeno."
                         )
-                        cls._dispatch_telegram_task(notification_obj.id)
+                        cls._dispatch_telegram_task(notification_obj.id, countdown_seconds=current_delay)
+                        current_delay += countdown_seconds
 
     @staticmethod
-    def _dispatch_telegram_task(notification_id: int) -> None:
+    def _dispatch_telegram_task(notification_id: int, countdown_seconds: int) -> None:
         """
         Dispara la tarea de Celery asegurando el evento 'on_commit' de la transacción SQL.
         """
@@ -381,6 +402,6 @@ class AlertManagementService:
         transaction.on_commit(
             lambda: send_telegram_notification_task.apply_async(
                 args=[notification_id],
-                countdown=1
+                countdown=countdown_seconds
             )
         )

@@ -62,3 +62,9 @@ MIN_ACTIVE_INTENSITY = 0.1
 # Distancia usada para determinar vecinos.
 # Debe ajustarse según la separación real de la grilla GFS.
 LOCAL_MORAN_NEIGHBOR_DISTANCE = 0.36
+
+# ===================================
+# CONSTANTES PARA LA LIMPIEZA AUTÓNOMA DE LA BASE DE DATOS
+# ===================================
+ACTIVE_CELLS_RETENTION_DAYS = 1
+CLUSTER_SNAPSHOTS_RETENTION_DAYS = 7
