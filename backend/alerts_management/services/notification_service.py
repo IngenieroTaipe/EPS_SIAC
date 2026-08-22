@@ -109,7 +109,7 @@ class NotificationDomainService:
 
         affected_ubigeos = alert_clusters.cluster.affected_ubigeos
 
-        # Set en RAM para consulta O(1) de sucursales activas
+        # Extraemos los branches para garantizar que no se alerte a Distritos sin unidades operativas
         operational_ubigeos_set = set(
             Branch.objects.filter(
                 status=True,

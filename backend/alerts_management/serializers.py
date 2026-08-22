@@ -160,7 +160,9 @@ class AlertClusterPointSerializer(serializers.ModelSerializer):
 # SERIALIZADORES SECUNDARIOS
 # ==============================================================================
 class AlertHistorySecondarySerializer(serializers.ModelSerializer):
-    """ Serializador secundario: Muestra el detalle de la bitácora. """
+    """ 
+        Serializador secundario: Muestra el detalle de la bitácora. 
+    """
     status_name = serializers.CharField(source='status.name', read_only=True)
     phase_name = serializers.CharField(source='phase.name', read_only=True)
 
@@ -174,6 +176,9 @@ class AlertHistorySecondarySerializer(serializers.ModelSerializer):
         return obj.created_at.astimezone(LIMA_TZ).isoformat()
 
 class AlertResultSecondarySerializer(serializers.ModelSerializer):
+    """ 
+        Serializador secundario: Muestra el detalle de la resolución. 
+    """
     created_at = serializers.SerializerMethodField()
 
     class Meta:
@@ -188,11 +193,28 @@ class AlertResultSecondarySerializer(serializers.ModelSerializer):
     def get_created_at(self, obj: AlertResult) -> str:
         return obj.created_at.astimezone(LIMA_TZ).isoformat()
 
+class AlertNotificationSecondarySerializer(serializers.ModelSerializer):
+    """ 
+        Serializador secundario: Muestra el detalle de la notificación. 
+    """
+    sent_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AlertNotification
+        fields = [
+            'channel',
+            'notification_type',
+            'sent_at'
+        ]
+
+    def get_sent_at(self, obj: AlertNotification) -> str:
+        return obj.sent_at.astimezone(LIMA_TZ).isoformat()
+
 # ==============================================================================
 # SERIALIZADORES DE LISTA DE ALERTAS
 # ==============================================================================
 class AlertListSerializer(serializers.ModelSerializer):
-    alert_clusters = serializers.SerializerMethodField()
+    # alert_clusters = serializers.SerializerMethodField()
     max_threshold = serializers.StringRelatedField()
     natural_phenomena_name = serializers.SlugRelatedField(
         source='natural_phenomena',
@@ -202,7 +224,8 @@ class AlertListSerializer(serializers.ModelSerializer):
 
     start_time_local = serializers.SerializerMethodField()
     end_time_local = serializers.SerializerMethodField()
-    historic_alert = AlertHistorySecondarySerializer(many=True, read_only=True)
+    # alert_history = AlertHistorySecondarySerializer(source='historic_alert', many=True, read_only=True) # === NO ELIMINAR  ===
+    operational_ubigeos = serializers.SerializerMethodField()
 
     class Meta:
         model = Alert
@@ -214,8 +237,9 @@ class AlertListSerializer(serializers.ModelSerializer):
             'max_threshold',
             'start_time_local',
             'end_time_local',
-            'alert_clusters',
-            'historic_alert'
+            'operational_ubigeos',
+            # 'alert_clusters',
+            # 'alert_history'
         ]
 
     def _get_latest_history(self, obj: Alert):
@@ -232,22 +256,27 @@ class AlertListSerializer(serializers.ModelSerializer):
             )
 
         return self._history_cache[obj.id]
-
-    def _get_operational_ubigeos_set(self) -> set[str]:
+    
+    def _get_operational_ubigeos_map(self) -> dict[str, str]:
         """
-            Extrae y memoriza en RAM un 'set' con los códigos de UBIGEO que poseen al menos 
-            una sucursal (Branch) activa.
+        Carga en memoria RAM el mapa {ubigeo: nombre_distrito} 
+        exclusivamente para distritos con Unidades Operativas (Branch) activas.
         """
-        if not hasattr(self, '_operational_ubigeos_cache'):
-            # UBIGEOs de distritos asociados a Unidades Operativas activas
-            active_branches_ubigeos = Branch.objects.filter(
+        if not hasattr(self, '_operational_branches_map_cache'):
+            # Consulta única indexada
+            branches_qs = Branch.objects.filter(
                 status=True,
+                deleted_at__isnull=True,
                 district__deleted_at__isnull=True
-            ).values_list('district__ubigeo', flat=True).distinct()
+            ).select_related('district')
 
-            self._operational_ubigeos_cache = set(active_branches_ubigeos)
+            self._operational_branches_map_cache = {
+                b.district.ubigeo: b.district.name
+                for b in branches_qs
+                if b.district
+            }
 
-        return self._operational_ubigeos_cache
+        return self._operational_branches_map_cache
 
     def _get_district_map(self) -> dict[str, str]:
         """
@@ -308,43 +337,57 @@ class AlertListSerializer(serializers.ModelSerializer):
                 "representative_point": {
                     "type": "Point",
                     "coordinates": [round(point_geom.x, 5), round(point_geom.y, 5)]
-                } if point_geom else None,
-                "affected_ubigeos": enriched_ubigeos
+                } if point_geom else None
             })
 
         return clusters_data
     
-    def get_reached_ubigeos(self, obj: Alert, affected_ubigeos: list[str]):
+    def get_operational_ubigeos(self, obj: Alert) -> list[dict[str, str]]:
         """
-            Entrega los UBIGEOs afectados en formato compatible con el Front. 
-            Incluye nombres de distritos precargados desde memoria RAM.
+            Extrae la unión única de todos los UBIGEOs afectados a lo largo de la alerta,
+            filtrando y enriqueciendo solo aquellos que corresponden a sucursales operativas.
         """
-        district_map = self._get_district_map()
-        operational_ubigeos_set = self._get_operational_ubigeos_set()
-        
-        enriched_ubigeos = [
+        operational_map = self._get_operational_ubigeos_map()
+        unique_affected_ubigeos = set()
+
+        # Recorremos los clusters asociados a la alerta precargados en memoria
+        for ac in obj.alerts_clusters_alerts.all():
+            if ac.cluster and ac.cluster.affected_ubigeos:
+                unique_affected_ubigeos.update(ac.cluster.affected_ubigeos)
+
+        # Intersección rápida en RAM: solo distritos con Branch activa
+        return [
             {
                 "ubigeo": ubigeo,
-                "name": district_map.get(ubigeo)
+                "name": operational_map[ubigeo]
             }
-            for ubigeo in affected_ubigeos
-            if ubigeo in operational_ubigeos_set
+            for ubigeo in unique_affected_ubigeos
+            if ubigeo in operational_map
         ]
-
-        return enriched_ubigeos
 
 # ==============================================================================
 # SERIALIZADOR DE DETALLE DE ALERTAS
 # ==============================================================================
+
 class AlertDetailSerializer(serializers.ModelSerializer):
-    alert_cluster_components = serializers.SerializerMethodField()
-    clusters = serializers.SerializerMethodField()
+    """
+        Debido a que el frontend actualmente no utiliza las relaciones "clusters" y
+        "alert_cluster_components", se han omitido los SerializerMethodField correspondientes
+        para evitar consultas innecesarias a la base de datos.
+
+        Sin embargo, se han incluido los SerializerMethodField y las relaciones correspondientes
+        para que puedan ser utilizados en el futuro.
+    """
+    # alert_cluster_components = serializers.SerializerMethodField() # === NO ELIMINAR ===
+    # clusters = serializers.SerializerMethodField() # === NO ELIMINAR ===
     max_threshold = serializers.StringRelatedField()
 
     start_time_local = serializers.SerializerMethodField()
     end_time_local = serializers.SerializerMethodField()
+    operational_ubigeos = serializers.SerializerMethodField()
     
-    historic_alert = AlertHistorySecondarySerializer(many=True, read_only=True)
+    alert_history = AlertHistorySecondarySerializer(source='historic_alert', many=True, read_only=True)
+    alert_notification = serializers.SerializerMethodField()
     result = AlertResultSecondarySerializer(read_only=True, source='alerts_results_alert')
 
     natural_phenomena_name = serializers.SlugRelatedField(
@@ -363,38 +406,43 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             'max_threshold',
             'start_time_local',
             'end_time_local',
-            'alert_cluster_components',
-            'clusters',
-            'historic_alert',
+            'operational_ubigeos',
+            # 'alert_cluster_components',
+            # 'clusters',
+            'alert_history',
+            'alert_notification',
             'result',
         ]
 
-    def _get_district_map(self) -> dict[str, str]:
+    def _get_operational_ubigeos_map(self) -> dict[str, str]:
         """
-            Carga el catálogo de distritos en memoria RAM una sola vez para toda la transacción HTTP.
-            Evita consultas N+1 a la tabla de distritos/UBIGEOs.
+        Carga en memoria RAM el mapa {ubigeo: nombre_distrito} 
+        exclusivamente para distritos con Unidades Operativas (Branch) activas.
         """
-        if not hasattr(self, '_district_map_cache'):
-            self._district_map_cache = dict(
-                District.objects.values_list('ubigeo', 'name')
-            )
-        return self._district_map_cache
-
-    def _get_operational_ubigeos_set(self) -> set[str]:
-        """
-            Extrae y memoriza en RAM un 'set' con los códigos de UBIGEO que poseen al menos 
-            una sucursal (Branch) activa.
-        """
-        if not hasattr(self, '_operational_ubigeos_cache'):
-            # UBIGEOs de distritos asociados a Unidades Operativas activas
-            active_branches_ubigeos = Branch.objects.filter(
+        if not hasattr(self, '_operational_branches_map_cache'):
+            # Consulta única indexada
+            branches_qs = Branch.objects.filter(
                 status=True,
+                deleted_at__isnull=True,
                 district__deleted_at__isnull=True
-            ).values_list('district__ubigeo', flat=True).distinct()
+            ).select_related('district')
 
-            self._operational_ubigeos_cache = set(active_branches_ubigeos)
+            self._operational_branches_map_cache = {
+                b.district.ubigeo: b.district.name
+                for b in branches_qs
+                if b.district
+            }
 
-        return self._operational_ubigeos_cache
+        return self._operational_branches_map_cache
+    
+    def get_alert_notification(self, obj: Alert) -> list[dict]:
+        """
+        Retorna las notificaciones asociadas al historial de la alerta.
+        """
+        notifications = []
+        for history in obj.historic_alert.all():
+            notifications.extend(list(history.alerts_notifications_alerts_history.all()))
+        return AlertNotificationSecondarySerializer(notifications, many=True).data
         
     def get_start_time_local(self, obj) -> str | None:
         if obj.start_time_utc:
@@ -430,35 +478,35 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             if not cluster:
                 continue
 
-            raw_ubigeos = cluster.affected_ubigeos or []
-            enriched_districts = self.get_reached_ubigeos(obj, raw_ubigeos)
-
             clusters.append({
                 "max_intensity_mm_h": cluster.max_intensity_mm_h,
                 "timestamp_str": cluster.timestamp_utc.astimezone(LIMA_TZ).isoformat(),
                 "threshold": cluster.threshold.name if cluster.threshold else None,
-                "affected_districts": enriched_districts
             })
         return clusters
 
-    def get_reached_ubigeos(self, obj: Alert, affected_ubigeos: list[str]):
+    def get_operational_ubigeos(self, obj: Alert) -> list[dict[str, str]]:
         """
-            Entrega los UBIGEOs afectados en formato compatible con el Front. 
-            Incluye nombres de distritos precargados desde memoria RAM.
+            Extrae la unión única de todos los UBIGEOs afectados a lo largo de la alerta,
+            filtrando y enriqueciendo solo aquellos que corresponden a sucursales operativas.
         """
-        district_map = self._get_district_map()
-        operational_ubigeos_set = self._get_operational_ubigeos_set()
+        operational_map = self._get_operational_ubigeos_map()
+        unique_affected_ubigeos = set()
 
-        enriched_ubigeos = [
+        # Recorremos los clusters asociados a la alerta precargados en memoria
+        for ac in obj.alerts_clusters_alerts.all():
+            if ac.cluster and ac.cluster.affected_ubigeos:
+                unique_affected_ubigeos.update(ac.cluster.affected_ubigeos)
+
+        # Intersección rápida en RAM: solo distritos con Branch activa
+        return [
             {
                 "ubigeo": ubigeo,
-                "name": district_map.get(str(ubigeo), f"Distrito {ubigeo}")
+                "name": operational_map[ubigeo]
             }
-                for ubigeo in affected_ubigeos
-                if ubigeo in operational_ubigeos_set
-            ]
-
-        return enriched_ubigeos
+            for ubigeo in unique_affected_ubigeos
+            if ubigeo in operational_map
+        ]
 
 # ==============================================================================
 # SERIALIZADOR DE TRANSICIÓN DE ESTADOS DE LA ALERTA

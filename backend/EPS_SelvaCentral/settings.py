@@ -188,8 +188,8 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
     # Paginación por defecto
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
+    'DEFAULT_PAGINATION_CLASS': 'core_shared.pagination.FlexiblePageNumberPagination',
+    'PAGE_SIZE': 15,
 }
 
 SIMPLE_JWT = {
@@ -253,8 +253,14 @@ CELERY_ENABLE_UTC = True
 # Usamos Redis DB 1 para no chocar con el broker/result backend de Celery (DB 0).
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': os.getenv('CACHE_URL', 'redis://redis:6379/1'),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # Reduce el consumo de RAM en Redis hasta en un 70% para GeoJSON de gran tamaño
+            "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
+            "IGNORE_EXCEPTIONS": True,
+        }
     }
 }
 

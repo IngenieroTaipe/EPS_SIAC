@@ -55,6 +55,16 @@ class AlertManagementService:
                 end_time_utc__gte=now - timedelta(hours=INERTIA_HOURS)
             ).select_related('max_threshold'))
             
+            # Captura del estado previo antes de cualquier modificación en la corrida
+            initial_alert_states: Dict[int, Dict[str, Any]] = {
+                alert.id: {
+                    'start_time_utc': alert.start_time_utc,
+                    'end_time_utc': alert.end_time_utc,
+                    'max_intensity_mm_h': float(alert.max_intensity_mm_h),
+                }
+                for alert in active_alerts
+            }
+
             edited_alert_ids: Set[int] = set()
             alerts_processed_count = 0
 
@@ -90,7 +100,8 @@ class AlertManagementService:
             cls._evaluate_reevaluations_and_cancellations(
                 active_alerts=active_alerts, 
                 edited_alert_ids=edited_alert_ids,
-                start_delay=current_dispatch_delay,
+                initial_alert_states=initial_alert_states,
+                current_delay=current_dispatch_delay,
                 countdown_seconds=TELEGRAM_DISPATCH_DELAY
             )
 
@@ -121,7 +132,7 @@ class AlertManagementService:
         updated_fields = []
 
         # === Extender el rango temporal (Hora Final) del pronóstico ===
-        if event.end_time_utc > alert.end_time_utc:
+        if event.end_time_utc != alert.end_time_utc:
             alert.end_time_utc = event.end_time_utc
             updated_fields.append("end_time_utc")
 
@@ -325,7 +336,8 @@ class AlertManagementService:
         cls,
         active_alerts: list[Alert],
         edited_alert_ids: Set[int],
-        start_delay: int = 3,
+        initial_alert_states: Dict[int, Dict[str, Any]],
+        current_delay: int = 3,
         countdown_seconds: int = 5
     ) -> None:
         """
@@ -338,6 +350,13 @@ class AlertManagementService:
             @params:
                 `active_alerts` (`list[Alert]`): Lista de alertas activas.
                 `edited_alert_ids` (`Set[int]`): Conjunto de IDs de alertas editadas.
+                `initial_alert_states` (`Dict[int, Dict[str, Any]]`): Diccionario con el estado previo de las alertas.
+                    - `alert_id` (`int`): ID de la alerta.
+                        - `start_time_utc` (`datetime`): Fecha y hora de inicio de la alerta.
+                        - `end_time_utc` (`datetime`): Fecha y hora de fin de la alerta.
+                        - `max_intensity_mm_h` (`float`): Intensidad máxima de la alerta en mm/h.
+                `start_delay` (`int`): Retraso en segundos antes de enviar la notificación.
+                `countdown_seconds` (`int`): Tiempo en segundos para la cuenta regresiva.
 
             @returns:
                 `None`
@@ -345,20 +364,61 @@ class AlertManagementService:
         now = timezone.now()
 
         for alert in active_alerts:
-            # Alertas que no recibieron nuevos snapshots y cuyo inicio sigue en el futuro
-            if alert.id not in edited_alert_ids and alert.start_time_utc > now:
+            latest_history = AlertHistory.objects.filter(alert=alert).order_by('-created_at').first()
+
+            # -----------------------------------------------------------------
+            # CASO A: Alerta recibió datos en esta corrida -> Evaluar Extensión Consolidada
+            # -----------------------------------------------------------------
+            if alert.id in edited_alert_ids:
+                old_state = initial_alert_states.get(alert.id)
+                if not old_state:
+                    continue
+
+                reasons = []
+                if alert.end_time_utc > old_state['end_time_utc']:
+                    reasons.append(
+                        f"Horizonte extendido hasta las {alert.end_time_utc.strftime('%H:%M UTC')} "
+                        f"(Previsto: {old_state['end_time_utc'].strftime('%H:%M UTC')})"
+                    )
+
+                if alert.start_time_utc < old_state['start_time_utc']:
+                    reasons.append(
+                        f"Inicio adelantado a las {alert.start_time_utc.strftime('%H:%M UTC')}"
+                    )
+
+                if float(alert.max_intensity_mm_h) > old_state['max_intensity_mm_h']:
+                    reasons.append(
+                        f"Intensidad máxima elevada a {alert.max_intensity_mm_h} mm/h"
+                    )
+
+                if reasons and latest_history:
+                    notification_obj = AlertNotification.objects.create(
+                        alert_history=latest_history,
+                        channel=NotificationChannel.TELEGRAM,
+                        notification_type=NotificationType.RESCHEDULED,
+                        is_sent=False,
+                        notification_reason="Actualización GFS: " + "; ".join(reasons)
+                    )
+                    cls._dispatch_telegram_task(notification_obj.id, countdown_seconds=current_delay)
+                    current_delay += countdown_seconds
+                    logger.info(f"📢 Alerta #{alert.code} notificada con extensión: {notification_obj.notification_reason}")
+
+            # -----------------------------------------------------------------
+            # CASO B: Alerta NO recibió nuevos pasos y su inicio sigue en el futuro
+            # -----------------------------------------------------------------
+            elif alert.start_time_utc > now:
                 
                 future_step = AlertClusters.objects.filter(
                     alert=alert,
                     is_active_forecast=True,
-                    timestamp_utc__gt=now
-                ).order_by('timestamp_utc').first()
+                    cluster__timestamp_utc__gt=now
+                ).select_related('cluster').order_by('cluster__timestamp_utc').first()
 
                 latest_history = AlertHistory.objects.filter(alert=alert).order_by('-created_at').first()
 
                 # === En caso de que la alerta aún exista debemos analizar si su inicio horario cambio ===
                 if future_step and future_step.cluster:
-                    new_start_time = future_step.timestamp_utc
+                    new_start_time = future_step.cluster.timestamp_utc
                     
                     # === Ajuste de tiempo ===
                     if new_start_time != alert.start_time_utc:

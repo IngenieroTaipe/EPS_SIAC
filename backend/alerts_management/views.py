@@ -1,10 +1,12 @@
 from rest_framework import viewsets, filters, views, status, mixins
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
+from django.http import HttpResponse
 from datetime import timedelta
 
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse, OpenApiParameter
@@ -12,6 +14,7 @@ from drf_spectacular.types import OpenApiTypes
 
 from alerts_management.services.alert_state_machine_service import AlertStateMachineService
 from alerts_management.constants import MINIMUM_HOURS_TO_START_FILTER
+from alerts_management.utils.alert_geojson_builder import AlertGeoJSONBuilder
 
 from core_shared.permissions import IsAdminUserOrReadOnly
 
@@ -182,6 +185,7 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
         ).prefetch_related(
             'historic_alert__status',
             'historic_alert__phase',
+            'historic_alert__alerts_notifications_alerts_history',
             'alerts_clusters_alerts__cluster',
             'alerts_clusters_alerts__cluster__threshold',
             'alerts_clusters_alerts__alerts_clusters_components_clusters__component'
@@ -200,6 +204,22 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
             return AlertDetailSerializer
 
         return AlertListSerializer
+
+    @extend_schema(
+        tags=['Alerts / Management'],
+        summary="Capa de Alertas para Visor Cartográfico",
+        description="Retorna el listado ligero de alertas activas formateadas con hora local de Lima y estado reciente compilado nativamente en PostgreSQL.",
+    )
+    @action(detail=False, methods=['get'], pagination_class=None, url_path='map')
+    def map_layer(self, request, *args, **kwargs):
+        """
+            Endpoint: GET /api/v1/alerts/alerts/map/
+        """
+        # Delegación exclusiva al servicio de base de datos
+        json_payload = AlertGeoJSONBuilder.get_alerts_map_payload()
+
+        # ENTREGA DIRECTA EN TIEMPO CONSTANTE
+        return HttpResponse(json_payload, content_type="application/json", status=status.HTTP_200_OK)
 
 @extend_schema_view(
     partial_update=extend_schema(tags=['Alerts / AlertTransition'], summary="Actualizar estado y fase de una alerta")

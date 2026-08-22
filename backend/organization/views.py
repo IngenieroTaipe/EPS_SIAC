@@ -1,9 +1,14 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
+from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema_view, extend_schema
 
 from core_shared.permissions import IsAdminUserOrReadOnly
+from core_shared.pagination import FlexiblePageNumberPagination
+
+from organization.utils.branch_geojson_builder import BranchGeoJSONService
 
 from organization.serializers import (
     BranchSerializer,
@@ -40,6 +45,7 @@ class BranchViewSet(viewsets.ModelViewSet):
     """
     serializer_class = BranchSerializer
     permission_classes = [IsAdminUserOrReadOnly]
+    pagination_class = FlexiblePageNumberPagination
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -73,8 +79,31 @@ class BranchViewSet(viewsets.ModelViewSet):
             Realiza un Lazy Loader para evitar consultas múltiples
         """
         return Branch.objects.select_related(
-            'district__province__department',
-        ).filter()
+            'district__province__department'
+        ).all()
+    
+    @extend_schema(
+        tags=['Organization / Branches'],
+        summary="Capa Geoespacial de Sucursales (WebGIS)",
+        description="Retorna el FeatureCollection GeoJSON completo sin paginación para renderizado en mapa.",
+        responses={200: dict}
+    )
+    @action(detail=False, methods=['get'], pagination_class=None, url_path='map')
+    def map_layer(self, request, *args, **kwargs):
+        """
+            Endpoint Geoespacial dedicado:
+            GET /api/organization/branches/map/
+            Reutiliza los filtros del ViewSet y entrega un FeatureCollection GeoJSON completo.
+        """
+        # Aplica los mismos filtros de búsqueda alfanumérica/provincial
+        filtered_ids = list(
+            self.filter_queryset(self.get_queryset()).values_list('id', flat=True)
+        )
+        # Delegación exclusiva al servicio de dominio espacial
+        geojson_data = BranchGeoJSONService.get_feature_collection(branch_ids=filtered_ids)
+
+        return HttpResponse(geojson_data, content_type="application/json")
+
 
 @extend_schema_view(
     list=extend_schema(tags=['Organization / Organic Unit'], summary="Listar unidades orgánicas"),
@@ -124,7 +153,7 @@ class OrganicUnitViewSet(viewsets.ModelViewSet):
         """
         return OrganicUnit.objects.select_related(
             'parent_unit'
-        ).filter()
+        ).all()
 
 @extend_schema_view(
     list=extend_schema(tags=['Organization / Roles Unit'], summary="Listar roles de unidades orgánicas"),
@@ -318,4 +347,4 @@ class BranchesOrganicUnitViewSet(viewsets.ModelViewSet):
         return BranchesOrganicUnit.objects.select_related(
             'branch',
             'organic_unit'
-        ).filter()
+        ).all()

@@ -11,6 +11,10 @@ from django.db import transaction
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes
 
 from core_shared.permissions import IsAdminUserOrReadOnly
+from core_predictive.constants import (
+    GFS_TOTAL_HOURS_FORECAST,
+    GFS_TOTAL_HOURS_HISTORIC
+)
 
 from core_predictive.models import (
     NaturalPhenomena,
@@ -117,7 +121,7 @@ class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         tags=['Predictive / GFS Active Cells'],
-        summary="Obtener las celdas activas de la ventana histórica de 6 horas de GFS (T-6h a T+0h)",
+        summary=f"Obtener las celdas activas de la ventana histórica de {GFS_TOTAL_HOURS_HISTORIC} horas de GFS (T-{GFS_TOTAL_HOURS_HISTORIC}h a T+0h)",
         responses={200: GFSActiveCellGeoJSONSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='historic-window')
@@ -160,7 +164,7 @@ class GFSClusterSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
     
     @extend_schema(
         tags=['Predictive / GFS Clusters'],
-        summary="Obtener los clústeres activos de la ventana extendida de 18 horas de GFS (T-6h a T+12h)",
+        summary=f"Obtener los clústeres activos de la ventana histórica de {GFS_TOTAL_HOURS_HISTORIC + GFS_TOTAL_HOURS_FORECAST} horas de GFS (T-{GFS_TOTAL_HOURS_HISTORIC}h a T+{GFS_TOTAL_HOURS_FORECAST}h)",
         responses={200: GFSClusterSnapshotGeoJSONSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='historic-window')

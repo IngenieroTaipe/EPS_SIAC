@@ -291,10 +291,6 @@ class AlertStateMachineService:
             result_obj, _ = AlertResult.objects.get_or_create(alert=alert)
             result_obj.taken_actions = actions_taken
             result_obj.save()
-            
-            # === Marcar end_time_utc final en la Alerta ===
-            alert.end_time_utc = now
-            alert.save()
     
     @classmethod
     def _create_notification(cls, history: AlertHistory):        

@@ -76,7 +76,7 @@ class AlertStatusPhase(AuditCompleteModel):
     def __str__(self):
         return f"{self.alert_status.name} - {self.alert_phase.name}"
 
-class Alert(AuditCreateModel):
+class Alert(AuditCompleteModel):
     '''
         Modelo para representar las alertas.
     '''
@@ -237,7 +237,9 @@ class AlertHistory(AuditCreateModel):
 
     def __str__(self):
         user_str = self.created_by.get_full_name() if self.created_by else "SISTEMA (AUTOMÁTICO)"
-        return f"{self.alert.code} - {self.alert_status_phase.alert_status.name} [{user_str}]"
+        status_name = self.status.name if self.status else "SIN ESTADO"
+        phase_name = f" | {self.phase.name}" if self.phase else ""
+        return f"{self.alert.code} - {status_name}{phase_name} [{user_str}]"
 
 class NotificationChannel(models.TextChoices):
     TELEGRAM = 'TELEGRAM', 'Telegram'
@@ -281,6 +283,7 @@ class AlertNotification(AuditCreateModel):
         db_table = 'alert_notifications'
         verbose_name = 'Notificación de Alerta'
         verbose_name_plural = 'Notificaciones de Alerta'
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['alert_history', 'is_sent', 'notification_type']),
         ]

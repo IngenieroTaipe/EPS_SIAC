@@ -7,8 +7,10 @@ from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.http import HttpResponse
 from django.db import transaction
-from django.contrib.gis.geos import Point
 from drf_spectacular.utils import extend_schema_view, extend_schema
+
+from components.utils.component_geojson_builder import ComponentGeoJSONBuilder
+
 from components.models import (
     Criticality,
     ComponentType,
@@ -27,6 +29,7 @@ from components.serializers import (
     ComponentCoordSerializer,
     ComponentSerializer
 )
+
 from components.importer import (
     parse_csv,
     parse_geojson,
@@ -175,6 +178,27 @@ class ComponentViewSet(viewsets.ModelViewSet):
         if self.action in ('create', 'update', 'partial_update', 'retrieve'):
             return ComponentSerializer
         return ComponentListSerializer
+    
+    @extend_schema(
+        tags=['Infrastructure / Components'],
+        summary="Capa Cartográfica Especializada de Componentes (WebGIS)",
+        description="Retorna el listado de componentes con sus coordenadas y geometrías GeoJSON anidadas compiladas nativamente en PostGIS sin paginación.",
+    )
+    @action(detail=False, methods=['get'], pagination_class=None, url_path='map')
+    def map_layer(self, request, *args, **kwargs):
+        """
+        Endpoint Geoespacial: GET /api/components/map/
+        Aplica los filtros activos del ViewSet y retorna el JSON compilado en PostGIS.
+        """
+        # Extrae los IDs filtrados respetando los parámetros de búsqueda del usuario
+        filtered_ids = list(
+            self.filter_queryset(self.get_queryset()).values_list('id', flat=True)
+        )
+
+        # Compilación nativa en PostGIS mediante el servicio espacial
+        json_payload = ComponentGeoJSONBuilder.get_feature_collection()
+
+        return HttpResponse(json_payload, content_type="application/json", status=status.HTTP_200_OK)
 
     # ── Carga masiva desde CSV / GeoJSON ─────────────────────────────
     # Acciones custom. Reciben multipart/form-data con `file` (archivo

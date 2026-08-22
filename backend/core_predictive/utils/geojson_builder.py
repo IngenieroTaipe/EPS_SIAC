@@ -396,7 +396,7 @@ class GeoJSONResponseService:
         properties_fields: List[str],
         cache_key: str,
         geometry_field_name: str = "geometry",
-        cache_timeout_seconds: int = 21600
+        cache_timeout_seconds: int = 21600 # 6 horas
     ) -> Response:
         """
         Orquesta la extracción, cacheo y formateo de respuesta HTTP.
@@ -427,7 +427,7 @@ class GeoJSONResponseService:
         properties_fields: List[str],
         cache_key: str,
         geometry_field_name: str = "geometry",
-        cache_timeout_seconds: int = 21600
+        cache_timeout_seconds: int = 21600 # 6 horas
     ) -> Response:
         """
             Orquesta la respuesta HTTP para la ventana extendida de {GFS_TOTAL_HOURS_FORECAST + GFS_TOTAL_HOURS_HISTORIC} horas (T-{GFS_TOTAL_HOURS_HISTORIC}h a T+{GFS_TOTAL_HOURS_FORECAST}h).

@@ -119,8 +119,6 @@ class PhysicalStatusLightSerializer(PrepareDataMixin, serializers.ModelSerialize
         fields = ['code', 'name']
         read_only_fields = ['code']
 
-   
-
 # ==============================================================================
 # SERIALIZADORES DE COORDENADAS DE COMPONENTES
 # ==============================================================================
@@ -129,8 +127,28 @@ class PhysicalStatusLightSerializer(PrepareDataMixin, serializers.ModelSerialize
     # ==============================================================================
 class ComponentCoordLightSerializer(serializers.ModelSerializer):
     """
-    Serializador de salida: Transforma la geometría PostGIS (EPSG:4326) 
-    a representaciones UTM Zona 18S y GeoJSON para el cliente WebGIS.
+        Serializador de salida: Transforma la geometría PostGIS (EPSG:4326) 
+        a representaciones UTM Zona 18S y GeoJSON para el cliente WebGIS.
+        Este serializer está pensado para funcionar como serializer para los métodos GET (Para los Components - ComponentSerializer).
+    """
+    utm_coords = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ComponentCoord
+        fields = ['utm_coords']
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_utm_coords(self, obj) -> dict | None:
+        """ Usa el Helper para convertir WGS84 a UTM Zona 18S (Selva Central). """
+        if obj.coords:
+            return SpatialHelper.wgs84_to_utm(obj.coords)
+        return None
+    
+class ComponentCoordDetailSerializer(serializers.ModelSerializer):
+    """
+        Serializador de salida: Transforma la geometría PostGIS (EPSG:4326) 
+        a representaciones UTM Zona 18S y GeoJSON para el cliente WebGIS.
+        Este serializer está pensado para funcionar como serializer para los métodos GET (Para los Components - ComponentSerializer).
     """
     criticality = CriticalityLightSerializer(read_only=True)
     utm_coords = serializers.SerializerMethodField()
@@ -138,28 +156,31 @@ class ComponentCoordLightSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ComponentCoord
-        fields = ['id', 'criticality', 'coords', 'utm_coords', 'geojson']
+        fields = ['id', 'criticality', 'utm_coords', 'geojson']
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_utm_coords(self, obj) -> dict | None:
         """ Usa el Helper para convertir WGS84 a UTM Zona 18S (Selva Central). """
         if obj.coords:
-            return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=18)
+            return SpatialHelper.wgs84_to_utm(obj.coords)
         return None
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_geojson(self, obj) -> dict | None:
         """ Convierte la geometría PostGIS a formato GeoJSON nativo. """
         if obj.coords:
-            return json.loads(obj.coords.geojson)
+            return {
+                "type": "Point",
+                "coordinates": [round(obj.coords.x, 6), round(obj.coords.y, 6)]
+            }
         return None
-
-# ==============================================================================
-# SERIALIZADOR DE INGESTA ANIDADA (ESCRITURA)
-# ==============================================================================
+    # ==============================================================================
+    # SERIALIZADOR DE INGESTA ANIDADA (ESCRITURA)
+    # ==============================================================================
 class ComponentCoordItemSerializer(serializers.ModelSerializer):
     """
-    Serializador anidado de entrada: Valida e ingesta coordenadas UTM o WGS84.
+        Serializador anidado de entrada: Valida e ingesta coordenadas UTM o WGS84.
+        Está pensado para funcionar como serializer para los métodos POST y PUT (usado por medio de los Components - ComponentSerializer).
     """
     criticality = serializers.PrimaryKeyRelatedField(
         queryset=Criticality.objects.all(),
@@ -195,11 +216,16 @@ class ComponentCoordItemSerializer(serializers.ModelSerializer):
             )
         return attrs
 
+    # ==============================================================================
+    # SERIALIZADOR MAESTRO DE COORDENADA INDIVIDUAL
+    # ==============================================================================
 class ComponentCoordSerializer(serializers.ModelSerializer):
     """
-    Serializador Maestro de Coordenada Individual:
-    Soporta operaciones CRUD sobre instancias de ComponentCoord.
-    Maneja ingesta en UTM (Zona 18S) / WGS84 y respuesta enriquecida en GeoJSON.
+        Serializador Maestro de Coordenada Individual:
+        Soporta operaciones CRUD sobre instancias de ComponentCoord.
+        Maneja ingesta en UTM (Zona 18S) / WGS84 y respuesta enriquecida en GeoJSON.
+
+        Este serializer es un todo en uno, pensado para el endpoint directo sobre las coordenadas
     """
     component = serializers.PrimaryKeyRelatedField(
         queryset=Component.objects.all(),
@@ -245,7 +271,7 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
         """
         easting = attrs.pop('easting', None)
         northing = attrs.pop('northing', None)
-        srid_origin = attrs.pop('srid_origin', 18)
+        srid_origin = attrs.pop('srid_origin')
         latitude = attrs.pop('latitude', None)
         longitude = attrs.pop('longitude', None)
 
@@ -275,14 +301,17 @@ class ComponentCoordSerializer(serializers.ModelSerializer):
     def get_utm_coords(self, obj) -> dict | None:
         """ Reproyecta la geometría PostGIS a UTM Zona 18S para la respuesta HTTP. """
         if obj.coords:
-            return SpatialHelper.wgs84_to_utm(obj.coords, target_zone=18)
+            return SpatialHelper.wgs84_to_utm(obj.coords)
         return None
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_geojson(self, obj) -> dict | None:
         """ Exporta la geometría PostGIS a formato GeoJSON estándar. """
         if obj.coords:
-            return json.loads(obj.coords.geojson)
+            return {
+                "type": "Point",
+                "coordinates": [round(obj.coords.x, 6), round(obj.coords.y, 6)]
+            }
         return None
 
 # ==============================================================================
@@ -438,7 +467,10 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         if instance.physical_status:
             representation['physical_status'] = PhysicalStatusLightSerializer(instance.physical_status).data
         
-        representation['coords'] = ComponentCoordLightSerializer(instance.coords_relation.all(), many=True).data
+        representation['coords'] = ComponentCoordDetailSerializer(
+            instance.coords_relation.select_related('criticality').all(),
+            many=True
+        ).data
 
         return representation
 
@@ -450,7 +482,7 @@ class ComponentLightSerializer(PrepareDataMixin, serializers.ModelSerializer):
     }
     district = serializers.PrimaryKeyRelatedField(
         queryset=District.objects.all(),
-        help_text="ID del distrito preexistente (ej: '1')"
+        help_text="ID (Ubigeo) del distrito preexistente (ej: '120606')"
     )
     type = serializers.PrimaryKeyRelatedField(
         queryset=ComponentType.objects.all(),

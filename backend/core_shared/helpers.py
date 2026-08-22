@@ -73,10 +73,6 @@ class SpatialHelper:
         if not point or not isinstance(point, Point):
             raise ValidationError("Se requiere un objeto GEOS Point válido.")
 
-        srid = cls.PERU_UTM_SRIDS.get(target_zone)
-        if not srid:
-            raise ValidationError("Zona UTM no soportada.")
-
         # clonamos para no alterar el objeto original
         point_clone = point.clone()
 
@@ -88,6 +84,10 @@ class SpatialHelper:
 
         if target_zone is None:
             target_zone = cls.get_utm_zone_from_longitude(point_clone.x)
+
+        srid = cls.PERU_UTM_SRIDS.get(target_zone)
+        if not srid:
+            raise ValidationError("Zona UTM no soportada.")
 
         try:
             # Reproyectamos de WGS84 a UTM

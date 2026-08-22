@@ -188,7 +188,7 @@ class ComponentCoord(AuditCompleteModel):
         on_delete=models.CASCADE,
         related_name='coords_relation'
     )
-    coords = models.PointField(srid=4326, verbose_name="Ubicación WGS84")
+    coords = models.PointField(srid=4326, verbose_name="Ubicación WGS84", spatial_index=True)
 
     class Meta():
         db_table = 'components_coords'
@@ -196,7 +196,6 @@ class ComponentCoord(AuditCompleteModel):
         verbose_name = 'Coordenada de Componente'
         verbose_name_plural = 'Coordenadas de Componentes'
         indexes = [
-            models.Index(fields=['coords']),
             models.Index(fields=['component', 'criticality'])
         ]
 
