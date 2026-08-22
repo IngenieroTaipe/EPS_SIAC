@@ -1,21 +1,20 @@
 # core_predictive/utils/geojson_builder.py
 
 import logging
-from typing import List, Dict, Any, Type, Optional
+from typing import List, Dict, Any, Type
 from django.db import connection, models
-from django.core.cache import cache
 from rest_framework import status
 from rest_framework.response import Response
 
 from core_predictive.models import GFSRequest
 from core_shared.constants import LIMA_TZ_STR
+from core_shared.services.gis_cache_manager import GISCacheManager
 from core_predictive.constants import (
     GFS_TOTAL_HOURS_FORECAST,
     GFS_TOTAL_HOURS_HISTORIC
 )
 
 logger = logging.getLogger(__name__)
-
 
 class PostGISGeoJSONExtractor:
     """
@@ -362,25 +361,6 @@ class PostGISGeoJSONExtractor:
                 latest_completed_at_local
             ])
             return cursor.fetchone()[0]
-
-class GISCacheManager:
-    """
-        La clase nos permite la gestión de datos en Caché.
-        Responsabilidad: Abstraer la persistencia temporal en Caché (En el proyecto el gestor de caché es Redis).
-    """
-
-    @staticmethod
-    def get(key: str) -> Optional[Dict[str, Any]]:
-        return cache.get(key)
-
-    @staticmethod
-    def set(key: str, value: Dict[str, Any], timeout_seconds: int = 21600) -> None:
-        cache.set(key, value, timeout=timeout_seconds)
-
-    @staticmethod
-    def invalidate(key: str) -> None:
-        cache.delete(key)
-
 
 class GeoJSONResponseService:
     """

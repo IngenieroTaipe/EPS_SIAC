@@ -15,6 +15,12 @@ from core_predictive.constants import (
     GFS_TOTAL_HOURS_FORECAST,
     GFS_TOTAL_HOURS_HISTORIC
 )
+from core_shared.constants import (
+    CACHE_KEY_GFS_HISTORIC_CLUSTERS,
+    CACHE_KEY_GFS_HISTORIC_CELLS,
+    CACHE_KEY_GFS_LATEST_CELLS,
+    CACHE_KEY_GFS_LATEST_CLUSTERS
+)
 
 from core_predictive.models import (
     NaturalPhenomena,
@@ -116,7 +122,7 @@ class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
         return GeoJSONResponseService.build_latest_response(
             model_class=GFSActiveCell,
             properties_fields=['gfs_request_id', 'max_intensity_mm_h', 'timestamps', 'intensity_series'],
-            cache_key="gfs_latest_cells_geojson"
+            cache_key=CACHE_KEY_GFS_LATEST_CELLS
         )
 
     @extend_schema(
@@ -132,7 +138,7 @@ class GFSActiveCellViewSet(viewsets.ReadOnlyModelViewSet):
                 'gfs_request_id', 'max_intensity_mm_h', 'timestamps',
                 'intensity_series', 'threshold_names', 'district_ubigeos'
             ],
-            cache_key="gfs_historic_window_cells_geojson"
+            cache_key=CACHE_KEY_GFS_HISTORIC_CELLS
         )
 
 @extend_schema_view(
@@ -159,7 +165,7 @@ class GFSClusterSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
                 'total_cells', 'max_intensity_mm_h', 'avg_intensity_mm_h',
                 'threshold_id', 'affected_ubigeos'
             ],
-            cache_key="gfs_latest_clusters_geojson"
+            cache_key=CACHE_KEY_GFS_LATEST_CLUSTERS
         )
     
     @extend_schema(
@@ -176,7 +182,7 @@ class GFSClusterSnapshotViewSet(viewsets.ReadOnlyModelViewSet):
                 'total_cells', 'max_intensity_mm_h', 'avg_intensity_mm_h',
                 'threshold_id', 'affected_ubigeos'
             ],
-            cache_key="gfs_historic_window_clusters_geojson"
+            cache_key=CACHE_KEY_GFS_HISTORIC_CLUSTERS
         )
 
 @extend_schema_view(

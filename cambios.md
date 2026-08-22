@@ -155,22 +155,6 @@
 
 - `alerts/alerts/?on_page=1`
 ```json
-        {
-            "id": 1,
-            "code": "000000001",
-            "natural_phenomena_name": "LLUVIAS INTENSAS",
-            "max_intensity_mm_h": "8.00",
-            "max_threshold": "MUY LLUVIOSO (Nivel 3)",
-            "start_time_local": "2026-08-22T10:00:00-05:00",
-            "end_time_local": "2026-08-22T23:00:00-05:00"
-        }
-```
-
-2. Al endpoint de alertas individuales se le quita la opción de tener los cluster y los component clusteres debido a su no-utilización, pero se agrega la propiedad alert_notification con el historial de las notificaciones (su re-programación u cancelación); a su vez, se cambia el nombre de historic_alert por alert_history.
-
-- `alerts/alerts/1`
-```json
-{
 {
     "count": 1,
     "next": null,
@@ -180,32 +164,32 @@
             "id": 1,
             "code": "000000001",
             "natural_phenomena_name": "LLUVIAS INTENSAS",
-            "max_intensity_mm_h": "8.00",
+            "max_intensity_mm_h": "8.31",
             "max_threshold": "MUY LLUVIOSO (Nivel 3)",
             "start_time_local": "2026-08-22T10:00:00-05:00",
-            "end_time_local": "2026-08-22T23:00:00-05:00",
-            "status_name": "NO CONFIRMADO",
+            "end_time_local": "2026-08-23T05:00:00-05:00",
+            "status_name": "CONFIRMADO",
             "phase_name": "Sin Fase",
             "operational_ubigeos": [
                 {
-                    "ubigeo": "120301",
-                    "name": "CHANCHAMAYO"
+                    "ubigeo": "120101",
+                    "name": "HUANCAYO"
                 },
                 {
                     "ubigeo": "120601",
                     "name": "SATIPO"
                 },
                 {
-                    "ubigeo": "190307",
-                    "name": "VILLA RICA"
-                },
-                {
                     "ubigeo": "120303",
                     "name": "PICHANAQUI"
                 },
                 {
-                    "ubigeo": "120101",
-                    "name": "HUANCAYO"
+                    "ubigeo": "190307",
+                    "name": "VILLA RICA"
+                },
+                {
+                    "ubigeo": "120301",
+                    "name": "CHANCHAMAYO"
                 },
                 {
                     "ubigeo": "190301",
@@ -215,6 +199,68 @@
         }
     ]
 }
+```
+
+2. Al endpoint de alertas individuales se le quita la opción de tener los cluster y los component clusteres debido a su no-utilización, pero se agrega la propiedad alert_notification con el historial de las notificaciones (su re-programación u cancelación); a su vez, se cambia el nombre de historic_alert por alert_history.
+
+- `alerts/alerts/1`
+```json
+{
+    "id": 1,
+    "code": "000000001",
+    "natural_phenomena_name": "LLUVIAS INTENSAS",
+    "max_intensity_mm_h": "8.31",
+    "max_threshold": "MUY LLUVIOSO (Nivel 3)",
+    "start_time_local": "2026-08-22T10:00:00-05:00",
+    "end_time_local": "2026-08-23T05:00:00-05:00",
+    "operational_ubigeos": [
+        {
+            "ubigeo": "190301",
+            "name": "OXAPAMPA"
+        },
+        {
+            "ubigeo": "120303",
+            "name": "PICHANAQUI"
+        },
+        {
+            "ubigeo": "120601",
+            "name": "SATIPO"
+        },
+        {
+            "ubigeo": "120101",
+            "name": "HUANCAYO"
+        },
+        {
+            "ubigeo": "190307",
+            "name": "VILLA RICA"
+        },
+        {
+            "ubigeo": "120301",
+            "name": "CHANCHAMAYO"
+        }
+    ],
+    "alert_history": [
+        {
+            "status_name": "CONFIRMADO",
+            "created_at": "2026-08-22T11:05:00.034266-05:00"
+        },
+        {
+            "status_name": "EN ESPERA DE CONFIRMACIÓN",
+            "created_at": "2026-08-22T10:03:04.888733-05:00"
+        },
+        {
+            "status_name": "PREDICHO",
+            "created_at": "2026-08-22T07:13:12.766620-05:00"
+        }
+    ],
+    "alert_notification": [
+        {
+            "channel": "TELEGRAM",
+            "notification_type": "INITIAL",
+            "sent_at": "2026-08-22T12:37:25.007211-05:00"
+        }
+    ],
+    "result": null
 }
 ```
 
@@ -222,17 +268,26 @@
 
 - `alerts/alerts/map`
 ```json
-        {
-            "id": 1,
-            "code": "000000001",
-            "natural_phenomena_name": "LLUVIAS INTENSAS",
-            "max_intensity_mm_h": "8.00",
-            "max_threshold": "MUY LLUVIOSO (Nivel 3)",
-            "status_name": "CONFIRMADO",
-            "phase_name": "SIN FASE",
-            "start_time_local": "2026-08-22T10:00:00-05:00",
-            "end_time_local": "2026-08-22T23:00:00-05:00"
-        }
+[
+    {
+        "id": 1,
+        "code": "000000001",
+        "phase_name": "Sin Fase",
+        "status_name": "CONFIRMADO",
+        "max_threshold": "MUY LLUVIOSO",
+        "end_time_local": "2026-08-23T05:00:00-05:00",
+        "start_time_local": "2026-08-22T10:00:00-05:00",
+        "max_intensity_mm_h": "8.31",
+        "representative_point": {
+            "type": "Point",
+            "coordinates": [
+                -75.335,
+                -11.115
+            ]
+        },
+        "natural_phenomena_name": "LLUVIAS INTENSAS"
+    }
+]
 ```
 
 4.  Dentro del endpoint del tabular se agregaron los filtros por fenómeno natural, estado y fase:
@@ -247,14 +302,52 @@ Para aplicar el filtro de estado se debe enviar el id:
 Para aplicar el filtro de fase se debe enviar el id:
 
 - `alerts/alerts/?phase=1`
+
+Ejemplo:
+- `alerts/alerts/?on_page=1&status=3`
 ```json
 {
-    "id": 1,
-    "code": "000000001",
-    "natural_phenomena_name": "LLUVIAS INTENSAS",
-    "max_intensity_mm_h": "8.00",
-    "max_threshold": "MUY LLUVIOSO (Nivel 3)",
-    "start_time_local": "2026-08-22T10:00:00-05:00",
-    "end_time_local": "2026-08-22T23:00:00-05:00"
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": 1,
+            "code": "000000001",
+            "natural_phenomena_name": "LLUVIAS INTENSAS",
+            "max_intensity_mm_h": "8.31",
+            "max_threshold": "MUY LLUVIOSO (Nivel 3)",
+            "start_time_local": "2026-08-22T10:00:00-05:00",
+            "end_time_local": "2026-08-23T05:00:00-05:00",
+            "status_name": "CONFIRMADO",
+            "phase_name": "Sin Fase",
+            "operational_ubigeos": [
+                {
+                    "ubigeo": "190301",
+                    "name": "OXAPAMPA"
+                },
+                {
+                    "ubigeo": "120303",
+                    "name": "PICHANAQUI"
+                },
+                {
+                    "ubigeo": "120601",
+                    "name": "SATIPO"
+                },
+                {
+                    "ubigeo": "120101",
+                    "name": "HUANCAYO"
+                },
+                {
+                    "ubigeo": "190307",
+                    "name": "VILLA RICA"
+                },
+                {
+                    "ubigeo": "120301",
+                    "name": "CHANCHAMAYO"
+                }
+            ]
+        }
+    ]
 }
 ```

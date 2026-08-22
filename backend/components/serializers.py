@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 from components.models import (
     Criticality,
     ComponentType,
@@ -11,6 +10,8 @@ from components.models import (
 from django.contrib.gis.geos import Point
 from django.db import transaction
 
+from components.utils.component_geojson_builder import ComponentGeoJSONBuilder
+
 from places.serializers import DistrictLightSerializer
 from places.models import District
 from core_shared.mixins import PrepareDataMixin
@@ -20,7 +21,6 @@ from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 
 from core_shared.helpers import SpatialHelper
-import json
 
 # ==============================================================================
 # SERIALIZADORES DE CRITICIDADES
@@ -412,6 +412,8 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
         if coords_instances:
             ComponentCoord.objects.bulk_create(coords_instances)
 
+        transaction.on_commit(ComponentGeoJSONBuilder.invalidate_cache)
+
         return component
 
     @transaction.atomic
@@ -447,6 +449,8 @@ class ComponentSerializer(PrepareDataMixin, serializers.ModelSerializer):
             ]
             if coords_instances:
                 ComponentCoord.objects.bulk_create(coords_instances)
+
+        transaction.on_commit(ComponentGeoJSONBuilder.invalidate_cache)
 
         return instance
 

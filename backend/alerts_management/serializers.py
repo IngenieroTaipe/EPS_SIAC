@@ -446,7 +446,7 @@ class AlertDetailSerializer(serializers.ModelSerializer):
         """
         notifications = []
         for history in obj.historic_alert.all():
-            notifications.extend(list(history.alerts_notifications_alerts_history.all()))
+            notifications.extend(list(history.alert_notifications_alerts_history.all()))
         return AlertNotificationSecondarySerializer(notifications, many=True).data
         
     def get_start_time_local(self, obj) -> str | None:

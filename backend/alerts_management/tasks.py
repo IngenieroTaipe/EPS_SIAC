@@ -14,6 +14,7 @@ from alerts_management.services.forecast_pipeline_service import ForecastPipelin
 from alerts_management.services.alert_state_machine_service import AlertStateMachineService
 from alerts_management.services.notification_service import NotificationDomainService
 from alerts_management.services.telegram_dispatcher import TelegramNotificationDispatcher
+from alerts_management.utils.alert_geojson_builder import AlertGeoJSONBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,9 @@ def process_forecast_and_adapt_alerts_task(self, gfs_request_id: int):
         if not success:
             logger.error(f"[Celery Task Error] Falló el pipeline para GFSRequest #{gfs_request_id}: {msg}")
             raise self.retry(exc=Exception(msg))
+
+        # Purga la caché del mapa de alertas para forzar regeneración en el frontend
+        AlertGeoJSONBuilder.invalidate_cache()
 
         return persisted_count
 

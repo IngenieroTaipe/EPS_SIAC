@@ -2,6 +2,14 @@ import logging
 from typing import List, Dict, Any, Optional
 from django.db import connection
 
+from core_shared.services.gis_cache_manager import (
+    GISCacheManager
+)
+from core_shared.constants import (
+    CACHE_KEY_COMPONENTS_MAP,
+    CACHE_TTL_COMPONENTS_MAP
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,6 +46,14 @@ class ComponentGeoJSONBuilder:
                 }
             ]
         """
+        # Intenta leer de Redis primero
+        try:
+            cached_payload = GISCacheManager.get(CACHE_KEY_COMPONENTS_MAP)
+            if cached_payload:
+                return cached_payload
+        except Exception as exc:
+            logger.warning(f"[ComponentGeoJSONBuilder] Fallo al leer de Redis: {str(exc)}")
+
         where_clauses = ["c.deleted_at IS NULL"]
 
         where_sql = " AND ".join(where_clauses)
@@ -92,7 +108,28 @@ class ComponentGeoJSONBuilder:
             with connection.cursor() as cursor:
                 cursor.execute(query)
                 result = cursor.fetchone()
-                return result[0] if result and result[0] else "[]"
+                payload = result[0] if result and result[0] else "[]"
+                
+                if payload != "[]":
+                    try:
+                        GISCacheManager.set(
+                            key=CACHE_KEY_COMPONENTS_MAP,
+                            value=payload, 
+                            timeout_seconds=CACHE_TTL_COMPONENTS_MAP
+                        )
+                    except Exception as exc:
+                        logger.warning(f"[ComponentGeoJSONBuilder] Fallo al escribir en Redis: {str(exc)}")
+
+                return payload
         except Exception as exc:
-            logger.error(f"[ComponentMapService] Error al compilar estructura JSON en PostGIS: {str(exc)}")
+            logger.error(f"[ComponentGeoJSONBuilder] Error al compilar estructura JSON en PostGIS: {str(exc)}")
             raise exc
+
+    @classmethod
+    def invalidate_cache(cls) -> None:
+        """ Purga la caché cartográfica de componentes. """
+        try:
+            GISCacheManager.delete(CACHE_KEY_COMPONENTS_MAP)
+            logger.info("[ComponentGeoJSONBuilder] Caché de mapa de componentes invalidada con éxito.")
+        except Exception as exc:
+            logger.warning(f"[ComponentGeoJSONBuilder] Error al invalidar caché: {str(exc)}")

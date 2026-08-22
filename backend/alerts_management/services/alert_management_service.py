@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class AlertManagementService:
 
     # =========================================================================
-    # 1. ORQUESTADOR PRINCIPAL (Limpiado - Control de Flujo de Alto Nivel)
+    # ORQUESTADOR PRINCIPAL (Limpiado - Control de Flujo de Alto Nivel)
     # =========================================================================
     @classmethod
     def adapt_alerts_to_gfs_forecast(
@@ -104,6 +104,8 @@ class AlertManagementService:
                 current_delay=current_dispatch_delay,
                 countdown_seconds=TELEGRAM_DISPATCH_DELAY
             )
+
+            
 
             return alerts_processed_count
 
