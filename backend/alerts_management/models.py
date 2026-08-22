@@ -260,7 +260,7 @@ class AlertNotification(AuditCreateModel):
     alert_history = models.ForeignKey(
         'AlertHistory', 
         on_delete=models.PROTECT,
-        related_name='alerts_notifications_alerts_history'
+        related_name='alert_notifications_alerts_history'
     )
 
     channel = models.CharField(

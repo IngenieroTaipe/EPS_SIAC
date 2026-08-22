@@ -1,4 +1,4 @@
-from rest_framework import viewsets, filters, views, status, mixins
+from rest_framework import viewsets, filters, status, mixins
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -15,6 +15,7 @@ from drf_spectacular.types import OpenApiTypes
 from alerts_management.services.alert_state_machine_service import AlertStateMachineService
 from alerts_management.constants import MINIMUM_HOURS_TO_START_FILTER
 from alerts_management.utils.alert_geojson_builder import AlertGeoJSONBuilder
+from alerts_management.filters import AlertFilter
 
 from core_shared.permissions import IsAdminUserOrReadOnly
 
@@ -29,7 +30,6 @@ from alerts_management.serializers import (
     AlertStatusSerializer,
     AlertPhaseSerializer,
     AlertStatusPhaseSerializer,
-    AlertListSerializer,
     AlertListSerializer,
     AlertDetailSerializer,
     AlertTransitionSerializer,
@@ -70,11 +70,11 @@ class AlertStatusViewSet(viewsets.ModelViewSet):
 
 @extend_schema_view(
     list=extend_schema(tags=['Alerts / AlertPhase'], summary="Listar Fases de las Alertas"),
-    retrieve=extend_schema(tags=['Alerts / AlertPhase'], summary="Obtener detalle de un Fase de Alerta"),
-    create=extend_schema(tags=['Alerts / AlertPhase'], summary="Registrar un nuevo Fase de Alerta"),
-    update=extend_schema(tags=['Alerts / AlertPhase'], summary="Actualizar un Fase de Alerta"),
-    partial_update=extend_schema(tags=['Alerts / AlertPhase'], summary="Actualizar parcialmente un Fase de Alerta"),
-    destroy=extend_schema(tags=['Alerts / AlertPhase'], summary="Eliminar un Fase de Alerta")
+    retrieve=extend_schema(tags=['Alerts / AlertPhase'], summary="Obtener detalle de una Fase de Alerta"),
+    create=extend_schema(tags=['Alerts / AlertPhase'], summary="Registrar una nueva Fase de Alerta"),
+    update=extend_schema(tags=['Alerts / AlertPhase'], summary="Actualizar una Fase de Alerta"),
+    partial_update=extend_schema(tags=['Alerts / AlertPhase'], summary="Actualizar parcialmente una Fase de Alerta"),
+    destroy=extend_schema(tags=['Alerts / AlertPhase'], summary="Eliminar una Fase de Alerta")
 )
 class AlertPhaseViewSet(viewsets.ModelViewSet):
     """
@@ -156,24 +156,18 @@ class AlertStatusPhaseViewSet(viewsets.ModelViewSet):
 class AlertViewSet(viewsets.ReadOnlyModelViewSet):
     """
         Controlador de Lectura para las Alertas.
-        - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET, CREATE, UPDATE, PATCH, DELETE). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
-        - Los registros solo podrán ser eliminados si no tienen registros relacionados en otros modelos.
-        - Permite la búsqueda en base a campos como: Nombre.
-        - Permite el ordenamiento en base a campos como: Nombre    
+        - Permite el uso de todos los métodos HTTP relacionados al CRUD (GET). Los métodos de Lectura no requieren de autenticación, mientras que todos los demás métodos sí la requieren.
+        - Permite la búsqueda en base a campos como: Fenómeno natural, Estado de alerta y Fase de alerta.
+        - Permite el ordenamiento en base a campos como: Fenómeno natural, Estado de alerta y Fase de alerta.    
     """
     lookup_field = 'id'
     permission_classes = [IsAdminUserOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     
+    filterset_class = AlertFilter
 
-    filterset_fields = [
-        'natural_phenomena'
-    ]
-    search_fields = [
-        'natural_phenomena__name'
-    ]
     ordering_fields = [
-        'natural_phenomena__name'
+        'natural_phenomena',
     ]
     ordering = ['id']
 
@@ -185,7 +179,7 @@ class AlertViewSet(viewsets.ReadOnlyModelViewSet):
         ).prefetch_related(
             'historic_alert__status',
             'historic_alert__phase',
-            'historic_alert__alerts_notifications_alerts_history',
+            'historic_alert__alert_notifications_alerts_history',
             'alerts_clusters_alerts__cluster',
             'alerts_clusters_alerts__cluster__threshold',
             'alerts_clusters_alerts__alerts_clusters_components_clusters__component'
