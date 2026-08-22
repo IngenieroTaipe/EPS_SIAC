@@ -227,6 +227,9 @@ class AlertListSerializer(serializers.ModelSerializer):
     # alert_history = AlertHistorySecondarySerializer(source='historic_alert', many=True, read_only=True) # === NO ELIMINAR  ===
     operational_ubigeos = serializers.SerializerMethodField()
 
+    status_name = serializers.SerializerMethodField(method_name='get_status', read_only=True)
+    phase_name = serializers.SerializerMethodField(method_name='get_phase', read_only=True)
+
     class Meta:
         model = Alert
         fields = [
@@ -237,6 +240,8 @@ class AlertListSerializer(serializers.ModelSerializer):
             'max_threshold',
             'start_time_local',
             'end_time_local',
+            'status_name',
+            'phase_name',
             'operational_ubigeos',
             # 'alert_clusters',
             # 'alert_history'
