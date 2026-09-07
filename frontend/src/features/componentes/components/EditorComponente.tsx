@@ -146,8 +146,16 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
           id: c.id,
           east: String(utm.easting),
           north: String(utm.northing),
-          criticalityId: c.criticality?.id ? String(c.criticality.id) : '',
-          criticalityName: c.criticality?.name,
+          // criticality llega como objeto {id, name} desde el retrieve
+          // (siempre); toleramos string por si el backend la envía plana.
+          criticalityId:
+            typeof c.criticality === 'object' && c.criticality?.id
+              ? String(c.criticality.id)
+              : '',
+          criticalityName:
+            typeof c.criticality === 'string'
+              ? c.criticality
+              : c.criticality?.name,
         };
       });
     }
@@ -461,8 +469,6 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
           </button>
 
           <MiniMapa
-            lat={puntosGeo.find((p) => p.valido)?.lat ?? 0}
-            lon={puntosGeo.find((p) => p.valido)?.lon ?? 0}
             puntos={puntosGeo.filter((p) => p.valido)}
             esLinea={esLinea}
             iconUrl={ICON_URL_BY_TIPO[mapTipo(tipoLabel)] ?? CaptacionIconUrl}
@@ -894,10 +900,14 @@ function SelectInput({
           compact
             ? 'w-full px-2 py-1 pr-7 rounded-md text-xs'
             : 'w-full px-4 py-2.5 pr-10 rounded-xl text-sm',
-          'outline outline-1 outline-offset-[-1px] outline-button-stroke appearance-none',
+          // Border (no outline): tailwind-merge elimina la clase bare
+          // `outline` al coexistir con `outline-1`, dejando el control sin
+          // borde. `border` + `border-button-stroke` es equivalente visual
+          // (mismo gris) y robusto ante el merge.
+          'border border-button-stroke appearance-none',
           'font-sans bg-background-main',
           showPlaceholder ? 'text-text-secondary' : 'text-text-primary',
-          'focus:outline-2 focus:outline-primary-main',
+          'focus:border-primary-main',
         )}
       >
         {showPlaceholder && (
@@ -997,8 +1007,6 @@ function CaptureController({
  * "vuelve"). El usuario centra el mapa a mano (scrollWheelZoom activo).
  */
 function MiniMapa({
-  lat,
-  lon,
   puntos,
   esLinea,
   iconUrl,
@@ -1010,8 +1018,6 @@ function MiniMapa({
   onRemoveVertex,
   minPuntos,
 }: {
-  lat: number;
-  lon: number;
   puntos: PuntoConLatLon[];
   esLinea: boolean;
   iconUrl: string;
@@ -1077,10 +1083,10 @@ function MiniMapa({
       iconAnchor: [12, 12],
     });
 
-  // Centro inicial: si hay coordenadas válidas, usa esas; si no, Pichanaqui.
-  // El AutoPan fue removido, así que nos basta con el `center` inicial.
-  const center: [number, number] =
-    lat !== 0 && lon !== 0 ? [lat, lon] : [-11.019, -75.297];
+  // Centro inicial fijo: TODO el Perú (mismo centro/zoom que el mapa
+  // principal), sin zoom automático al punto del componente. El usuario
+  // centra/acerca manualmente (scrollWheelZoom activo).
+  const center: [number, number] = [-9.19, -75.016]; // Centro continental del Perú
 
   // Polyline path: lista de [lat,lon] por cada punto válido.
   const path: [number, number][] = puntos.map((p) => [p.lat, p.lon]);
@@ -1094,7 +1100,7 @@ function MiniMapa({
     >
       <MapContainerAny
         center={center}
-        zoom={15}
+        zoom={5}
         scrollWheelZoom
         zoomControl={false}
         minZoom={5}

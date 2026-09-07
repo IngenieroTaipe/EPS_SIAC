@@ -208,10 +208,9 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
         timestampDate: ts,
       });
     }
-    // FORECAST: 12 slots, step 1..12, timestamp = latestPet + step horas.
-    // === TODO / FUTURE-PROOFING: cuando `GFS_TOTAL_HOURS_FORECAST` suba a 16,
-    // cambiar este loop a `step <= 16`. Sincronizar con
-    // `backend/.../constants.py` y `geojson_builder.py` (slice `BETWEEN 1 AND 16`).
+    // FORECAST: 16 slots (sync con `GFS_TOTAL_HOURS_FORECAST = 16` del
+    // backend; el slice del builder es `BETWEEN 1 AND {const}` dinámico),
+    // step 1..16, timestamp = latestPet + step horas.
     for (let step = 1; step <= 16; step++) {
       const ts = new Date(latestPet.getTime() + step * MS_PER_HOUR);
       arr.push({
@@ -246,18 +245,32 @@ export function PrecipitationTimelineProvider({ children }: { children: ReactNod
   // infla el lint) pero fuerza el reproceso cuando el ticker dispara.
   const currentRealHour = useMemo(() => peruNow(), [nowTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Slot correspondiente a la hora real (franja roja). Calculado como
-  // diferencia de ms entre `currentRealHour` y `base` divida en horas. Por
-  // construcción, `base` y `currentRealHour` están en el mismo frame de
-  // referencia (wall-clock Perú interpretado en el runtime del browser),
-  // así que la aritmética es coherente sin importar el timezone del cliente.
+  // Slot correspondiente a la hora real (franja roja). Se busca el frame
+  // cuyo `timestampDate` esté MÁS CERCANO a "ahora" (redondeo al slot más
+  // próximo): a partir del minuto ~30 la franja salta a la siguiente hora
+  // (ej. 12:31 → franja en 13:00), y antes del minuto 30 queda en la hora
+  // en curso. Este redondeo se hace comparando timestamps REALES de los
+  // frames (no diferencia contra `base`), por lo que es robusto a los
+  // huecos del eje — si las corridas no son cada 6h (p. ej. cada 24h),
+  // hay horas de diferencia entre el slice HISTORIC y el FORECAST y la
+  // aritmética `(now - base)/1h` desplazaba la franja a un slot que no
+  // corresponde (incluso clavada al final del eje).
+  // `base` y `currentRealHour` están en el mismo frame de referencia
+  // (wall-clock Perú interpretado en el runtime del browser).
   const realSlot = useMemo(() => {
     if (totalSlots === 0) return 0;
-    const slot = Math.round(
-      (currentRealHour.getTime() - base.getTime()) / MS_PER_HOUR,
-    );
-    return clamp(slot, 0, maxSlot);
-  }, [currentRealHour, base, totalSlots, maxSlot]);
+    const nowMs = currentRealHour.getTime();
+    let best = 0;
+    let bestDiff = Infinity;
+    for (let i = 0; i < totalSlots; i++) {
+      const d = Math.abs(frames[i].timestampDate.getTime() - nowMs);
+      if (d < bestDiff) {
+        bestDiff = d;
+        best = i;
+      }
+    }
+    return clamp(best, 0, maxSlot);
+  }, [currentRealHour, frames, totalSlots, maxSlot]);
 
   // ── Posicionar el thumb en la hora actual (realSlot) cuando los frames
   //    llegan por primera vez. Una sola vez por carga de ventana; el

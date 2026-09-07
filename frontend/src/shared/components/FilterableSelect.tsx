@@ -149,10 +149,14 @@ function FilterableSelectSingle({
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'w-full px-4 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke',
+          // Border (no outline): tailwind-merge elimina la clase bare
+          // `outline` al coexistir con `outline-1`, dejando el control sin
+          // borde. `border` + `border-button-stroke` es equivalente visual
+          // (mismo gris) y robusto ante el merge.
+          'w-full px-4 py-2.5 rounded-xl border border-button-stroke',
           'text-sm font-sans bg-background-main flex items-center justify-between gap-2',
           !selected ? 'text-text-secondary' : 'text-text-primary',
-          'focus:outline-2 focus:outline-primary-main',
+          'focus:border-primary-main',
           disabled && 'opacity-60 cursor-not-allowed',
         )}
         aria-haspopup="listbox"
@@ -171,7 +175,8 @@ function FilterableSelectSingle({
       {open && (
         <div
           className={cn(
-            'absolute z-50 mt-1 bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke shadow-lg',
+            // Border (no outline): ver comentario del trigger single.
+            'absolute z-50 mt-1 bg-background-main rounded-xl border border-button-stroke shadow-lg',
             'flex flex-col max-h-72 w-full',
             dropdownMinWidth,
           )}
@@ -329,10 +334,11 @@ function FilterableSelectMulti({
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'w-full px-4 py-2.5 rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke',
+          // Border (no outline): ver comentario del trigger single.
+          'w-full px-4 py-2.5 rounded-xl border border-button-stroke',
           'text-sm font-sans bg-background-main flex items-center justify-between gap-2',
           selectedOptions.length === 0 ? 'text-text-secondary' : 'text-text-primary',
-          'focus:outline-2 focus:outline-primary-main',
+          'focus:border-primary-main',
           disabled && 'opacity-60 cursor-not-allowed',
         )}
         aria-haspopup="listbox"
@@ -349,7 +355,8 @@ function FilterableSelectMulti({
       {open && (
         <div
           className={cn(
-            'absolute z-50 mt-1 bg-background-main rounded-xl outline outline-1 outline-offset-[-1px] outline-button-stroke shadow-lg',
+            // Border (no outline): ver comentario del trigger single.
+            'absolute z-50 mt-1 bg-background-main rounded-xl border border-button-stroke shadow-lg',
             'flex flex-col max-h-72 w-full',
             dropdownMinWidth,
           )}

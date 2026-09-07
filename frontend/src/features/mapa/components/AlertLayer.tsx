@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Marker, Tooltip, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { apiAlerts, type BackendAlertListItem } from '@/services/apiAlerts';
-import { deriveMapAlertas } from '@/features/mapa/utils/deriveMapAlertas';
+import { apiAlerts, type BackendAlertMapItem } from '@/services/apiAlerts';
+import { adaptarAlertasMap } from '@/features/alertas/alertAdapters';
 import type { Alerta, EstadoAlerta } from '../types/alerta';
 import { ALERT_ZOOM_DETAIL } from '../types/alerta';
 
@@ -416,14 +416,15 @@ export function AlertLayer({
   selectedAlertId,
   onAlertaClick,
 }: AlertLayerProps) {
-  // Si no se pasan datos externos, se cargan desde el backend.
+  // Si no se pasan datos externos, se cargan desde el backend (endpoint
+  // `/alerts/alerts/map` — representative_point por alerta).
   const [fetchedAlertas, setFetchedAlertas] = useState<Alerta[]>([]);
   useEffect(() => {
     let cancelled = false;
     apiAlerts
-      .listAlerts()
-      .then((items: BackendAlertListItem[]) => {
-        if (!cancelled) setFetchedAlertas(deriveMapAlertas(items));
+      .listAlertsForMap()
+      .then((items: BackendAlertMapItem[]) => {
+        if (!cancelled) setFetchedAlertas(adaptarAlertasMap(items));
       })
       .catch((err) => {
         console.error('Error cargando alertas:', err);

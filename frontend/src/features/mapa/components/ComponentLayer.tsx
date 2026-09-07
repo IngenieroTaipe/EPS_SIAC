@@ -34,7 +34,7 @@ import PlantaTratamientoIconUrl from '@/assets/icons/planta-tratamiento.svg?url'
 import LineaConduccionIconUrl from '@/assets/icons/linea-conduccion.svg?url';
 import CircleIconUrl from '@/assets/icons/circle.svg?url';
 import { TIPO_LINEA } from '../types/componente';
-import { useComponentes } from '@/services/useComponentes';
+import { useComponentesMap } from '@/services/useComponentes';
 
 /**
  * ComponentLayer — capa con los componentes de la red de agua de la EPS:
@@ -164,9 +164,12 @@ export function ComponentLayer({
   onComponenteClick,
   excludeId,
 }: ComponentLayerProps) {
-  // Si el padre no pasa `data`, consumimos el backend aquí.
-  // (Regla de hooks: siempre se llama al hook; el override es por data.)
-  const fetched = useComponentes();
+  // Si el padre no pasa `data`, consumimos el backend aquí vía el
+  // endpoint `/components/map` (el único con geometrías desde que el
+  // listado normal dejó de exponer `geojson`).
+  // (Regla de hooks: siempre se llama al hook; el override es por data.
+  //  El hook usa cachedGet, así que página + capa deduplican el fetch.)
+  const fetched = useComponentesMap();
   const layerData = data ?? fetched.data;
 
   // Zoom actual — controlar visibilidad de componentes por nivel.
@@ -184,7 +187,11 @@ export function ComponentLayer({
     return map;
   }, [layerData]);
 
-  const comps = (layerData?.componentes ?? []).filter((c) => c.id !== excludeId);
+  const comps = (layerData?.componentes ?? [])
+    .filter((c) => c.id !== excludeId)
+    // El endpoint /map siempre trae lat/lng; el listado normal no.
+    // Filtro defensivo: sin geometría no hay nada que dibujar.
+    .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number');
   const tramos = layerData?.tramos ?? [];
 
   if (!showLayer) return null;
@@ -265,7 +272,7 @@ export function ComponentLayer({
           return (
             <MarkerAny
               key={comp.id}
-              position={[comp.lat, comp.lng]}
+              position={[comp.lat!, comp.lng!]}
               icon={
                 isSelected
                   ? makeDivIconSelected(comp.tipo, comp.estado)

@@ -1,7 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useRef } from 'react';
 import { GeoJSON as GeoJSONComponent, useMap } from 'react-leaflet';
-import { PrecipitationLayerCells } from './PrecipitationLayerCells';
 import { usePrecipitationTimeline } from '@/features/mapa/timeline/usePrecipitationTimeline';
 import {
   GFS_COLOR_MAP,
@@ -28,7 +26,6 @@ const FILL_OPACITY_VISIBLE = 0.6;
  * componente sólo:
  *   - Lee `renderData` + `frameIndex`/`activeFrame` del contexto.
  *   - Recolorea el `L.GeoJSON` según el frame activo (sin reconstruir la capa).
- *   - En modo 'cells' delega a `PrecipitationLayerCells` (TEMPORAL).
  *
  * Ya NO portalear la timeline: el footer vive en AppLayout hermanado con
  * el contenido de la ruta.
@@ -45,8 +42,6 @@ export function PrecipitationLayer() {
   const map = useMap() as any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geoJsonRef = useRef<any>(null);
-  // === TEMPORAL: toggle de comparación visual Clusters vs Celdas (~12k) ===
-  const [viewMode, setViewMode] = useState<'clusters' | 'cells'>('clusters');
 
   const lastMouseEvent = useRef<{ clientX: number; clientY: number } | null>(null);
 
@@ -154,114 +149,21 @@ export function PrecipitationLayer() {
     });
   }, [frameIndex, frames, activeFrame, renderData]);
 
-  // === TEMPORAL: en modo 'cells' delegamos todo a la v2 y sólo inyectamos
-  // el toggle de comparación. ===
-  const portalTarget = map?.getContainer?.()?.parentElement ?? null;
-  if (viewMode === 'cells') {
-    return (
-      <>
-        <PrecipitationLayerCells />
-        {portalTarget &&
-          createPortal(
-            <CompareToggle
-              viewMode={viewMode}
-              onChange={setViewMode}
-            />,
-            portalTarget,
-          )}
-      </>
-    );
-  }
-
-  // === TEMPORAL: confirmar qué geometry llega efectivamente a <GeoJSON> ===
-  // eslint-disable-next-line no-console
-  console.log('[Clusters] renderData que se pasa a <GeoJSON>:', {
-    featuresLen: renderData?.features.length ?? 0,
-    feat0_geometry_type: renderData?.features[0]?.geometry?.type,
-  });
-
-  
   if (loading || !renderData) return null;
 
   return (
-    <>
-      <GeoJSONAny
-        // El `key` cambia por cada par de corridas (latest+previous) para
-        // forzar el remount del GeoJSON y evitar features obsoletos.
-        key={`gfs-${renderData.metadata?.latest_request_code ?? ''}-${renderData.metadata?.previous_request_code ?? ''}`}
-        data={renderData}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={(layer: any) => {
-          geoJsonRef.current = layer;
-        }}
-        style={(feature: GfsClusterFeature) =>
-          styleForFrame(feature, activeFrame)
-        }
-      />
-
-      {/* === TEMPORAL: toggle comparación Clusters | Celdas (abajo-izq) === */}
-      {portalTarget &&
-        createPortal(
-          <CompareToggle viewMode={viewMode} onChange={setViewMode} />,
-          portalTarget,
-        )}
-    </>
-  );
-}
-
-/**
- * CompareToggle — TEMPORAL. Mini toggle de 2 botones flotante en la esquina
- * inferior izquierda para alternar entre la vista de clústeres (v1) y la
- * vista de celdas individuales (v2, ~12 000).
- *
- * Borrar junto con PrecipitationLayerCells.tsx y `viewMode` en la capa al
- * cerrar la comparación.
- */
-interface CompareToggleProps {
-  viewMode: 'clusters' | 'cells';
-  onChange: (mode: 'clusters' | 'cells') => void;
-}
-
-function CompareToggle({ viewMode, onChange }: CompareToggleProps) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 20,
-        left: 20,
-        zIndex: 1000,
-        display: 'flex',
-        gap: 0,
-        padding: 4,
-        borderRadius: 8,
-        background: 'rgba(255,255,255,0.95)',
-        boxShadow: '0 5px 5px rgba(0,0,0,0.25)',
-        fontFamily: 'var(--eps-font-family-sans)',
+    <GeoJSONAny
+      // El `key` cambia por cada par de corridas (latest+previous) para
+      // forzar el remount del GeoJSON y evitar features obsoletos.
+      key={`gfs-${renderData.metadata?.latest_request_code ?? ''}-${renderData.metadata?.previous_request_code ?? ''}`}
+      data={renderData}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ref={(layer: any) => {
+        geoJsonRef.current = layer;
       }}
-      role="group"
-      aria-label="Modo de visualización de precipitación (comparación temporal)"
-    >
-      {(['clusters', 'cells'] as const).map((mode) => (
-        <button
-          key={mode}
-          type="button"
-          onClick={() => onChange(mode)}
-          style={{
-            border: 'none',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderRadius: 6,
-            fontSize: 12,
-            fontWeight: 500,
-            color: viewMode === mode ? '#ffffff' : '#170f49',
-            background:
-              viewMode === mode ? '#070b5b' : 'rgba(255,255,255,0)',
-            transition: 'background-color 0.15s',
-          }}
-        >
-          {mode === 'clusters' ? 'Clústeres (v1)' : 'Celdas (v2)'}
-        </button>
-      ))}
-    </div>
+      style={(feature: GfsClusterFeature) =>
+        styleForFrame(feature, activeFrame)
+      }
+    />
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
+import { cn } from '@/shared/lib/cn';
 import { ComponentsTable } from '@/features/componentes/components/ComponentsTable';
 import { ComponenteDetailSheet } from '@/features/componentes/components/ComponenteDetailSheet';
 import {
@@ -11,6 +12,7 @@ import {
   type TipoComponente,
 } from '@/features/mapa/types/componente';
 import { useComponentes } from '@/services/useComponentes';
+import { useInfiniteRows } from '@/shared/hooks/useInfiniteRows';
 import { FilterableSelect, type FilterableOption } from '@/shared/components/FilterableSelect';
 import { apiOrganization, type BackendBranch } from '@/services/apiOrganization';
 
@@ -148,6 +150,25 @@ export function HistoricoComponentesPage() {
       return true;
     });
   }, [todosComponentes, unidadDistritoName, tipo, criticidad, busqueda]);
+
+  // ── Render progresivo (infinite scroll): sólo se renderizan las
+  //     primeras 50 filas; al bajar cerca del final, 50 más. Con datasets
+  //     grandes (1000+) la tabla abre instantánea.
+  //     `minCount`: si llega un preselect vía URL (?id=), garantiza que
+  //     esa fila quede dentro del lote visible aunque esté muy abajo.
+  const preselectIndex = preselectId
+    ? componentesFiltrados.findIndex((c) => c.id === preselectId)
+    : -1;
+  const {
+    visibleRows: componentesVisibles,
+    hasMore: hayMasComponentes,
+    sentinelRef: sentinelComponentes,
+    showing: mostrandoComponentes,
+  } = useInfiniteRows(
+    componentesFiltrados,
+    undefined,
+    preselectIndex >= 0 ? preselectIndex + 1 : undefined,
+  );
 
   function handleToggleSelect(id: string) {
     setSelectedId((prev) => (prev === id ? null : id));
@@ -324,16 +345,36 @@ export function HistoricoComponentesPage() {
       </div>
 
       <div className="flex flex-1 gap-4 min-h-0">
-        <div className="flex-1 overflow-auto min-w-0 rounded-xl border border-input-stroke-main">
+        <div
+          className={cn(
+            'flex-1 overflow-auto min-w-0 rounded-xl border border-input-stroke-main',
+            // Scroll horizontal funcional pero SIN barra visible: el sheet
+            // lateral reduce el ancho y la tabla (min-w fijo) necesita
+            // scroll para ver todas las columnas, sin la "línea inferior".
+            '[scrollbar-width:none] [-ms-overflow-style:none]',
+            '[&::-webkit-scrollbar]:hidden',
+          )}
+        >
           <ComponentsTable
-            componentes={componentesFiltrados}
+            componentes={componentesVisibles}
             selectedId={selectedId}
             onToggleSelect={handleToggleSelect}
             onOpenDetail={handleOpenDetail}
             sortSelectedFirst
-            fixedWidths
             variant="gestion"
           />
+
+          {/* Centinela del infinite scroll: al entrar en vista renderiza
+              la siguiente tanda. Doble función de indicador "N de M". */}
+          {hayMasComponentes && (
+            <div
+              ref={sentinelComponentes}
+              className="py-3 text-center text-text-secondary text-xs font-sans select-none"
+              aria-live="polite"
+            >
+              Mostrando {mostrandoComponentes} de {componentesFiltrados.length} — baja para ver más
+            </div>
+          )}
         </div>
 
         {/* Sheet de detalle (estático, al lado de la tabla) */}

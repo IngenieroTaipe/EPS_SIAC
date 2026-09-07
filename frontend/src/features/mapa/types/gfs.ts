@@ -25,7 +25,6 @@
 
 import type { MultiPolygon, Polygon } from 'geojson';
 import type { LayerId } from '@/features/mapa/components/LayerControl';
-import { parsePetTimestamp } from '@/features/mapa/timeline/peruTime';
 
 /** Categoría de umbral o '-' (sin lluvia significativa). */
 export type GfsCategory =
@@ -92,15 +91,10 @@ export interface GfsClusterFeature {
 }
 
 /**
- * Metadata de la FeatureCollection. Campos opcionales porque el endpoint de
- * celdas usa `request_code`/`run_start_utc`/etc. y el de clusters usa
- * `latest_request_code`/`previous_request_code`/`window_duration_hours`.
+ * Metadata de la FeatureCollection de clústeres. Algunos campos son
+ * opcionales por defensividad (el builder puede no poblarlos en cold-start).
  */
 export interface GfsWindowMetadata {
-  request_code?: string;
-  run_start_utc?: string;
-  run_end_utc?: string;
-  target_variable?: string;
   latest_request_code?: string;
   previous_request_code?: string;
   window_duration_hours?: number;
@@ -218,108 +212,6 @@ export function classifyCluster(p: GfsClusterFeatureProperties): GfsCategory {
   const fromBackend = normalizeThresholdName(p.threshold_name);
   if (fromBackend) return fromBackend;
   return getThreshold(p.max_intensity_mm_h ?? 0);
-}
-
-/**
- * Clasifica una celda en una hora específica, prefiriendo el
- * `threshold_names[hourIndex]` del backend y cayendo a `getThreshold`
- * cuando el backend entrega "-" o null.
- */
-export function classifyCell(
-  feature: GfsCellFeature | undefined | null,
-  hourIndex: number,
-): GfsCategory {
-  const thresholdNames = feature?.properties?.threshold_names;
-  if (
-    Array.isArray(thresholdNames) &&
-    hourIndex >= 0 &&
-    hourIndex < thresholdNames.length
-  ) {
-    const name = normalizeThresholdName(thresholdNames[hourIndex]);
-    if (name) return name;
-  }
-  return getThreshold(intensityAt(feature, hourIndex));
-}
-
-/**
- * Extrae "HH:mm" de un `timestamp_utc` (ISO con offset, ej.
- * "2026-07-30T20:00:00-05:00"). Defensivo: si el string no parsea,
- * devuelve '—'.
- */
-export function extractHHmm(timestampStr?: string | null): string {
-  if (typeof timestampStr !== 'string' || !timestampStr) return '—';
-  // El backend emite timestamps en UTC ("...T22:00:00Z"). parsePetTimestamp
-  // lo convierte al wall-clock PET (UTC-5), alineado con el eje del timeline.
-  const pet = parsePetTimestamp(timestampStr);
-  if (pet && !Number.isNaN(pet.getTime())) {
-    const hh = String(pet.getHours()).padStart(2, '0');
-    const mm = String(pet.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  }
-  const m = timestampStr.match(/(\d{2}:\d{2})/);
-  return m ? m[1] : '—';
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Tipos del endpoint de celdas individuales (~12 000) — v2 para comparación.
-// GET /api/v1/core_predictive/gfs-active-cells/latest/
-//
-// Cada feature trae series temporales de 12 valores (intensity_series +
-// timestamps); el slider recolorea por índice. TEMPORAL — borrar al cerrar
-// la comparación con clusters.
-// ──────────────────────────────────────────────────────────────────────
-
-/** Properties de cada celda GFS个体. */
-export interface GfsCellProperties {
-  gfs_request_id: number;
-  /** Intensidad máxima de la serie (mm/h). */
-  max_intensity_mm_h: number;
-  /** 12 timestamps en hora local PET — defensivo: puede venir null/undefined. */
-  timestamps?: string[] | null;
-  /** 12 valores mm/h en el mismo orden que `timestamps`. */
-  intensity_series?: number[] | null;
-  /** 12 nombres de umbral en MAYÚSCULAS (ej. "LLUVIOSO", "-"). */
-  threshold_names?: string[] | null;
-  /** UBIGEOS de los distritos intersectados por esta celda. */
-  district_ubigeos?: string[] | null;
-  /** Origen temporal: HISTORIC (corrida previa) o FORECAST (actual). */
-  temporal_status?: GfsTemporalStatus;
-}
-
-/** Una feature del GeoJSON de celdas individuales (Polygon grilla ~10km). */
-export interface GfsCellFeature {
-  type: 'Feature';
-  id?: number | string;
-  geometry: Polygon | MultiPolygon;
-  properties: GfsCellProperties & {
-    /**
-     * FRONTAL ONLY — copia suavizada (closing morfológico) generada una sola
-     * vez. Sólo para pintar en Leaflet; el `feature.geometry` original se
-     * conserva para cálculos espaciales.
-     */
-    _smoothedGeometry?: Polygon | MultiPolygon | null;
-  };
-}
-
-export interface GfsCellFeatureCollection {
-  type: 'FeatureCollection';
-  metadata?: GfsWindowMetadata;
-  features: GfsCellFeature[];
-}
-
-/**
- * Intensidad mm/h de una celda en una hora dada (defensivo).
- * Devuelve 0 si la feature o el índice no son válidos.
- */
-export function intensityAt(
-  feature: GfsCellFeature | undefined | null,
-  hourIndex: number,
-): number {
-  const series = feature?.properties?.intensity_series ?? null;
-  if (!Array.isArray(series)) return 0;
-  if (hourIndex < 0 || hourIndex >= series.length) return 0;
-  const v = series[hourIndex];
-  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
 export type { LayerId };

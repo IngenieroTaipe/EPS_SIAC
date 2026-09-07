@@ -151,12 +151,18 @@ export function formatHora(iso: string): string {
 /**
  * Calcula tiempo transcurrido desde una fecha ISO hasta ahora.
  * Devuelve "X h Y min" o "Y min" si es menos de 1h.
+ *
+ * Defensivo contra fechas futuras (p. ej. `start_time_local` del fenómeno,
+ * que aún no empezó): devuelve '—' en vez de un negativo confuso ("-345 min").
+ * Con el detalle cargado, `fechaReferenciaTiempo` usa el created_at real
+ * de la predicción, así que este guard solo cubre fallbacks momentáneos.
  */
 export function tiempoTranscurrido(iso: string): string {
   try {
     const desde = new Date(iso).getTime();
     const ahora = Date.now();
     const diffMin = Math.floor((ahora - desde) / 60_000);
+    if (diffMin < 0) return '—';
     if (diffMin < 60) return `${diffMin} min`;
     const h = Math.floor(diffMin / 60);
     const m = diffMin % 60;

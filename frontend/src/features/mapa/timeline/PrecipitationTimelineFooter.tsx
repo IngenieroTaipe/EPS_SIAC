@@ -9,7 +9,7 @@ import { TimelineBar } from '@/features/mapa/components/TimelineBar';
  * rutas (histórico, gestión, editor, login) no se pinta. Además, si la
  * ventana está vacía (sin pronóstico) tampoco se muestra.
  */
-const TIMELINE_ROUTES = new Set(['/', '/alertas', '/climatico', '/componentes']);
+const TIMELINE_ROUTES = new Set(['/', '/alertas', '/componentes']);
 
 export function PrecipitationTimelineFooter() {
   const { frames, timelineProps } = usePrecipitationTimeline();

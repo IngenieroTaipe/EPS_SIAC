@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BaseMap } from '@/features/mapa/components/BaseMap';
 import {
   LayerControl,
@@ -9,9 +9,9 @@ import { MapLegend } from '@/features/mapa/components/MapLegend';
 import { PrecipitationLayer } from '@/features/mapa/components/PrecipitationLayer';
 import { ClusterAlertLayer } from '@/features/mapa/components/ClusterAlertLayer';
 import { DistrictLayer } from '@/features/mapa/components/DistrictLayer';
-import { apiAlerts, type BackendAlertListItem } from '@/services/apiAlerts';
+import { apiAlerts, type BackendAlertMapItem } from '@/services/apiAlerts';
 import type { Alerta } from '@/features/mapa/types/alerta';
-import { deriveMapAlertas } from '@/features/mapa/utils/deriveMapAlertas';
+import { adaptarAlertasMap } from '@/features/alertas/alertAdapters';
 
 /**
  * HomePage — pestaña principal pública (antes de iniciar sesión).
@@ -41,26 +41,30 @@ export function HomePage() {
   );
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
-  // Datos del backend.
-  const [backendItems, setBackendItems] = useState<BackendAlertListItem[]>([]);
+  // Datos del backend: capa ligera `/alerts/alerts/map` (representative_point
+  // del clúster más severo por alerta — decisión del backend en SQL).
+  const [mapItems, setMapItems] = useState<BackendAlertMapItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/react-hooks-set-state-in-effect -- secuencia de
+    /* eslint-disable react-hooks/set-state-in-effect -- secuencia de
        carga (loading true → fetch → loading false), patrón canónico. */
     setIsLoading(true);
     apiAlerts
-      .listAlerts()
-      .then((items) => setBackendItems(items))
+      .listAlertsForMap()
+      .then((items) => setMapItems(items))
       .catch((err) => {
         console.error('Error cargando alertas:', err);
-        setBackendItems([]);
+        setMapItems([]);
       })
       .finally(() => setIsLoading(false));
-    /* eslint-enable react-hooks/react-hooks-set-state-in-effect */
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  const mapAlertas: Alerta[] = isLoading ? [] : deriveMapAlertas(backendItems);
+  const mapAlertas: Alerta[] = useMemo(
+    () => (isLoading ? [] : adaptarAlertasMap(mapItems)),
+    [mapItems, isLoading],
+  );
 
   function handleToggleSelect(id: string) {
     setSelectedAlertId((prev) => (prev === id ? null : id));

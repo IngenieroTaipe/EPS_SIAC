@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Pencil } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
+import { useBlockMapGestures } from '@/shared/hooks/useBlockMapGestures';
 import {
   CRITICIDAD_LABEL,
   TIPO_LABEL,
@@ -68,6 +69,11 @@ export function ComponenteDetailSheet({
     return () => document.removeEventListener('keydown', onKey);
   }, [componente, onClose]);
 
+  // El sheet vive DENTRO del MapContainer (vía Outlet del MapLayout):
+  // frena los gestos del mapa (scroll→zoom, drag→pan) cuando el cursor
+  // está sobre él, sin afectar su scroll interno ni sus clics.
+  const blockGestures = useBlockMapGestures();
+
   if (!componente) return null;
 
   const c = componente;
@@ -75,6 +81,7 @@ export function ComponenteDetailSheet({
 
   return (
     <aside
+      ref={blockGestures}
       role="dialog"
       aria-modal="false"
       aria-label={`Detalle del componente ${c.codigo}`}
@@ -117,14 +124,20 @@ export function ComponenteDetailSheet({
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
         {/* Badges de criticidad + estados (sólo criticidad lleva color) */}
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              'px-2 py-1 rounded-md outline outline-1 outline-offset-[-1px] text-xs font-sans font-bold',
-              CRITICIDAD_BADGE[c.criticidad],
-            )}
-          >
-            Criticidad {CRITICIDAD_LABEL[c.criticidad]}
-          </span>
+          {c.criticidad ? (
+            <span
+              className={cn(
+                'px-2 py-1 rounded-md outline outline-1 outline-offset-[-1px] text-xs font-sans font-bold',
+                CRITICIDAD_BADGE[c.criticidad],
+              )}
+            >
+              Criticidad {CRITICIDAD_LABEL[c.criticidad]}
+            </span>
+          ) : (
+            <span className="px-2 py-1 rounded-md outline outline-1 outline-offset-[-1px] outline-input-stroke-main text-xs font-sans font-bold text-text-secondary">
+              Criticidad —
+            </span>
+          )}
           <span className="px-2 py-1 rounded-md outline outline-1 outline-offset-[-1px] outline-input-stroke-main text-xs font-sans font-bold text-text-primary">
             Estado Op.: {c.estadoOperacional ?? '—'}
           </span>
@@ -140,11 +153,14 @@ export function ComponenteDetailSheet({
           )}
           <Field label="Unidad Operativa" value={c.unidadOperativa} />
 
-          {/* Lat/Lng */}
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Latitud" value={c.lat.toFixed(6)} mono />
-            <Field label="Longitud" value={c.lng.toFixed(6)} mono />
-          </div>
+          {/* Lat/Lng (pueden faltar si el componente vino del listado normal
+              sin geojson; el endpoint /map siempre los trae). */}
+          {c.lat != null && c.lng != null && (
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Latitud" value={c.lat.toFixed(6)} mono />
+              <Field label="Longitud" value={c.lng.toFixed(6)} mono />
+            </div>
+          )}
 
           {/* UTM (punto o primer vértice) */}
           {c.utmEasting != null && c.utmNorthing != null ? (
@@ -211,14 +227,7 @@ export function ComponenteDetailSheet({
             />
           )}
         </dl>
-
-        {/* Identificador backend */}
-        <div className="mt-auto pt-4 border-t border-input-stroke-main">
-          <p className="text-text-secondary text-xs font-sans">
-            ID interno: <span className="font-mono text-text-primary">{c.id}</span>
-          </p>
         </div>
-      </div>
 
       {/* Footer con acción de edición */}
       <div className="p-5 border-t border-input-stroke-main">

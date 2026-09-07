@@ -52,7 +52,12 @@ export function EditorComponentePage() {
         const first = coords[0];
         const lat = first?.geojson?.coordinates?.[1] ?? 0;
         const lng = first?.geojson?.coordinates?.[0] ?? 0;
-        const critName = first?.criticality?.name ?? '';
+        // criticality llega como objeto {id, name} desde el retrieve
+        // (siempre); toleramos string por si el backend la envía plana.
+        const critName =
+          (typeof first?.criticality === 'string'
+            ? first.criticality
+            : first?.criticality?.name) ?? '';
 
         setInitial({
           id: String(comp.id),

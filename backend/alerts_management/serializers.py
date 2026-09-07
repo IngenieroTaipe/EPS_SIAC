@@ -207,7 +207,10 @@ class AlertNotificationSecondarySerializer(serializers.ModelSerializer):
             'sent_at'
         ]
 
-    def get_sent_at(self, obj: AlertNotification) -> str:
+    def get_sent_at(self, obj: AlertNotification) -> str | None:
+        """ Notificaciones pendientes (sent_at None) se serializan como null. """
+        if obj.sent_at is None:
+            return None
         return obj.sent_at.astimezone(LIMA_TZ).isoformat()
 
 # ==============================================================================
@@ -389,6 +392,10 @@ class AlertDetailSerializer(serializers.ModelSerializer):
 
     start_time_local = serializers.SerializerMethodField()
     end_time_local = serializers.SerializerMethodField()
+    # Hora real de inicio del fenómeno (reportada al CONFIRMAR). Null si la
+    # alerta aún no fue confirmada — el frontend sólo muestra el campo
+    # "Inicio real del fenómeno" cuando existe.
+    real_start_time_local = serializers.SerializerMethodField()
     operational_ubigeos = serializers.SerializerMethodField()
     
     alert_history = AlertHistorySecondarySerializer(source='historic_alert', many=True, read_only=True)
@@ -411,6 +418,7 @@ class AlertDetailSerializer(serializers.ModelSerializer):
             'max_threshold',
             'start_time_local',
             'end_time_local',
+            'real_start_time_local',
             'operational_ubigeos',
             # 'alert_cluster_components',
             # 'clusters',
@@ -452,6 +460,12 @@ class AlertDetailSerializer(serializers.ModelSerializer):
     def get_start_time_local(self, obj) -> str | None:
         if obj.start_time_utc:
             return obj.start_time_utc.astimezone(LIMA_TZ).isoformat()
+        return None
+
+    def get_real_start_time_local(self, obj) -> str | None:
+        """ Hora real de inicio del fenómeno (sólo existe tras CONFIRMAR). """
+        if obj.real_start_time_utc:
+            return obj.real_start_time_utc.astimezone(LIMA_TZ).isoformat()
         return None
 
     def get_end_time_local(self, obj) -> str | None:

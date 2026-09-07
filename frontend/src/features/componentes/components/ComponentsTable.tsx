@@ -1,20 +1,31 @@
 import type { Componente } from '@/features/mapa/types/componente';
+import { cn } from '@/shared/lib/cn';
 import { ComponentRow, type ComponentRowVariant } from './ComponentRow';
 
 /**
- * ComponentsTable — tabla minimalista de componentes (gestión).
+ * ComponentsTable — tabla de componentes (gestión) como tabla HTML real.
+ *
+ * Estructura: `<table>` semántica con `table-fixed` + `<colgroup>`.
+ * Los anchos de columna se definen UNA SOLA VEZ en el `<colgroup>`;
+ * `<thead>` y `<tbody>` comparten automáticamente los mismos anchos
+ * (garantizado por el navegador), por lo que el encabezado y las filas
+ * SIEMPRE cuadran — en cualquier viewport o zoom.
  *
  * Diseño:
- *   - Header **sólido navy** `bg-primary-main` con texto blanco, sin
- *     outline grueso (más elegante). Separador entre header y filas
- *     hairline `border-input-stroke-main`.
- *   - Filas en blanco con hover sutil. Clic en la fila abre el sheet
- *     (variante `gestion`).
- *   - Borde redondeado `rounded-xl` (era `rounded-[10px]`).
+ *   - Header sólido navy `bg-primary-main` con texto blanco, sticky al
+ *     hacer scroll vertical (`sticky top-0`).
+ *   - Filas blancas con hover sutil y separadores hairline
+ *     `border-input-stroke-main`. Clic en la fila abre el sheet (gestión).
+ *   - `border-separate border-spacing-0` para que los borders de las
+ *     celdas no se despeguen del header sticky (bug conocido de
+ *     border-collapse + sticky en Chrome).
+ *   - `min-w` en la tabla = suma de anchos del colgroup: en contenedores
+ *     más angostos la tabla NO se comprime, scrollea horizontal como un
+ *     solo bloque (header incluido).
  *
  * Columnas (en orden):
  *   Código | Unidad Operativa | Nombre | Tipo | Especificación
- *   | Este UTM | Norte UTM | Estado | Criticidad | Acciones
+ *   | Este UTM | Norte UTM | Estado Op. | Estado Fís. | Criticidad | Acciones
  *
  * Variantes:
  *   - `gestion` (default): clic en fila abre sheet; solo botón Editar.
@@ -30,25 +41,42 @@ interface ComponentsTableProps {
   onOpenDetail?: (componente: Componente) => void;
   /** Si true (default), el row seleccionado se mueve al inicio. */
   sortSelectedFirst?: boolean;
-  /** Anchura fija de celdas (recomendado en gestión con scroll x). */
-  fixedWidths?: boolean;
   /** Variante. Default `gestion`. */
   variant?: ComponentRowVariant;
 }
 
-const HEADER_COLS = [
-  { label: 'Código', width: 'w-28' },
-  { label: 'Unidad Operativa', width: 'w-40' },
-  { label: 'Nombre', width: 'w-56' },
-  { label: 'Tipo', width: 'w-48' },
-  { label: 'Especificación', width: 'w-56' },
-  { label: 'Este UTM', width: 'w-32' },
-  { label: 'Norte UTM', width: 'w-32' },
-  { label: 'Estado Op.', width: 'w-32' },
-  { label: 'Estado Fís.', width: 'w-32' },
-  { label: 'Criticidad', width: 'w-28' },
-  { label: '', width: 'w-20' },
+/** Etiquetas del header (alineadas 1:1 con COL_WIDTHS). */
+const HEADER_LABELS = [
+  'Código',
+  'Unidad Operativa',
+  'Nombre',
+  'Tipo',
+  'Especificación',
+  'Este UTM',
+  'Norte UTM',
+  'Estado Op.',
+  'Estado Fís.',
+  'Criticidad',
+  '',
 ] as const;
+
+/** Anchos de columna — única fuente de verdad (via <colgroup>). */
+const COL_WIDTHS = [
+  'w-28', // Código
+  'w-40', // Unidad Operativa
+  'w-56', // Nombre
+  'w-48', // Tipo
+  'w-56', // Especificación
+  'w-32', // Este UTM
+  'w-32', // Norte UTM
+  'w-32', // Estado Op.
+  'w-32', // Estado Fís.
+  'w-28', // Criticidad
+  'w-20', // Acciones
+] as const;
+
+/** Suma de los anchos del colgroup (101rem) — mínimo de la tabla. */
+const TABLE_MIN_WIDTH = 'min-w-[101rem]';
 
 export function ComponentsTable({
   componentes,
@@ -56,7 +84,6 @@ export function ComponentsTable({
   onToggleSelect,
   onOpenDetail,
   sortSelectedFirst = true,
-  fixedWidths = true,
   variant = 'gestion',
 }: ComponentsTableProps) {
   // Ordenar: si hay seleccionado y sortSelectedFirst, ese va primero.
@@ -68,33 +95,53 @@ export function ComponentsTable({
     : componentes;
 
   return (
-    <div className="self-stretch flex flex-col">
-      {/* Header sólido navy — sticky para que se mantenga al hacer scroll */}
-      <div className="inline-flex items-stretch bg-primary-main sticky top-0 z-10">
-        {HEADER_COLS.map((col) => (
-          <div
-            key={col.label || 'acciones'}
-            className={`${col.width} h-10 px-3 py-2 inline-flex items-center`}
-          >
-            <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">
-              {col.label}
-            </span>
-          </div>
+    <table
+      className={cn(
+        'table-fixed w-full border-separate border-spacing-0',
+        TABLE_MIN_WIDTH,
+      )}
+    >
+      {/* Anchos de columna definidos UNA vez: header y filas siempre
+          cuadran porque comparten este colgroup. */}
+      <colgroup>
+        {COL_WIDTHS.map((width, i) => (
+          <col key={i} className={width} />
         ))}
-      </div>
+      </colgroup>
+
+      {/* Header sólido navy — sticky al scroll vertical del contenedor. */}
+      <thead>
+        <tr>
+          {HEADER_LABELS.map((label, i) => (
+            <th
+              key={label || `col-${i}`}
+              scope="col"
+              className="h-10 px-3 py-2 text-left align-middle
+                         bg-primary-main sticky top-0 z-10"
+            >
+              {label && (
+                <span className="text-text-invert-primary text-xs font-bold font-sans uppercase tracking-wide">
+                  {label}
+                </span>
+              )}
+            </th>
+          ))}
+        </tr>
+      </thead>
 
       {/* Filas */}
-      {ordered.map((c) => (
-        <ComponentRow
-          key={c.id}
-          componente={c}
-          selected={selectedId === c.id}
-          onToggleSelect={onToggleSelect}
-          onOpenDetail={onOpenDetail}
-          fixedWidths={fixedWidths}
-          variant={variant}
-        />
-      ))}
-    </div>
+      <tbody>
+        {ordered.map((c) => (
+          <ComponentRow
+            key={c.id}
+            componente={c}
+            selected={selectedId === c.id}
+            onToggleSelect={onToggleSelect}
+            onOpenDetail={onOpenDetail}
+            variant={variant}
+          />
+        ))}
+      </tbody>
+    </table>
   );
 }

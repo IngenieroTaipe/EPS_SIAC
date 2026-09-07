@@ -56,19 +56,6 @@ export const SUBTITLE_TEXT = 'EPS Selva Central';
 export const UNIDAD_OPERATIVA_LABEL = 'Unidad Operativa';
 
 /**
- * Opciones del dropdown "Unidad Operativa".
- * Editables aquí: añade/quita/renombra una opción sin tocar el componente.
- */
-export const UNIDAD_OPERATIVA_OPTIONS: string[] = [
-  'Todas',
-  'La Merced',
-  'San Ramón',
-  'Oxapampa',
-  'Satipo',
-  'Pichanaqui',
-];
-
-/**
  * Opciones del dropdown "Cargar Datos" (modo de carga).
  * Añade aquí nuevos formatos si hace falta.
  */
@@ -113,11 +100,6 @@ export const topBarConfig: TopBarPageConfig[] = [
       { kind: 'alertBadge', text: '2 Confirmadas' },
       { kind: 'updatedAt' },
     ],
-  },
-  {
-    route: '/climatico',
-    title: 'Monitoreo de Precipitaciones',
-    widgets: [{ kind: 'updatedAt' }],
   },
   {
     route: '/umbrales/gestion',

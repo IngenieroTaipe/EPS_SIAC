@@ -5,18 +5,29 @@ import {
   type GeoJSONGeometry,
   UNIDAD_TODAS,
 } from './UnidadOperativaContext';
-import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
+import type { BackendDistrict } from '@/services/apiPlaces';
 import { apiOrganization, type BackendBranch } from '@/services/apiOrganization';
+import { useAuth } from './AuthContext.hooks';
 
 /**
  * Provider del UnidadOperativaContext.
  *
- * Al montar:
- *   1. Carga los branches activos desde `GET /organization/branches/?status=true`.
- *   2. Valida que el nombre guardado en localStorage corresponda a un branch
+ * Al montar (y al cambiar `isAuthenticated`):
+ *   1. Carga la capa geoespacial `GET /organization/branches/map/`, que
+ *      devuelve en UNA sola request las branches activas junto con la
+ *      geometría del distrito de cada una (antes eran 1 + N requests:
+ *      listado de branches + un GET de distrito por ubigeo).
+ *   2. Deriva de esa FeatureCollection las dos listas del contexto:
+ *      `branches` (para el selector y filtros) y `districts` (ubigeo →
+ *      geojson, para DistrictLayer y el zoom/selección).
+ *   3. Valida que el nombre guardado en localStorage corresponda a un branch
  *      activo; si no, resetea a "Todas".
- *   3. Por cada branch (con su `district.ubigeo`) resuelve el geojson del
- *      distrito vía `GET /places/districts/{ubigeo}/` en paralelo.
+ *
+ * El reintento al cambiar `isAuthenticated` cubre el caso real de sesión
+ * expirada: el fetch inicial del boot puede fallar (401 → auto-logout);
+ * cuando el usuario vuelve a loguearse, el efecto se re-dispara y la lista
+ * se recupera sin necesidad de recargar la página (antes quedaba vacía
+ * toda la sesión).
  *
  * El selector del TopBar usa `selectedNombre`/`setSelectedNombre` contra
  * `branch.name` (que es unique en el backend). Las páginas de mapa usan
@@ -39,51 +50,63 @@ export function UnidadOperativaProvider({ children }: { children: ReactNode }) {
   const [districts, setDistricts] = useState<BackendDistrict[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cargar branches activos + resolver geojson de cada distrito.
+  // Cargar branches activos + geojson de sus distritos en una sola request.
+  // Se re-dispara al cambiar `isAuthenticated` para recuperarse de un fetch
+  // inicial fallido (p. ej. boot con token expirado → login posterior).
+  const { isAuthenticated } = useAuth();
+
   useEffect(() => {
     let cancelled = false;
 
     apiOrganization
-      .listBranches({ status: true })
-      .then((list) => {
+      .getBranchesMap()
+      .then((fc) => {
         if (cancelled) return;
-        setBranches(list);
 
-        // Recolectar ubigeos únicos para resolver sus geojsons.
-        const ubigeos = Array.from(
-          new Set(
-            list
-              .map(branchUbigeo)
-              .filter((u): u is string => typeof u === 'string'),
-          ),
-        );
+        const nextBranches: BackendBranch[] = [];
+        const nextDistricts: BackendDistrict[] = [];
+        const seenUbigeos = new Set<string>();
 
-        return Promise.all(
-          ubigeos.map((ub) =>
-            apiPlaces.getDistrict(ub).catch(() => null),
-          ),
-        );
-      })
-      .then((results) => {
-        if (cancelled || !results) return;
-        const valid = results.filter(
-          (r): r is BackendDistrict => r !== null,
-        );
-        setDistricts(valid);
+        for (const f of fc.features) {
+          const p = f.properties;
+          if (!p?.district_ubigeo) continue;
+
+          nextBranches.push({
+            id: typeof f.id === 'number' ? f.id : Number(f.id ?? 0),
+            code: p.code,
+            name: p.name,
+            acronym: p.acronym,
+            status: true,
+            district: { ubigeo: p.district_ubigeo, name: p.district_name },
+          });
+
+          // Dedupe: varias branches pueden compartir el mismo distrito.
+          if (!seenUbigeos.has(p.district_ubigeo)) {
+            seenUbigeos.add(p.district_ubigeo);
+            nextDistricts.push({
+              ubigeo: p.district_ubigeo,
+              name: p.district_name,
+              geojson: f.geometry,
+            });
+          }
+        }
+
+        setBranches(nextBranches);
+        setDistricts(nextDistricts);
         setLoading(false);
       })
       .catch(() => {
-        if (!cancelled) {
-          setBranches([]);
-          setDistricts([]);
-          setLoading(false);
-        }
+        if (cancelled) return;
+        // Un reintento fallido no debe destruir una lista ya cargada.
+        setBranches((prev) => (prev.length ? prev : []));
+        setDistricts((prev) => (prev.length ? prev : []));
+        setLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Validar que el nombre guardado exista entre los branches cargados.
   // Si no (rename, eliminación, o leftover del modelo anterior con 5

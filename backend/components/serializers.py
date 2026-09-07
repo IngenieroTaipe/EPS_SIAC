@@ -130,12 +130,17 @@ class ComponentCoordLightSerializer(serializers.ModelSerializer):
         Serializador de salida: Transforma la geometría PostGIS (EPSG:4326) 
         a representaciones UTM Zona 18S y GeoJSON para el cliente WebGIS.
         Este serializer está pensado para funcionar como serializer para los métodos GET (Para los Components - ComponentSerializer).
+        
+        `criticality` se expone como string (ej. "ALTA") — misma forma que el
+        endpoint `/map`. El tabular de gestión la usa para la columna y el
+        filtro de criticidad.
     """
     utm_coords = serializers.SerializerMethodField()
+    criticality = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = ComponentCoord
-        fields = ['utm_coords']
+        fields = ['utm_coords', 'criticality']
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_utm_coords(self, obj) -> dict | None:

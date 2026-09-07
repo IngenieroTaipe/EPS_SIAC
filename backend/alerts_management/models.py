@@ -101,6 +101,15 @@ class Alert(AuditCompleteModel):
     )
     start_time_utc = models.DateTimeField()
     end_time_utc = models.DateTimeField()
+    # Hora real de inicio del fenómeno (reportada al CONFIRMAR la alerta).
+    # NO debe sobrescribir `start_time_utc`: ese campo conserva la hora
+    # PREDICHA de inicio de lluvia (ambas se muestran por separado en el
+    # sheet de detalle del frontend).
+    real_start_time_utc = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Hora real de inicio del fenómeno (confirmación)"
+    )
 
     class Meta:
         db_table = 'alerts'

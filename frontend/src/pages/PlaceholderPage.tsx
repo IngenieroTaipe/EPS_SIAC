@@ -1,6 +1,6 @@
 /**
  * PlaceholderPage — vista genérica para rutas internas pendientes de
- * implementar (`/climatico`, `/componentes`, etc.).
+ * implementar (`/componentes`, etc.).
  *
  * Muestra el título de la página según `topBarConfig`. El contenido real
  * se sustituirá cuando se maquete cada mapa.

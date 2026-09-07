@@ -81,10 +81,17 @@ export interface Componente {
   id: string;
   /** Tipo de componente — define el icono a renderizar (punto) o si es polyline. */
   tipo: TipoComponente;
-  /** Latitud (WGS84). Para componentes tipo línea, es la del primer punto. */
-  lat: number;
-  /** Longitud (WGS84). Para componentes tipo línea, es la del primer punto. */
-  lng: number;
+  /**
+   * Latitud (WGS84). Para componentes tipo línea, es la del primer punto.
+   * Opcional porque el listado normal (`/components/`) ya no trae `geojson`
+   * en coords; el endpoint `/map` sí lo puebla.
+   */
+  lat?: number;
+  /**
+   * Longitud (WGS84). Para componentes tipo línea, es la del primer punto.
+   * Opcional por la misma razón que `lat`.
+   */
+  lng?: number;
   /** Código legible para el usuario (ej. "CAP-001"). */
   codigo: string;
   /** Nombre del componente (ej. "Captación Río Pichanaqui"). */
@@ -104,8 +111,10 @@ export interface Componente {
    * "Malo"). Opcional por la misma razón que `estadoOperacional`.
    */
   estadoFisico?: string;
-  /** Nivel de criticidad (para badges + filtros del histórico). */
-  criticidad: CriticidadComponente;
+  /** Nivel de criticidad (para badges + filtros del histórico). Opcional
+   *  porque el listado normal del backend no la envía (solo el endpoint
+   *  `/map` la trae); la tabla muestra '—' cuando falta. */
+  criticidad?: CriticidadComponente;
   /** Unidad operativa a la que pertenece. */
   unidadOperativa: string;
   /**

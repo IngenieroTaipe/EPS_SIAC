@@ -6,15 +6,20 @@ import { ESTADO_VISUAL, UMBRAL_LABEL } from '../alerta-utils';
 import { formatFechaHora } from '../stepper-utils';
 
 /**
- * AlertaRow — fila de la tabla de alertas.
+ * AlertaRow — fila (`<tr>`) de la tabla de alertas (gestión).
  *
- * Diseño minimalista alineado con `ComponentRow`:
+ * Es una fila de tabla HTML real dentro del `<table>` de `AlertsTable`
+ * (mismo patrón que `ComponentRow`): los anchos de columna NO se definen
+ * aquí (los define el `<colgroup>` de la tabla), por lo que el encabezado
+ * y todas las filas cuadran siempre.
+ *
+ * Diseño minimalista:
  *   - Filas en blanco con separadores hairline (`border-input-stroke-main`).
  *   - Hover sutil `bg-primary-states-hover-main/10`.
  *   - Fila seleccionada: fondo `background-selected` (amarillo muy suave)
  *     cuando `highlightSelected=true` en la tabla.
  *
- * Columnas (en este orden):
+ * Columnas (en este orden, alineadas con el colgroup de AlertsTable):
  *   1) Código                  — texto semibold navy (identidad)
  *   2) Fen. Climático          — fenómeno detectado
  *   3) Fecha/hora predicción   — fecha legible
@@ -28,8 +33,7 @@ import { formatFechaHora } from '../stepper-utils';
  *     (`onOpenDetail` obligatorio); sólo botón Editar standalone. Es la
  *     variante usada por `HistoricoAlertasPage`.
  *   - `mapa`: clic en la fila alterna selección (`onToggleSelect`) y
- *    _resalta en el mapa_; mantiene los botones view (→ histórico) + edit.
- *     Usada por `MapAlertsPanel`.
+ *     resalta en el mapa; mantiene los botones view + edit (legacy).
  */
 
 export type AlertaRowVariant = 'mapa' | 'gestion';
@@ -41,8 +45,6 @@ interface AlertaRowProps {
   onToggleSelect?: (id: string) => void;
   /** Abrir el sheet de detalle al clic en fila (variante `gestion`). */
   onOpenDetail?: (alerta: AlertaHistorica) => void;
-  /** Si true, fija el ancho de cada celda (gestión con scroll horizontal). */
-  fixedWidths?: boolean;
   /** Variante. Default `gestion`. */
   variant?: AlertaRowVariant;
 }
@@ -52,7 +54,6 @@ export function AlertaRow({
   selected,
   onToggleSelect,
   onOpenDetail,
-  fixedWidths = false,
   variant = 'gestion',
 }: AlertaRowProps) {
   const navigate = useNavigate();
@@ -80,9 +81,8 @@ export function AlertaRow({
   }
 
   return (
-    <div
+    <tr
       onClick={handleRowClick}
-      role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -91,7 +91,7 @@ export function AlertaRow({
         }
       }}
       className={cn(
-        'self-stretch inline-flex items-stretch overflow-hidden cursor-pointer transition-colors',
+        'cursor-pointer transition-colors',
         'border-b border-input-stroke-main',
         selected
           ? 'bg-background-selected'
@@ -99,50 +99,40 @@ export function AlertaRow({
       )}
     >
       {/* 1. Código */}
-      <Cell minWidth="min-w-24" width="w-32" bold>
-        {a.id}
-      </Cell>
+      <Td bold>{a.id}</Td>
       {/* 2. Fenómeno */}
-      <Cell minWidth="min-w-36" width="w-44">
+      <Td>
         <span className="truncate" title={a.fenomeno}>{a.fenomeno}</span>
-      </Cell>
+      </Td>
       {/* 3. Fecha predicción */}
-      <Cell minWidth="min-w-48" width="w-56" mono>
-        {formatFechaHora(a.fechaPrediccionInicio)}
-      </Cell>
+      <Td mono>{formatFechaHora(a.fechaPrediccionInicio)}</Td>
       {/* 4. Unidad operativa */}
-      <Cell minWidth="min-w-40" width="w-56">
+      <Td>
         <span className="truncate" title={a.unidadOperativa}>
           {a.unidadOperativa || '—'}
         </span>
-      </Cell>
+      </Td>
       {/* 5. Umbral */}
-      <Cell minWidth="min-w-36" width="w-48">
-        <span className="truncate text-text-secondary" title={UMBRAL_LABEL[a.umbral]}>
+      <Td secondary>
+        <span className="truncate" title={UMBRAL_LABEL[a.umbral]}>
           {UMBRAL_LABEL[a.umbral]}
         </span>
-      </Cell>
+      </Td>
       {/* 6. Estado badge */}
-      <div className={cn(
-        'inline-flex justify-center items-center px-3 py-2',
-        fixedWidths ? 'w-44' : 'flex-1 min-w-36',
-      )}>
-        <div
+      <td className="h-11 px-3 py-2 text-center align-middle">
+        <span
           className={cn(
-            'px-2 py-0.5 rounded-md text-xs font-bold font-sans inline-flex items-center gap-1.5',
+            'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-bold font-sans',
             visual.badge,
           )}
         >
           <span className={cn('size-2 rounded-full', visual.dot)} />
           {ESTADO_LABEL[a.estado]}
-        </div>
-      </div>
+        </span>
+      </td>
 
       {/* 7. Acciones */}
-      <div className={cn(
-        'inline-flex justify-center items-center gap-2 px-3',
-        fixedWidths ? 'w-20' : 'flex-1 min-w-20',
-      )}>
+      <td className="h-11 px-3 py-2 text-center align-middle">
         {esGestion ? (
           isReadOnly ? (
             // En estados terminales (atendido / no-confirmado), el lápiz
@@ -204,45 +194,43 @@ export function AlertaRow({
             </IconButton>
           </>
         )}
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
-/** Celda de texto. `bold` para identidad (código). `mono` para fechas. */
-function Cell({
+/**
+ * Celda de texto (`<td>`) — sin ancho propio (lo define el `<colgroup>` de
+ * la tabla). `bold` para identidad (código). `mono` para fechas. El
+ * contenido trunca con title tooltip.
+ */
+function Td({
   children,
-  minWidth,
-  width,
   bold = false,
   mono = false,
+  secondary = false,
 }: {
   children: React.ReactNode;
-  minWidth: string;
-  width?: string;
   bold?: boolean;
   mono?: boolean;
+  secondary?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        'h-11 px-3 py-2 inline-flex items-center',
-        width ?? 'flex-1',
-        minWidth,
-      )}
-    >
+    <td className="h-11 px-3 py-2 align-middle">
       <span
         className={cn(
-          'text-sm font-sans truncate',
+          'block text-sm font-sans truncate',
           bold
             ? 'text-primary-main font-bold'
-            : 'text-text-primary font-normal',
+            : secondary
+              ? 'text-text-secondary font-normal'
+              : 'text-text-primary font-normal',
           mono && 'font-mono tabular-nums',
         )}
       >
         {children}
       </span>
-    </div>
+    </td>
   );
 }
 

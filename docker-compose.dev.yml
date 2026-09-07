@@ -9,7 +9,12 @@ services:
     networks:
       - eps_siac_network
 
-  # =========== API (DJANGO) ===========
+  # =========== REDIS ===========
+  redis:
+    ports:
+      - "6379:6379"
+
+  # =========== API (DJANGO) =========== 
   api:
     build:
       context: ./backend

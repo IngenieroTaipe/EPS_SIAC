@@ -143,6 +143,8 @@ export function CargarDatosModal({
 
   // Reset al abrir/cerrar.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- reset one-shot del
+       formulario del modal al abrir (patrón canónico para modales). */
     if (open) {
       setFormat(
       initialFormat === 'GeoJson' ? 'geojson'
@@ -156,6 +158,7 @@ export function CargarDatosModal({
       setLoading(false);
       setDragOver(false);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, initialFormat]);
 
   // Escape para cerrar.

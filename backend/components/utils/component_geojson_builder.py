@@ -129,7 +129,9 @@ class ComponentGeoJSONBuilder:
     def invalidate_cache(cls) -> None:
         """ Purga la caché cartográfica de componentes. """
         try:
-            GISCacheManager.delete(CACHE_KEY_COMPONENTS_MAP)
+            # GISCacheManager expone `invalidate` (ver gis_cache_manager.py);
+            # el método NO se llama `delete` (bug previo: AttributeError).
+            GISCacheManager.invalidate(CACHE_KEY_COMPONENTS_MAP)
             logger.info("[ComponentGeoJSONBuilder] Caché de mapa de componentes invalidada con éxito.")
         except Exception as exc:
             logger.warning(f"[ComponentGeoJSONBuilder] Error al invalidar caché: {str(exc)}")

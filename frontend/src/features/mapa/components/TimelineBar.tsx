@@ -53,6 +53,15 @@ function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
+/**
+ * Ancho mínimo por slot (px) para que la etiqueta "HH:00" se lea sin
+ * amontonarse. El inner del cuerpo usa `min-width = totalSlots × este valor`;
+ * en pantallas anchas el track ocupa `w-full` (más ancho que el min), así
+ * que no hay cambio visual. En pantallas estrechas (< ~1024px con sidebar
+ * o móvil) el inner mantiene su min-width y aparece scroll horizontal.
+ */
+const MIN_SLOT_WIDTH_PX = 42;
+
 interface DaySegment {
   label: string;
   startSlot: number;
@@ -65,7 +74,8 @@ interface DaySegment {
  *
  * Características:
  *   - Eje de tiempo continuo multi-día con etiquetas de día + horas (dos
- *     filas). Scroll horizontal en mobile.
+ *     filas). Scroll horizontal en pantallas estrechas (< ~1024px con
+ *     sidebar o móvil); en desktop el track ocupa w-full sin scroll.
  *   - Franja roja fija que marca `realSlot` (hora real de Perú), independiente
  *     del thumb de exploración.
  *   - Thumb arrastrable (pointer events) + tooltip con la hora seleccionada
@@ -211,7 +221,7 @@ export function TimelineBar({
         'relative z-[1100] w-full',
         'flex items-stretch bg-background-main/95 backdrop-blur',
         'shadow-[0px_-5px_5px_0px_rgba(0,0,0,0.25)]',
-        'px-3 py-1 select-none touch-none',
+        'px-3 py-1 select-none',
         disabled && 'pointer-events-none opacity-50',
       )}
     >
@@ -237,8 +247,23 @@ export function TimelineBar({
         )}
       </button>
 
-      {/* ── Cuerpo de la barra (dos filas + track) ────────────────────── */}
-      <div className="relative flex-1 ml-3 min-w-0 flex flex-col gap-0.5">
+      {/* ── Cuerpo de la barra (dos filas + track) ──────────────────────
+          Scroll horizontal en pantallas estrechas: el inner mantiene un
+          min-width (totalSlots × MIN_SLOT_WIDTH_PX) para que las etiquetas
+          no se amontonen; el contenedor exterior hace overflow-x-auto.
+          En desktop el track usa w-full (más ancho que el min) → sin scroll. */}
+      <div
+        className={cn(
+          'relative flex-1 ml-3 min-w-0 overflow-x-auto',
+          // Scrollbar oculta: scroll funcional pero sin barra visible.
+          '[scrollbar-width:none] [-ms-overflow-style:none]',
+          '[&::-webkit-scrollbar]:hidden',
+        )}
+      >
+      <div
+        className="relative flex flex-col gap-0.5"
+        style={{ minWidth: `${totalSlots * MIN_SLOT_WIDTH_PX}px` }}
+      >
         {/* Tooltip flotante sobre el thumb; sólo mientras se arrastra. */}
         {isDragging && (
           <div
@@ -284,12 +309,13 @@ export function TimelineBar({
           })}
         </div>
 
-        {/* Fila inferior: track + marcas de hora (sin scroll horizontal). */}
+        {/* Fila inferior: track + marcas de hora (scroll horizontal en
+            pantallas estrechas vía el contenedor exterior del cuerpo). */}
         <div className="relative">
           <div
             ref={trackRef}
             onPointerDown={handleTrackPointerDown}
-            className="relative h-7 w-full cursor-pointer"
+            className="relative h-7 w-full cursor-pointer touch-none"
           >
             {/* Línea base del track */}
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] rounded-full bg-input-stroke-main/40" />
@@ -342,6 +368,7 @@ export function TimelineBar({
             />
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

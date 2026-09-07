@@ -180,7 +180,7 @@ export function GestionAlertas() {
 
   // Mapa de UBIGEO → nombre de la Unidad Operativa (Branch). Se carga en
   // paralelo al detalle de la alerta para poder resolver el campo
-  // "Unidad Operativa" a partir de los `affected_districts[].ubigeo`.
+  // "Unidad Operativa" a partir de los `operational_ubigeos[].ubigeo`.
   const [branchByUbigeo, setBranchByUbigeo] = useState<Map<string, string>>(
     () => new Map(),
   );

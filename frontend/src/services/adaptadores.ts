@@ -1,6 +1,8 @@
 import type {
   BackendComponentListItem,
   BackendComponentListCoord,
+  BackendMapComponent,
+  BackendMapCoord,
 } from '@/services/apiComponentes';
 import type {
   Componente,
@@ -42,9 +44,46 @@ function mapCriticidad(name: string | undefined): CriticidadComponente {
 }
 
 /**
- * Adapta la respuesta del listado de componentes al modelo del mapa.
- * El `ComponentListSerializer` actual del backend no devuelve los
- * operational/physical status, así que el estado se toma como 'normal'.
+ * Extrae el nombre de criticidad de una coord del listado/retrieve.
+ * Tolerante a ambas formas del backend: objeto `{ id, name }`
+ * (retrieve / CriticalityLightSerializer) o string `"ALTA"`
+ * (StringRelatedField, si se reincorpora al light serializer).
+ */
+function critNameFromCoord(c: BackendComponentListCoord | undefined): string | undefined {
+  if (!c?.criticality) return undefined;
+  if (typeof c.criticality === 'string') return c.criticality;
+  return c.criticality.name;
+}
+
+/**
+ * Criticidad dominante de un componente = la peor (más alta) entre todos
+ * sus vértices. Práctica estándar en GIS/monitoreo (rolls-up "worst-case"):
+ * si cualquier vértice es ALTA, el componente entero se muestra como ALTA,
+ * porque merece atención prioritaria aunque los demás vértices sean BAJA.
+ *
+ * Orden: alta > media > baja.
+ */
+function criticidadMaxima(criticidades: string[]): CriticidadComponente {
+  let max: CriticidadComponente = 'baja';
+  for (const c of criticidades) {
+    const m = mapCriticidad(c);
+    if (m === 'alta') return 'alta';
+    if (m === 'media' && max === 'baja') max = 'media';
+  }
+  return max;
+}
+
+/**
+ * Adapta la respuesta del listado de componentes al modelo del mapa/tabla.
+ *
+ * El `ComponentListSerializer` actual del backend NO incluye `geojson` ni
+ * `criticality` en las coords (solo `utm_coords`). Por tanto:
+ *   - `lat`/`lng` quedan `undefined` (la tabla no los necesita; el mapa
+ *     usa el endpoint `/map` vía `adaptarComponentesMap`).
+ *   - `criticidad` queda como 'baja' (default) cuando no viene.
+ *   - UTM se conserva (viene en `utm_coords`).
+ *   - Los componentes ya NO se descartan por falta de geojson: la tabla
+ *     debe mostrarlos igual.
  */
 export function adaptarComponentes(
   comps: BackendComponentListItem[],
@@ -53,17 +92,9 @@ export function adaptarComponentes(
 
   for (const comp of comps) {
     const tipo = mapTipo(comp.type);
-    const coordList: BackendComponentListCoord[] = (comp.coords ?? []).filter(
-      (c) => c.geojson !== null,
-    );
-    if (coordList.length === 0) continue;
+    const coordList: BackendComponentListCoord[] = comp.coords ?? [];
 
-    const esLinea = TIPO_LINEA.includes(tipo) && coordList.length >= 2;
-
-    // UTM del primer vértice (si el backend lo trae). Para línea, también
-    // armamos `verticesUtm` con todos los vértices para que el sheet de
-    // detalle pueda expandirlos. El adaptador actual del `ComponentListSerializer`
-    // expone `utm_coords: { easting, northing, srid, zone } | null` por coord.
+    // UTM del primer vértice (si el backend lo trae).
     function utmFromCoord(c: BackendComponentListCoord) {
       const u = c.utm_coords;
       return u
@@ -88,51 +119,102 @@ export function adaptarComponentes(
         ? comp.physical_status.name
         : undefined;
 
-    if (esLinea) {
-      const puntos: Array<[number, number]> = coordList.map((c) => {
-        const [lng, lat] = c.geojson!.coordinates;
-        return [lat, lng] as [number, number];
-      });
-      const [lat0, lng0] = puntos[0];
-      componentes.push({
-        id: String(comp.id),
-        tipo,
-        lat: lat0,
-        lng: lng0,
-        codigo: comp.code,
-        nombre: comp.name,
-        estado: 'normal',
-        criticidad: mapCriticidad(coordList[0].criticality?.name),
-        unidadOperativa: comp.district,
-        especificacion: comp.specification ?? '',
-        puntos,
-        utmEasting: primerUtm?.easting,
-        utmNorthing: primerUtm?.northing,
-        utmZone: primerUtm?.zone,
-        verticesUtm: verticesUtm.length > 0 ? verticesUtm : undefined,
-        estadoOperacional,
-        estadoFisico,
-      });
-    } else {
-      const [lng, lat] = coordList[0].geojson!.coordinates;
-      componentes.push({
-        id: String(comp.id),
-        tipo,
-        lat,
-        lng,
-        codigo: comp.code,
-        nombre: comp.name,
-        estado: 'normal',
-        criticidad: mapCriticidad(coordList[0].criticality?.name),
-        unidadOperativa: comp.district,
-        especificacion: comp.specification ?? '',
-        utmEasting: primerUtm?.easting,
-        utmNorthing: primerUtm?.northing,
-        utmZone: primerUtm?.zone,
-        estadoOperacional,
-        estadoFisico,
-      });
-    }
+    // geojson del primer vértice (puede faltar en el listado normal).
+    const primerGeo = coordList[0]?.geojson ?? null;
+    const lat = primerGeo ? primerGeo.coordinates[1] : undefined;
+    const lng = primerGeo ? primerGeo.coordinates[0] : undefined;
+
+    // Para líneas: si hay geojson en todos los vértices, armamos puntos.
+    const esLinea = TIPO_LINEA.includes(tipo) && coordList.length >= 2;
+    const puntos: Array<[number, number]> | undefined = esLinea
+      ? coordList
+          .map((c) => c.geojson)
+          .filter(
+            (g): g is { type: 'Point'; coordinates: [number, number] } =>
+              g !== null && g !== undefined,
+          )
+          .map((g) => [g.coordinates[1], g.coordinates[0]] as [number, number])
+      : undefined;
+
+    componentes.push({
+      id: String(comp.id),
+      tipo,
+      lat,
+      lng,
+      codigo: comp.code,
+      nombre: comp.name,
+      estado: 'normal',
+      // El listado no trae criticality (hasta que el backend la reincorpore
+      // al light serializer) → undefined (la tabla muestra '—'). Cuando la
+      // reincorpore, se muestra automáticamente (objeto o string, ambos
+      // soportados). El endpoint /map siempre la trae (ver adaptarComponentesMap).
+      criticidad: (() => {
+        const critName = critNameFromCoord(coordList[0]);
+        return critName ? mapCriticidad(critName) : undefined;
+      })(),
+      unidadOperativa: comp.district,
+      especificacion: comp.specification ?? '',
+      puntos: puntos && puntos.length >= 2 ? puntos : undefined,
+      utmEasting: primerUtm?.easting,
+      utmNorthing: primerUtm?.northing,
+      utmZone: primerUtm?.zone,
+      verticesUtm: verticesUtm.length > 0 ? verticesUtm : undefined,
+      estadoOperacional,
+      estadoFisico,
+    });
+  }
+
+  return { componentes, tramos: [] };
+}
+
+/**
+ * Adapta la respuesta del endpoint `/components/components/map` al modelo
+ * del mapa. A diferencia del listado normal, aquí SÍ viene `geojson` y
+ * `criticality` (como string "ALTA"), pero NO `utm_coords` ni
+ * `specification`/`physical_status`.
+ *
+ * Sólo se incluyen componentes con al menos una coord con `geojson` no nulo
+ * (sin geometría no hay nada que dibujar en el mapa).
+ */
+export function adaptarComponentesMap(
+  comps: BackendMapComponent[],
+): ComponentesResponse {
+  const componentes: Componente[] = [];
+
+  for (const comp of comps) {
+    const tipo = mapTipo(comp.type);
+    const coordList: BackendMapCoord[] = (comp.coords ?? []).filter(
+      (c) => c.geojson !== null,
+    );
+    if (coordList.length === 0) continue;
+
+    const esLinea = TIPO_LINEA.includes(tipo) && coordList.length >= 2;
+    const primerGeo = coordList[0].geojson!;
+    const lat = primerGeo.coordinates[1];
+    const lng = primerGeo.coordinates[0];
+
+    const puntos: Array<[number, number]> | undefined = esLinea
+      ? coordList.map((c) => {
+          const g = c.geojson!;
+          return [g.coordinates[1], g.coordinates[0]] as [number, number];
+        })
+      : undefined;
+
+    componentes.push({
+      id: String(comp.id),
+      tipo,
+      lat,
+      lng,
+      codigo: comp.code,
+      nombre: comp.name,
+      estado: 'normal',
+      // Criticidad dominante = peor vértice (ALTA > MEDIA > BAJA).
+      criticidad: criticidadMaxima(coordList.map((c) => c.criticality)),
+      unidadOperativa: comp.district,
+      especificacion: '',
+      puntos: puntos && puntos.length >= 2 ? puntos : undefined,
+      estadoOperacional: comp.operational_status?.name,
+    });
   }
 
   return { componentes, tramos: [] };

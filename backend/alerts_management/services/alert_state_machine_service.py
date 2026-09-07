@@ -259,10 +259,13 @@ class AlertStateMachineService:
         # === CASO: Entrada a Confirmado -> Instanciar o actualizar AlertResult ===
         if status_name == "CONFIRMADO":
             real_start_time = payload.get("real_start_time", now)
-            
-            # Ajustar la hora de inicio real en la Alerta Padre
-            alert.start_time_utc = real_start_time
-            alert.save()
+
+            # Registrar la hora real de inicio en su CAMPO PROPIO. NO pisar
+            # `start_time_utc`: ese conserva la hora PREDICHA de inicio de
+            # la lluvia (el sheet del frontend muestra "Predicción inicio"
+            # e "Inicio real del fenómeno" como campos separados).
+            alert.real_start_time_utc = real_start_time
+            alert.save(update_fields=['real_start_time_utc'])
 
             # === CASO: Fase 'En Proceso de Atención' ===
                 # Creamos el resultado del reclamo

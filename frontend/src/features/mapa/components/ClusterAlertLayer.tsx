@@ -118,7 +118,7 @@ function makeClusterIcon(cluster: any): any {
   const html = `
     <div style="position: relative; width: ${size}px; height: ${size}px; display: grid; place-items: center; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.25));">
       <img src="${url}" style="width: ${imgSize}px; height: ${imgSize}px; display: block;" alt="" />
-      <div style="position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--eps-font-family-sans); font-weight: bold; font-size: 18px; line-height: 1; color: var(--eps-text-invert-primary); pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.55); transform: translateY(1px);">${count}</div>
+      <div style="position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--eps-font-family-sans); font-weight: bold; font-size: 18px; line-height: 1; color: var(--eps-text-invert-primary); pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.55); transform: translateY(-8px);">${count}</div>
     </div>
   `;
   return Lany.divIcon({

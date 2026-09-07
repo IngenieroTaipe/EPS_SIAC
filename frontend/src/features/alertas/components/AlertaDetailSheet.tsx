@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Pencil } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
+import { apiAlerts } from '@/services/apiAlerts';
+import { mapAlertDetailToFrontend } from '@/features/alertas/alertAdapters';
+import { useBlockMapGestures } from '@/shared/hooks/useBlockMapGestures';
 import {
   ESTADO_LABEL,
   type AlertaHistorica,
@@ -53,6 +56,41 @@ export function AlertaDetailSheet({
 }: AlertaDetailSheetProps) {
   const navigate = useNavigate();
 
+  // ── Detalle enriquecido (lazy fetch) ─────────────────────────────────
+  // El LISTADO ya no trae `alert_history` (solo el detalle lo tiene) ni
+  // el `created_at` de la generación de la predicción. Al abrir el sheet
+  // pedimos el DETALLE (cacheado 2 min en apiAlerts, invalidado al
+  // transicionar) para obtener: histórico completo de transiciones con
+  // horas reales, fecha de creación (= created_at de la transición más
+  // antigua, NO la hora futura del fenómeno) y fecha de notificación
+  // (= primera `sent_at`). Mientras llega (o si falla), se usa el item
+  // del listado como fallback.
+  const [detalle, setDetalle] = useState<AlertaHistorica | null>(null);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- carga lazy del
+       detalle al abrir el sheet / cambiar de alerta (patrón canónico). */
+    if (!alerta?.backendId) {
+      setDetalle(null);
+      return;
+    }
+    let cancelled = false;
+    setDetalle(null);
+    apiAlerts
+      .getAlertDetail(alerta.backendId)
+      .then((d) => {
+        if (!cancelled) setDetalle(mapAlertDetailToFrontend(d));
+      })
+      .catch(() => {
+        // No bloqueante: el sheet sigue mostrando el item del listado.
+        if (!cancelled) setDetalle(null);
+      });
+    /* eslint-enable react-hooks/set-state-in-effect */
+    return () => {
+      cancelled = true;
+    };
+  }, [alerta?.backendId]);
+
   // Cierra con Escape.
   useEffect(() => {
     if (!alerta) return;
@@ -63,12 +101,24 @@ export function AlertaDetailSheet({
     return () => document.removeEventListener('keydown', onKey);
   }, [alerta, onClose]);
 
+  // El sheet vive DENTRO del MapContainer (vía Outlet del MapLayout):
+  // frena los gestos del mapa (scroll→zoom, drag→pan) cuando el cursor
+  // está sobre él, sin afectar su scroll interno ni sus clics.
+  // (Antes del early return: los hooks deben correr en todo render.)
+  const blockGestures = useBlockMapGestures();
+
   if (!alerta) return null;
-  const a = alerta;
+  // Fusión: el detalle prevalece, salvo la Unidad Operativa (el item del
+  // listado ya la trae resuelta via branches; el adapter del detalle se
+  // ejecuta sin branchMap y dejaría '—').
+  const a: AlertaHistorica = detalle
+    ? { ...detalle, unidadOperativa: alerta.unidadOperativa || detalle.unidadOperativa }
+    : alerta;
   const visual = ESTADO_VISUAL[a.estado];
 
   return (
     <aside
+      ref={blockGestures}
       role="dialog"
       aria-modal="false"
       aria-label={`Detalle de la alerta ${a.id}`}
@@ -214,13 +264,6 @@ export function AlertaDetailSheet({
             </p>
           </section>
         )}
-
-        {/* Identificador backend */}
-        <div className="mt-auto pt-4 border-t border-input-stroke-main">
-          <p className="text-text-secondary text-xs font-sans">
-            ID interno: <span className="font-mono text-text-primary">{a.id}</span>
-          </p>
-        </div>
       </div>
 
       {/* Footer con acción de edición */}

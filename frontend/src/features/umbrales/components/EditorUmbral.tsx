@@ -49,8 +49,6 @@ interface EditorUmbralProps {
   /** Modo del modal: 'editar' regenera la escalera ya registrada del combo
    *  pre-seleccionado; 'agregar' permite definir un combo nuevo. */
   mode: 'editar' | 'agregar';
-  /** Pool de TODOS los umbrales cargados (para validar/describir hermanos). */
-  siblingsPool?: UmbralFenomeno[];
   /** Distrito pre-seleccionado (ubigeo). En modo editar obligatorio. */
   defaultDistrictUbigeo?: string;
   /** En modo editar: id del fenómeno natural a precargar (no editable). */
@@ -71,7 +69,6 @@ function toOpcion(r: LightRef): Opcion {
 export function EditorUmbral({
   open,
   mode,
-  siblingsPool,
   defaultDistrictUbigeo,
   defaultNaturalPhenomenaId,
   defaultVariableId,
@@ -106,6 +103,10 @@ export function EditorUmbral({
 
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** Hermanos del combo (district + np + var) — carga lazy sólo cuando el
+   *  combo está completo. Reemplaza al antiguo `siblingsPool` global. */
+  const [hermanos, setHermanos] = useState<UmbralFenomeno[]>([]);
 
   const cancelBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -149,24 +150,58 @@ export function EditorUmbral({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, defaultDistrictUbigeo, defaultNaturalPhenomenaId, defaultVariableId]);
 
+  // Carga lazy de los hermanos del combo (district + np + var) — sólo cuando
+  // los tres selects están completos. Reemplaza al pool global anterior:
+  // trae únicamente las filas de ese combo (caché 1h en apiUmbrales).
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- secuencia de carga
+       (reset → fetch → set), patrón React canónico. */
+    if (!open) return;
+    if (!naturalPhenomenaId || !variableId || !districtUbigeo) {
+      setHermanos([]);
+      return;
+    }
+    let cancelled = false;
+    apiUmbrales
+      .listUmbrales({
+        'district__ubigeo': districtUbigeo,
+        natural_phenomena: Number(naturalPhenomenaId),
+        variable: Number(variableId),
+      })
+      .then((rows) => {
+        if (!cancelled) setHermanos(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setHermanos([]);
+      });
+    /* eslint-enable react-hooks/set-state-in-effect */
+    return () => {
+      cancelled = true;
+    };
+  }, [open, naturalPhenomenaId, variableId, districtUbigeo]);
+
   // Precarga la escalera cuando el usuario completa (np, var, distrito) y/o
   // cambia la selección: inyecta los cortes actuales del distrito en los slots.
   const slots = useMemo<SlotLadder[] | null>(() => {
     if (!naturalPhenomenaId || !variableId || !districtUbigeo) return null;
-    if (!siblingsPool || siblingsPool.length === 0) return null;
+    if (hermanos.length === 0) {
+      // Sin hermanos: sólo construimos slots si ya hay catálogo de thresholds
+      // (para modo 'agregar' sobre un combo nuevo sin registros previos).
+      if (thresholdOptions.length === 0) return null;
+    }
     const categoriasCatalogo = thresholdOptions.map((o) => ({
       id: Number(o.value),
       name: o.label,
     }));
     if (categoriasCatalogo.length === 0) return null;
     return construirSlots(
-      siblingsPool,
+      hermanos,
       districtUbigeo,
       Number(naturalPhenomenaId),
       Number(variableId),
       categoriasCatalogo,
     );
-  }, [naturalPhenomenaId, variableId, districtUbigeo, siblingsPool, thresholdOptions]);
+  }, [naturalPhenomenaId, variableId, districtUbigeo, hermanos, thresholdOptions]);
 
   // Cuando slots cambia, precargar cortes y piso con los valores actuales.
   useEffect(() => {

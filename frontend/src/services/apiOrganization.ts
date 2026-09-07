@@ -1,4 +1,5 @@
 import { httpClient } from './httpClient';
+import { cachedGet, invalidateCachePrefix } from './requestCache';
 
 /**
  * Branch (Sucursal) — representa una Unidad Operativa de la EPS Selva
@@ -26,26 +27,69 @@ export interface BackendBranch {
   observations?: string | null;
 }
 
+/**
+ * Feature de `GET /organization/branches/map/`: una branch activa con la
+ * geometría (MultiPolygon, SRID 4326) del distrito asociado. `id` a nivel
+ * de feature = id de la branch.
+ */
+export interface BackendBranchMapFeature {
+  type: 'Feature';
+  id?: number | string;
+  properties: {
+    code: string;
+    name: string;
+    acronym: string;
+    district_name: string;
+    district_ubigeo: string;
+  };
+  geometry: unknown;
+}
+
+export interface BackendBranchMapFeatureCollection {
+  type: 'FeatureCollection';
+  features: BackendBranchMapFeature[];
+}
+
 export const apiOrganization = {
   /**
-    * Lista TODAS las sucursales (unidades operativas). Opcionalmente filtra
-    * por `status` (true = sólo operativas). Sin paginación server-side: se
-    * recorre `next` hasta agotar resultados.
-    */
+   * Lista TODAS las sucursales (unidades operativas). Opcionalmente filtra
+   * por `status` (true = sólo operativas). Sin paginación server-side: se
+   * recorre `next` hasta agotar resultados. Cacheado 30 min (memoria +
+   * localStorage) porque las branches casi nunca cambian y varias páginas
+   * la piden por su cuenta; los writes de este mismo módulo invalidan.
+   */
   async listBranches(params?: { status?: boolean }): Promise<BackendBranch[]> {
-    const all: BackendBranch[] = [];
-    let page = 1;
-    let next: string | null;
-    do {
-      const res = await httpClient.get('/organization/branches/', {
-        params: { page, ...(params ?? {}) },
-      });
-      const data = res.data;
-      all.push(...(Array.isArray(data) ? data : (data.results ?? [])));
-      next = Array.isArray(data) ? null : data.next;
-      page += 1;
-    } while (next);
-    return all;
+    const cacheKey = `branches:list:${
+      params?.status === undefined ? 'all' : params.status ? 'active' : 'inactive'
+    }`;
+    const fetchAll = async (): Promise<BackendBranch[]> => {
+      const all: BackendBranch[] = [];
+      let page = 1;
+      let next: string | null;
+      do {
+        const res = await httpClient.get('/organization/branches/', {
+          params: { page, ...(params ?? {}) },
+        });
+        const data = res.data;
+        all.push(...(Array.isArray(data) ? data : (data.results ?? [])));
+        next = Array.isArray(data) ? null : data.next;
+        page += 1;
+      } while (next);
+      return all;
+    };
+    return cachedGet(cacheKey, fetchAll, 30 * 60 * 1000);
+  },
+
+  /**
+   * Capa geoespacial de branches ACTIVAS con el polígono del distrito de
+   * cada una, en UNA sola request (compilada en PostGIS por el backend,
+   * sin paginación). Equivale a lo que antes se armaba con listBranches +
+   * un GET por distrito. Sin caché: se consume una vez por sesión (provider
+   * global de UnidadOperativa).
+   */
+  async getBranchesMap(): Promise<BackendBranchMapFeatureCollection> {
+    const res = await httpClient.get('/organization/branches/map/');
+    return res.data as BackendBranchMapFeatureCollection;
   },
 
   // === Administración (solo admin) ===
@@ -58,6 +102,7 @@ export const apiOrganization = {
     observations?: string;
   }): Promise<BackendBranch> {
     const res = await httpClient.post('/organization/branches/', payload);
+    invalidateCachePrefix('branches:');
     return res.data;
   },
 
@@ -73,10 +118,12 @@ export const apiOrganization = {
     }>,
   ): Promise<BackendBranch> {
     const res = await httpClient.patch(`/organization/branches/${id}/`, payload);
+    invalidateCachePrefix('branches:');
     return res.data;
   },
 
   async deleteBranch(id: number): Promise<void> {
     await httpClient.delete(`/organization/branches/${id}/`);
+    invalidateCachePrefix('branches:');
   },
 };

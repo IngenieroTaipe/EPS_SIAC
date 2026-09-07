@@ -1,4 +1,12 @@
 import { httpClient } from './httpClient';
+import { invalidateCache } from './requestCache';
+
+/** Invalida la caché frontend del endpoint `/map` (usada por el mapa y el
+ *  editor). Se llama tras cualquier write de componentes/coords para que
+ *  la capa geoespacial se refresque en la próxima visita. */
+function invalidateMapCache(): void {
+  invalidateCache('components:map');
+}
 
 interface PaginatedResponse<T> {
   count?: number;
@@ -41,21 +49,23 @@ export interface BackendCriticality {
  * Coordenada ligera embebida en el listado/retrieve de componentes (viene del
  * `ComponentCoordLightSerializer` del backend). El backend expone:
  *   - `id`            : id del ComponentCoord.
- *   - `criticality`   : objeto ligero `{ id, name }` (CriticalityLightSerializer).
- *   - `coords`        : WKT string de PostGIS ("SRID=4326;POINT(lng lat)").
- *   - `geojson`       : objeto GeoJSON Point { type, coordinates:[lng,lat] }
- *     (usar este para extraer lat/lon en el frontend).
  *   - `utm_coords`    : { easting, northing, srid, zone } calculado desde WGS84.
+ *
+ * NOTA: el listado actual (`ComponentListSerializer`) ya NO incluye `geojson`
+ * ni `criticality` en las coords (sólo `utm_coords`). El endpoint `/map`
+ * los trae por separado (ver `BackendMapCoord` más abajo). `criticality`
+ * acepta objeto `{id, name}` (retrieve) o string (si el backend la
+ * reincorpora al light serializer como StringRelatedField).
  */
 export interface BackendComponentListCoord {
   id: number;
-  criticality: { id: number; name: string };
-  coords: string | null;
-  geojson: {
+  criticality?: { id: number; name: string } | string | null;
+  coords?: string | null;
+  geojson?: {
     type: 'Point';
     coordinates: [number, number];
   } | null;
-  utm_coords: {
+  utm_coords?: {
     easting: number;
     northing: number;
     srid: number;
@@ -130,12 +140,59 @@ async function fetchAllPages<T>(url: string, params?: Record<string, unknown>): 
   return all;
 }
 
+// ============================================================================
+// Endpoint `/components/components/map` — capa geoespacial para el mapa
+// ============================================================================
+
+/**
+ * Coordenada del endpoint `/map` (compilado en PostGIS). A diferencia del
+ * listado normal, aquí SÍ viene `geojson` y `criticality` (como string),
+ * pero NO `utm_coords`.
+ */
+export interface BackendMapCoord {
+  id: number;
+  criticality: string; // ej. "ALTA", "MEDIA", "BAJA"
+  geojson: {
+    type: 'Point';
+    coordinates: [number, number]; // [lng, lat]
+  } | null;
+}
+
+/**
+ * Item del endpoint `GET /components/components/map` (array plano, sin
+ * paginación). Pensado para el mapa: trae `geojson` + `criticality` por
+ * coord, pero no UTM/specification/physical_status.
+ */
+export interface BackendMapComponent {
+  id: number;
+  code: string;
+  name: string;
+  type: string;
+  district: string;
+  coords: BackendMapCoord[];
+  operational_status?: { code: string; name: string } | null;
+}
+
 export const apiComponentes = {
   async listComponentes(params?: {
     district?: string;
     search?: string;
   }): Promise<BackendComponentListItem[]> {
     return fetchAllPages<BackendComponentListItem>('/components/components/', params);
+  },
+
+  /**
+   * Capa geoespacial para el mapa: `GET /components/components/map`.
+   * Devuelve un array plano (sin paginación) compilado en PostGIS con
+   * `coords[].geojson` + `coords[].criticality` por cada componente.
+   * No trae UTM ni specification/physical_status (esos van por el listado
+   * o detalle normal).
+   */
+  async listComponentesForMap(): Promise<BackendMapComponent[]> {
+    const res = await httpClient.get<BackendMapComponent[] | PaginatedResponse<BackendMapComponent>>(
+      '/components/components/map',
+    );
+    return unwrap<BackendMapComponent>(res.data);
   },
 
   async getComponente(id: number): Promise<BackendComponent> {
@@ -161,6 +218,7 @@ export const apiComponentes = {
     }>;
   }): Promise<BackendComponent> {
     const res = await httpClient.post('/components/components/', body);
+    invalidateMapCache();
     return res.data;
   },
 
@@ -185,11 +243,13 @@ export const apiComponentes = {
     }>,
   ): Promise<BackendComponent> {
     const res = await httpClient.patch(`/components/components/${id}/`, body);
+    invalidateMapCache();
     return res.data;
   },
 
   async deleteComponente(id: number): Promise<void> {
     await httpClient.delete(`/components/components/${id}/`);
+    invalidateMapCache();
   },
 
   async listCoords(params?: {
@@ -208,6 +268,7 @@ export const apiComponentes = {
     longitude?: number;
   }): Promise<BackendComponentCoord> {
     const res = await httpClient.post('/components/component-coords/', body);
+    invalidateMapCache();
     return res.data;
   },
 
@@ -224,11 +285,13 @@ export const apiComponentes = {
     }>,
   ): Promise<BackendComponentCoord> {
     const res = await httpClient.patch(`/components/component-coords/${id}/`, body);
+    invalidateMapCache();
     return res.data;
   },
 
   async deleteCoord(id: number): Promise<void> {
     await httpClient.delete(`/components/component-coords/${id}/`);
+    invalidateMapCache();
   },
 
   async listTipos(): Promise<BackendComponentType[]> {
@@ -278,6 +341,7 @@ export const apiComponentes = {
       form,
       { headers: { 'Content-Type': 'multipart/form-data' } },
     );
+    if (!dryRun) invalidateMapCache();
     return res.data;
   },
 
@@ -299,6 +363,7 @@ export const apiComponentes = {
       form,
       { headers: { 'Content-Type': 'multipart/form-data' } },
     );
+    if (!dryRun) invalidateMapCache();
     return res.data;
   },
 
@@ -317,6 +382,7 @@ export const apiComponentes = {
       form,
       { headers: { 'Content-Type': 'multipart/form-data' } },
     );
+    if (!dryRun) invalidateMapCache();
     return res.data;
   },
 

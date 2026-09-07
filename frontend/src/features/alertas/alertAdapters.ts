@@ -1,6 +1,8 @@
 import type {
   BackendAlertListItem,
   BackendAlertDetail,
+  BackendAlertMapItem,
+  BackendOperationalUbigeo,
 } from '@/services/apiAlerts';
 import type { BackendBranch } from '@/services/apiOrganization';
 import type {
@@ -8,6 +10,7 @@ import type {
   EstadoAlertaHistorica,
   UmbralPrecipitacion,
 } from './types';
+import { ESTADOS_EN_MAPA, type Alerta, type EstadoAlerta } from '@/features/mapa/types/alerta';
 
 // ============================================================================
 // Mapeo de nombres del backend → slugs del frontend
@@ -16,11 +19,6 @@ import type {
 /**
  * Mapea el nombre del estado/fase que devuelve el backend (puede venir en
  * mayúsculas, minúsculas o título) al slug que usa el frontend.
- *
- * El backend devuelve `status` y `phase` como strings a partir del
- * `AlertDetailSerializer.get_status()` / `get_phase()`, que leen el
- * `AlertHistory.status.name` más reciente. Los nombres en BD son los
- * definidos en el seeder (normalmente en mayúsculas: "PREDICHO", etc.).
  */
 const BACKEND_STATUS_MAP: Record<string, EstadoAlertaHistorica> = {
   'PREDICHO':                   'predicho',
@@ -36,14 +34,15 @@ const BACKEND_STATUS_MAP: Record<string, EstadoAlertaHistorica> = {
 
 /**
  * Mapea el nombre del umbral devuelto por el backend (StringRelatedField del
- * ThresholdsNaturalPhenomena) al slug que usa el frontend.
+ * ThresholdsNaturalPhenomena) al slug que usa el frontend. El backend puede
+ * anexar el nivel (ej. "MUY LLUVIOSO (Nivel 3)") — el match es por prefijo.
  */
-const BACKEND_THRESHOLD_MAP: Record<string, UmbralPrecipitacion> = {
-  'MODERADAMENTE LLUVIOSO': 'moderadamente-lluvioso',
-  'LLUVIOSO':               'lluvioso',
-  'MUY LLUVIOSO':           'muy-lluvioso',
-  'EXTREMADAMENTE LLUVIOSO':'extremadamente-lluvioso',
-};
+const BACKEND_THRESHOLD_PREFIXES: Array<[string, UmbralPrecipitacion]> = [
+  ['MODERADAMENTE LLUVIOSO', 'moderadamente-lluvioso'],
+  ['EXTREMADAMENTE LLUVIOSO', 'extremadamente-lluvioso'],
+  ['MUY LLUVIOSO', 'muy-lluvioso'],
+  ['LLUVIOSO', 'lluvioso'],
+];
 
 function resolveEstado(backendName: string | undefined | null): EstadoAlertaHistorica {
   if (!backendName) return 'predicho';
@@ -52,7 +51,11 @@ function resolveEstado(backendName: string | undefined | null): EstadoAlertaHist
 
 function resolveUmbral(backendName: string | undefined | null): UmbralPrecipitacion {
   if (!backendName) return 'moderadamente-lluvioso';
-  return BACKEND_THRESHOLD_MAP[backendName.toUpperCase().trim()] ?? 'moderadamente-lluvioso';
+  const u = backendName.toUpperCase().trim();
+  for (const [prefix, slug] of BACKEND_THRESHOLD_PREFIXES) {
+    if (u.startsWith(prefix)) return slug;
+  }
+  return 'moderadamente-lluvioso';
 }
 
 /**
@@ -100,7 +103,7 @@ export function buildBranchByUbigeo(branches: BackendBranch[]): Map<string, stri
 
 /**
  * Resuelve el label "Unidad Operativa" para una alerta a partir de los
- * UBIGEOs afectados que aporta la alerta.
+ * UBIGEOs afectados que aporta la alerta (`operational_ubigeos`).
  *
  * Reglas (según UX decidido):
  *   - Si ningún ubigeo está en una branch → devuelve '' (el sheet lo
@@ -108,14 +111,6 @@ export function buildBranchByUbigeo(branches: BackendBranch[]): Map<string, stri
  *   - Si hay 1 branch → devuelve su nombre.
  *   - Si hay N branches → devuelve `'${primera} (y N más)'` con el
  *     recuento de las demás (compacto + informativo).
- *
- * Uso típico en `mapAlertListToFrontend(item, branchByUbigeo)`:
- *   ```
- *   const ubigeos = item.alert_clusters.flatMap((c) =>
- *     c.affected_ubigeos?.map((u) => u.ubigeo).filter(Boolean) ?? [],
- *   );
- *   const unidadOperativa = resolveUnidadOperativa(ubigeos, branchByUbigeo);
- *   ```
  */
 export function resolveUnidadOperativa(
   ubigeos: string[],
@@ -124,16 +119,13 @@ export function resolveUnidadOperativa(
   if (!ubigeos.length) return '';
 
   // Se resuelven todos los ubigeos con una branch asociada, SIN duplicados
-  // (varios clusters pueden afectar el mismo ubigeo).
+  // (varios ubigeos pueden mapear a la misma branch).
   const matches: string[] = [];
   const seen = new Set<string>();
   for (const ubigeo of ubigeos) {
     if (!ubigeo || seen.has(ubigeo)) continue;
     const branchName = branchByUbigeo.get(ubigeo);
     if (!branchName) continue;
-    // Evita duplicados también por nombre: un ubigeo distinto puede mapear
-    // a la misma branch si la branch cubre varios distritos. En la práctica
-    // esto no ocurre (1 distrito = 1 nombre único de branch) pero seguro:
     if (matches.includes(branchName)) continue;
     matches.push(branchName);
     seen.add(ubigeo);
@@ -145,19 +137,19 @@ export function resolveUnidadOperativa(
 }
 
 /**
- * Recolecta los UBIGEOs afectados por todos los clusters de un item de
- * alerta del backend (campo `affected_ubigeos` que entrega el
- * `AlertListSerializer`). Devuelve un array único (sin duplicados).
+ * Recolecta los UBIGEOs de las unidades operativas afectadas por la alerta
+ * (campo `operational_ubigeos` directo del listado/detalle). Devuelve un
+ * array único (sin duplicados).
  */
-function collectAffectedUbigeos(item: BackendAlertListItem): string[] {
+function collectOperationalUbigeos(
+  ubigeos: BackendOperationalUbigeo[] | undefined,
+): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const cluster of item.alert_clusters ?? []) {
-    for (const u of cluster.affected_ubigeos ?? []) {
-      if (!u?.ubigeo || seen.has(u.ubigeo)) continue;
-      seen.add(u.ubigeo);
-      out.push(u.ubigeo);
-    }
+  for (const u of ubigeos ?? []) {
+    if (!u?.ubigeo || seen.has(u.ubigeo)) continue;
+    seen.add(u.ubigeo);
+    out.push(u.ubigeo);
   }
   return out;
 }
@@ -170,42 +162,25 @@ function collectAffectedUbigeos(item: BackendAlertListItem): string[] {
  * Mapea un item del listado (`BackendAlertListItem`) al tipo `AlertaHistorica`
  * que consumen la tabla y el panel del mapa.
  *
- * Usa `historic_alert` (la bitácora de transiciones que regresa el listado)
- * para derivar el estado actual de la alerta y reconstruir el histórico
- * completo con timestamps reales. Antes se hardcodeaba `predicho`, lo que
- * falseaba tanto el chip de estado en el tabular como el icono del marker
- * y el listado "Histórico de estados" del `AlertaDetailSheet`.
- *
- * El detalle del backend (`AlertDetailSerializer`) incluye distritos y
- * reportes extra; este adapter solo usa lo que viene en el listado. Si
- * el usuario necesita el resto, hace clic en "Editar alerta" y se carga
- * el detalle.
+ * Contrato post-cambios del backend: el listado trae `status_name` y
+ * `phase_name` top-level (ya NO trae `historic_alert`) y
+ * `operational_ubigeos` directo (ya NO trae `alert_clusters`). El histórico
+ * se sintetiza con el estado actual (1 entrada); el detalle completo vive
+ * en el retrieve (`alert_history`) y se muestra en la vista de edición.
  */
 export function mapAlertListToFrontend(
   item: BackendAlertListItem,
   branchByUbigeo?: Map<string, string>,
 ): AlertaHistorica {
-  // El backend ordena `historic_alert` desc por `created_at`; el primer
-  // item es el estado actual. Si por algum motivo está vacío, caemos a
-  // `predicho` (valor por defecto del adapter).
-  const latest = item.historic_alert?.[0];
-  const estado = latest
-    ? resolveEstadoFromStatusAndPhase(latest.status_name, latest.phase_name)
-    : 'predicho';
-
-  // Reconstruir el histórico con timestamps reales del backend.
-  const historico = (item.historic_alert ?? []).map((h) => ({
-    estado: resolveEstadoFromStatusAndPhase(h.status_name, h.phase_name),
-    fecha: h.created_at,
-  }));
+  const estado = resolveEstadoFromStatusAndPhase(item.status_name, item.phase_name);
 
   // Unidad Operativa real: resuelta via ubigeo → branch.name.
-  // Si la alerta no afecta a ninguna branch (ningún distrito afectado
-  // está habilitado como UO), devolvemos '' para que el sheet lo oculte.
-  const ubigeos = collectAffectedUbigeos(item);
+  const ubigeos = collectOperationalUbigeos(item.operational_ubigeos);
   const unidadOperativa = branchByUbigeo
     ? resolveUnidadOperativa(ubigeos, branchByUbigeo)
     : '—';
+
+  const fecha = item.start_time_local ?? new Date().toISOString();
 
   return {
     id: item.code,
@@ -215,61 +190,45 @@ export function mapAlertListToFrontend(
     estado,
     fenomeno: item.natural_phenomena_name ?? 'Precipitación',
     umbral: resolveUmbral(item.max_threshold),
-    fechaCreacion: item.start_time_local ?? new Date().toISOString(),
-    fechaNotificacion: item.start_time_local ?? new Date().toISOString(),
-    fechaPrediccionInicio: item.start_time_local ?? new Date().toISOString(),
+    fechaCreacion: fecha,
+    fechaNotificacion: fecha,
+    fechaPrediccionInicio: fecha,
     fechaRealInicio: undefined,
-    historico: historico.length > 0
-      ? historico
-      : [{ estado, fecha: item.start_time_local ?? new Date().toISOString() }],
+    // El listado ya no trae historial: sintetizamos 1 entrada con el
+    // estado actual (el sheet lo muestra como "Histórico (1)").
+    historico: [{ estado, fecha }],
   };
 }
 
 /**
  * Mapea el detalle completo (`BackendAlertDetail`) al tipo `AlertaHistorica`.
- * Incluye status, phase, historial, resultado y fenómeno.
+ * Incluye `alert_history` (renombrado desde `historic_alert` por el
+ * backend), UO desde `operational_ubigeos` y resultado/reportes.
  *
  * `branchByUbigeo` (opcional) permite resolver la Unidad Operativa real a
- * partir de los `affected_districts[].ubigeo` que vienen en cada cluster
- * del detalle. Si no se pasa, `unidadOperativa` queda como '—' (la página
- * de edición lo gestiona cargando branches en paralelo).
+ * partir de los `operational_ubigeos[].ubigeo` del detalle. Si no se pasa,
+ * `unidadOperativa` queda como '—' (la página de edición lo gestiona
+ * cargando branches en paralelo).
  */
 export function mapAlertDetailToFrontend(
   detail: BackendAlertDetail,
   branchByUbigeo?: Map<string, string>,
 ): AlertaHistorica {
-  // El serializer de detalle del backend NO expone `status`/`phase` a nivel
-  // top-level (ver `AlertDetailSerializer.Meta.fields`); solo vienen dentro
-  // de `historic_alert[]` ordenado desc por `created_at`. El primer item
-  // representa el estado actual → lo usamos para derivar `estado`.
-  // El fallback 'predicho' es solo para el caso (teóricamente imposible)
-  // en que llegue un detalle sin histórico.
-  const latest = detail.historic_alert?.[0];
+  // El serializer de detalle NO expone `status`/`phase` top-level; el
+  // estado actual viene en `alert_history[0]` (desc por created_at).
+  const latest = detail.alert_history?.[0];
   const estado = latest
     ? resolveEstadoFromStatusAndPhase(latest.status_name, latest.phase_name)
     : 'predicho';
 
-  // Reconstruir historial a partir de historic_alert (con timestamp real de cada transición).
-  const historico = (detail.historic_alert ?? []).map((h) => ({
+  // Reconstruir historial con timestamps reales de cada transición.
+  const historico = (detail.alert_history ?? []).map((h) => ({
     estado: resolveEstadoFromStatusAndPhase(h.status_name, h.phase_name),
     fecha: h.created_at ?? detail.start_time_local ?? new Date().toISOString(),
   }));
 
-  // Recolectar UBIGEOs afectados por todos los clusters del detalle.
-  // Cada cluster trae `affected_districts: [{ ubigeo, name }, ...]`.
-  const ubigeos: string[] = [];
-  const seen = new Set<string>();
-  for (const c of detail.clusters ?? []) {
-    for (const d of c.affected_districts ?? []) {
-      if (!d?.ubigeo || seen.has(d.ubigeo)) continue;
-      seen.add(d.ubigeo);
-      ubigeos.push(d.ubigeo);
-    }
-  }
-
-  // Resolver Unidad Operativa via branches. Si no hay branches cargadas,
-  // dejamos '—' para que la UI muestre el placeholder clásico (la página
-  // de edición normalmente pasa branches reales, así que rara vez cae aquí).
+  // UO desde operational_ubigeos (directo en el detalle).
+  const ubigeos = collectOperationalUbigeos(detail.operational_ubigeos);
   const unidadOperativa = branchByUbigeo
     ? resolveUnidadOperativa(ubigeos, branchByUbigeo)
     : '—';
@@ -292,6 +251,29 @@ export function mapAlertDetailToFrontend(
     }
   }
 
+  // ── Fechas reales (no confundir con la hora del fenómeno) ──────────
+  // Fecha de creación = `created_at` de la transición MÁS ANTIGUA del
+  // historial (cuando la alerta NACIÓ — se generó la predicción).
+  // `start_time_local` es la hora (futura) del fenómeno y NO sirve como
+  // "cuándo se predijo": usaba a dar tiempos transcurridos negativos.
+  // El backend entrega `alert_history` desc por created_at, pero
+  // ordenamos explícitamente por robustez.
+  const sortedHistory = [...(detail.alert_history ?? [])].sort((x, y) =>
+    x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : 0,
+  );
+  const fechaCreacion =
+    sortedHistory[0]?.created_at ?? detail.start_time_local ?? new Date().toISOString();
+
+  // Fecha de notificación = la `sent_at` MÁS ANTIGUA de las notificaciones
+  // ya enviadas (las pendientes con sent_at null se ignoran).
+  const sentDates = (detail.alert_notification ?? [])
+    .map((n) => n.sent_at)
+    .filter((s): s is string => !!s);
+  const fechaNotificacion =
+    sentDates.length > 0
+      ? sentDates.reduce((min, s) => (s < min ? s : min))
+      : fechaCreacion;
+
   return {
     id: detail.code,
     backendId: detail.id,
@@ -300,10 +282,14 @@ export function mapAlertDetailToFrontend(
     estado,
     fenomeno: detail.natural_phenomena_name ?? 'Precipitación',
     umbral: resolveUmbral(detail.max_threshold),
-    fechaCreacion: detail.start_time_local ?? new Date().toISOString(),
-    fechaNotificacion: detail.start_time_local ?? new Date().toISOString(),
+    fechaCreacion,
+    fechaNotificacion,
+    // "Predicción inicio" = hora PREDICHA de la lluvia (GFS, hora en punto).
     fechaPrediccionInicio: detail.start_time_local ?? new Date().toISOString(),
-    fechaRealInicio: detail.start_time_local ?? undefined,
+    // "Inicio real del fenómeno" = hora reportada al CONFIRMAR (campo
+    // propio del backend). Undefined si aún no fue confirmada → el sheet
+    // oculta el campo.
+    fechaRealInicio: detail.real_start_time_local ?? undefined,
     fechaFinalizacion: detail.end_time_local ?? undefined,
     historico: historico.length > 0
       ? historico
@@ -311,4 +297,57 @@ export function mapAlertDetailToFrontend(
     reporteDanos,
     reporteAcciones,
   };
+}
+
+// ============================================================================
+// Adaptador del endpoint `/alerts/alerts/map` (visor cartográfico)
+// ============================================================================
+
+/**
+ * Adaptador de la capa ligera de alertas para el mapa
+ * (`GET /alerts/alerts/map/`). Un marker por alerta, posicionado en el
+ * `representative_point` del clúster más severo (decisión del backend en
+ * SQL — ya no se calcula el centroide en el frontend).
+ *
+ * El backend ya excluye del payload las alertas 'NO CONFIRMADO' y las
+ * 'ATENDIDO' antiguas; el check local con `ESTADOS_EN_MAPA` es defensivo.
+ */
+export function adaptarAlertasMap(items: BackendAlertMapItem[]): Alerta[] {
+  const alertas: Alerta[] = [];
+  for (const it of items) {
+    // `representative_point` es un GeoJSON Point DIRECTO: las coords van
+    // top-level (`coordinates: [lng, lat]`), como emite `ST_AsGeoJSON` del
+    // builder (el docstring del builder muestra un Feature, pero el SQL
+    // real no lo envuelve). Tolerante a ambas formas por robustez.
+    const rp = it.representative_point as
+      | { type: string; coordinates?: [number, number] }
+      | { type: string; geometry?: { coordinates?: [number, number] } }
+      | null;
+    const coords = rp
+      ? ('coordinates' in rp && rp.coordinates) || ('geometry' in rp && rp.geometry?.coordinates) || null
+      : null;
+    if (!coords) continue;
+    const [lng, lat] = coords;
+
+    const estado = resolveEstadoFromStatusAndPhase(
+      it.status_name,
+      it.phase_name,
+    ) as EstadoAlerta;
+
+    // Defensivo: el SQL del backend ya filtra, pero re-chequeamos por si
+    // el contrato evoluciona.
+    if (!ESTADOS_EN_MAPA.has(estado)) continue;
+
+    alertas.push({
+      id: it.code,
+      componenteId: '',
+      estado,
+      lat,
+      lng,
+      mensaje: `Intensidad: ${it.max_intensity_mm_h} mm/h`,
+      nivel: it.max_threshold ?? it.natural_phenomena_name ?? 'Precipitación',
+      fecha: it.start_time_local ?? new Date().toISOString(),
+    });
+  }
+  return alertas;
 }

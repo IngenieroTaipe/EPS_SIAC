@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
+import { cn } from '@/shared/lib/cn';
 import { AlertsTable } from '@/features/alertas/components/AlertsTable';
 import { AlertaDetailSheet } from '@/features/alertas/components/AlertaDetailSheet';
 import {
@@ -14,6 +15,7 @@ import {
   buildBranchByUbigeo,
 } from '@/features/alertas/alertAdapters';
 import { FilterableSelect, type FilterableOption } from '@/shared/components/FilterableSelect';
+import { useInfiniteRows } from '@/shared/hooks/useInfiniteRows';
 import { useUnidadOperativa } from '@/shared/context/useUnidadOperativa';
 import { UNIDAD_TODAS } from '@/shared/context/UnidadOperativaContext';
 
@@ -40,21 +42,18 @@ const MAX_SUGERENCIAS = 8;
  *   1. Buscar — input con sugerencias en vivo (dropdown de alertas que
  *      matchean código/fenómeno/distrito/unidad). Click en una sugerencia
  *      la fija y filtra la tabla.
- *   2. Unidad Operativa — `FilterableSelect` con las unidades activas del
- *      contexto global (branch.name, incluyendo "Todas").
- *   3. Estados — `FilterableSelect` multi (chips seleccionables con dot
- *      de color). Incluye "Seleccionar todos".
- *   4. Desde / 5. Hasta — nativos `type="date"` (compara contra
- *      `fechaCreacion`, que inicia el ciclo de vida de la alerta).
- *   6. Limpiar filtros — botón que resetea todo (sólo visible si hay
- *      filtros no-default).
- *
- * Notas sobre el modelo (ver `alertAdapters.ts`):
- *   el listado del backend NO incluye unidad operativa/distrito ni estado,
- *   así que esos filtros pueden no acotar resultados hasta que el backend
- *   los exponga. Mientras tanto, el filtro se mantiene en cliente para no
- *   romper la UI si el backend los agrega mañana.
- */
+  *   2. Unidad Operativa — `FilterableSelect` con las unidades activas del
+  *      contexto global (branch.name, incluyendo "Todas"). Una alerta puede
+  *      afectar a VARIAS UO (`operational_ubigeos`): el filtro matchea por
+  *      intersección de ubigeos en la fuente (se aplica en `rawFiltrados`),
+  *      NO por igualdad del label compuesto "X (y N más)".
+  *   3. Estados — `FilterableSelect` multi (chips seleccionables con dot
+  *      de color). Incluye "Seleccionar todos".
+  *   4. Desde / 5. Hasta — nativos `type="date"` (compara contra
+  *      `fechaCreacion`, que inicia el ciclo de vida de la alerta).
+  *   6. Limpiar filtros — botón que resetea todo (sólo visible si hay
+  *      filtros no-default).
+  */
 export function HistoricoAlertasPage() {
   const [searchParams] = useSearchParams();
   const preselectId = searchParams.get('id');
@@ -97,9 +96,49 @@ export function HistoricoAlertasPage() {
   // contexto (sin necesidad de useEffect/setState).
   const branchMap = useMemo(() => buildBranchByUbigeo(branches), [branches]);
 
+  // Mapa inverso: nombre de branch → ubigeo de su distrito. Lo usa el
+  // filtro por Unidad Operativa para matchear por INTERSECCIÓN de ubigeos:
+  // una alerta puede afectar a varias UO y su label es compuesto
+  // ("X (y N más)"), que nunca coincidiría por igualdad exacta.
+  const branchUbigeoByName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of branches) {
+      if (b.status === false) continue;
+      const dist = typeof b.district === 'string' ? null : b.district;
+      if (dist?.ubigeo && b.name) m.set(b.name, dist.ubigeo);
+    }
+    return m;
+  }, [branches]);
+
+  // Filtro por Unidad Operativa aplicado EN LA FUENTE (rawItems): la
+  // alerta pasa si ALGUNO de sus `operational_ubigeos` corresponde al
+  // ubigeo de la branch seleccionada ("Todas" = sin filtro). Filtrar en
+  // la fuente (por ubigeos exactos) en vez de por label compuesto.
+  const rawFiltrados = useMemo(() => {
+    if (!selectedNombre || selectedNombre === UNIDAD_TODAS) return rawItems;
+    const ubigeo = branchUbigeoByName.get(selectedNombre);
+    if (!ubigeo) return rawItems; // nombre no resoluble: sin filtro
+    return rawItems.filter((it) =>
+      (it.operational_ubigeos ?? []).some((u) => u?.ubigeo === ubigeo),
+    );
+  }, [rawItems, selectedNombre, branchUbigeoByName]);
+
   const alertas = useMemo<AlertaHistorica[]>(
-    () => rawItems.map((it) => mapAlertListToFrontend(it, branchMap)),
-    [rawItems, branchMap],
+    () =>
+      rawFiltrados
+        .map((it) => mapAlertListToFrontend(it, branchMap))
+        // Más recientes primero (el backend entrega id ASC = más antiguas
+        // arriba). Ordena por fecha de predicción (la columna visible de
+        // la tabla) DESC; desempate por backendId DESC (alertas creadas
+        // más reciente). `.sort` es seguro: opera sobre el array nuevo
+        // que devuelve `.map`.
+        .sort((a, b) => {
+          const fa = new Date(a.fechaPrediccionInicio).getTime();
+          const fb = new Date(b.fechaPrediccionInicio).getTime();
+          if (fa !== fb) return fb - fa;
+          return (b.backendId ?? 0) - (a.backendId ?? 0);
+        }),
+    [rawFiltrados, branchMap],
   );
 
   // ── Opciones de filtros ───────────────────────────────────────────
@@ -131,13 +170,12 @@ export function HistoricoAlertasPage() {
     return out;
   }, [busqueda, alertas]);
 
-  // ── Alertas filtradas (in-memory contra todos los filtros) ─────────
+  // ── Alertas filtradas (estados, fechas y búsqueda en memoria; la UO ya
+  //     se filtró en la fuente por intersección de ubigeos) ────────────
   const alertasFiltradas = useMemo<AlertaHistorica[]>(() => {
     const q = busqueda.trim().toLowerCase();
     const estadosSet = new Set(estadosSeleccionados);
-    const unidad = selectedNombre === UNIDAD_TODAS ? '' : selectedNombre;
     return alertas.filter((a) => {
-      if (unidad && a.unidadOperativa !== unidad && a.distrito !== unidad) return false;
       if (!estadosSet.has(a.estado)) return false;
       const fechaCreacion = new Date(a.fechaCreacion).getTime();
       if (desde) {
@@ -154,7 +192,26 @@ export function HistoricoAlertasPage() {
       }
       return true;
     });
-  }, [alertas, selectedNombre, estadosSeleccionados, desde, hasta, busqueda]);
+  }, [alertas, estadosSeleccionados, desde, hasta, busqueda]);
+
+  // ── Render progresivo (infinite scroll): sólo se renderizan las
+  //     primeras 50 filas; al bajar cerca del final, 50 más. Con datasets
+  //     grandes la tabla abre instantánea.
+  //     `minCount`: si llega un preselect vía URL (?id=), garantiza que
+  //     esa fila quede dentro del lote visible aunque esté muy abajo.
+  const preselectIndex = preselectId
+    ? alertasFiltradas.findIndex((a) => a.id === preselectId)
+    : -1;
+  const {
+    visibleRows: alertasVisibles,
+    hasMore: hayMasAlertas,
+    sentinelRef: sentinelAlertas,
+    showing: mostrandoAlertas,
+  } = useInfiniteRows(
+    alertasFiltradas,
+    undefined,
+    preselectIndex >= 0 ? preselectIndex + 1 : undefined,
+  );
 
   // Toggle real: clic en fila seleccionada la deselecciona.
   function handleToggleSelect(id: string) {
@@ -351,21 +408,43 @@ export function HistoricoAlertasPage() {
 
       {/* ── Tabla + Sheet lateral ─────────────────────────────────── */}
       <div className="flex flex-1 gap-4 min-h-0">
-        <div className="flex-1 overflow-auto min-w-0 rounded-xl border border-input-stroke-main">
+        <div
+          className={cn(
+            'flex-1 overflow-auto min-w-0 rounded-xl border border-input-stroke-main',
+            // Scroll horizontal funcional pero SIN barra visible: el sheet
+            // lateral reduce el ancho y la tabla (min-w fijo) necesita
+            // scroll para ver todas las columnas, sin la "línea inferior".
+            '[scrollbar-width:none] [-ms-overflow-style:none]',
+            '[&::-webkit-scrollbar]:hidden',
+          )}
+        >
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-text-secondary text-sm font-sans">Cargando alertas...</p>
             </div>
-          ) : (
-            <AlertsTable
-              alertas={alertasFiltradas}
-              selectedId={selectedId}
-              onToggleSelect={handleToggleSelect}
-              onOpenDetail={handleOpenDetail}
-              sortSelectedFirst
-              fixedWidths
-              variant="gestion"
-            />
+           ) : (
+            <>
+              <AlertsTable
+                alertas={alertasVisibles}
+                selectedId={selectedId}
+                onToggleSelect={handleToggleSelect}
+                onOpenDetail={handleOpenDetail}
+                sortSelectedFirst
+                variant="gestion"
+              />
+
+              {/* Centinela del infinite scroll: al entrar en vista renderiza
+                  la siguiente tanda. Doble función de indicador "N de M". */}
+              {hayMasAlertas && (
+                <div
+                  ref={sentinelAlertas}
+                  className="py-3 text-center text-text-secondary text-xs font-sans select-none"
+                  aria-live="polite"
+                >
+                  Mostrando {mostrandoAlertas} de {alertasFiltradas.length} — baja para ver más
+                </div>
+              )}
+            </>
           )}
         </div>
 

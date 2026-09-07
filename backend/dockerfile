@@ -1,7 +1,7 @@
 # ==========================================
 # Base
 # ==========================================
-FROM python:3.13-slim as base
+FROM python:3.13-slim AS base
 
 # Evita que Python escriba archivos .pyc en el disco
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -27,7 +27,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 # ==========================================
 # Development
 # ==========================================
-FROM base as dev
+FROM base AS dev
 
 COPY . /app/
 
@@ -38,7 +38,7 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # ==========================================
 # Production
 # ==========================================
-FROM base as prod
+FROM base AS prod
 
 # Usuario no root (privilegios mínimos)
 RUN useradd \

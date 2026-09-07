@@ -59,7 +59,10 @@ export function useLatestGfsUpdate(
   // Forzar re-render inmediato al montar (caso: arrivea data fresca y el
   // componente se monta después del primer fetch del provider).
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- tick one-shot para
+       sincronizar con el timestamp del provider al cambiar (canónico). */
     setTick((t) => t + 1);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [timestampIso]);
 
   const { label, isEmpty, timestamp } = useMemo<LatestGfsUpdate>(() => {

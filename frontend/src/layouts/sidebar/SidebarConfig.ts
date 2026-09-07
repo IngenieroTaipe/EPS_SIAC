@@ -44,8 +44,8 @@ export interface NavGroup {
 import CerrarSesionIcon from '@/assets/icons/cerrar-sesion.svg?react';
 import FlechaLadoIcon from '@/assets/icons/flecha-lado.svg?react';
 import MapaIcon from '@/assets/icons/mapa.svg?react';
-// Iconos admin (lucide-react; cumplen el mismo IconComponent).
-import { Building2, Users } from 'lucide-react';
+// Iconos admin y umbrales (lucide-react; cumplen el mismo IconComponent).
+import { Building2, Users, Gauge } from 'lucide-react';
 
 /**
  * Configuración por defecto del sidebar.
@@ -53,8 +53,9 @@ import { Building2, Users } from 'lucide-react';
  * Rutas provisionales — se alinearán con `AppRouter` cuando se maquete.
  *
  * Mapeo icono → pantalla:
- *   - mapa.svg        → Mapa de Alertas Climáticas (vista general de alertas)
- *   - alert.svg       → Mapa de Alertas (detección/confirmación) [placeholder]
+ *   - mapa.svg        → Mapa de Alertas Climáticas / Mapa de Componentes
+ *   - Gauge (lucide)  → Gestión de Umbrales
+ *   - Building2/Users → admin (Unidades Operativas / Usuarios)
  *
  * Nota: si más adelante necesitas distinguir tipos de componente
  * (captación, reservorio, planta de tratamiento), los iconos ya están
@@ -88,13 +89,9 @@ export const navConfig: NavGroup[] = [
     label: 'Monitoreo',
     items: [
       {
-        to: '/climatico',
-        label: 'Mapa Climático',
-        icon: MapaIcon,
-        subitems: [
-          { to: '/climatico', label: 'Vista Geoespacial' },
-          { to: '/umbrales/gestion', label: 'Gestionar Umbrales' },
-        ],
+        to: '/umbrales/gestion',
+        label: 'Gestión de Umbrales',
+        icon: Gauge,
       },
     ],
   },

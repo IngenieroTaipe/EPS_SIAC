@@ -9,7 +9,11 @@ import {
 } from '@/features/mapa/types/componente';
 
 /**
- * ComponentRow — fila de la tabla de componentes (gestión).
+ * ComponentRow — fila (`<tr>`) de la tabla de componentes (gestión).
+ *
+ * Es una fila de tabla HTML real dentro del `<table>` de `ComponentsTable`:
+ * los anchos de columna NO se definen aquí (los define el `<colgroup>` de
+ * la tabla), por lo que el encabezado y todas las filas cuadran siempre.
  *
  * Diseño minimalista:
  *   - Filas en blanco con separadores hairline (`border-input-stroke-main`).
@@ -17,7 +21,7 @@ import {
  *   - Fila seleccionada: fondo `background-selected` (amarillo muy suave).
  *   - Clic en cualquier zona no-acción abre el sheet de detalle.
  *
- * Columnas (en este orden):
+ * Columnas (en este orden, alineadas con el colgroup de ComponentsTable):
  *   1) Código        — texto semibold navy (identidad del componente)
  *   2) Unidad Operativa
  *   3) Nombre
@@ -25,22 +29,14 @@ import {
  *   5) Especificación— texto secundario
  *   6) Este UTM      — tabular-nums (mono)
  *   7) Norte UTM     — tabular-nums (mono)
- *   8) Estado        — texto plano, sin badge de color
- *   9) Criticidad    — badge de color (alto/media/baja)
- *  10) Acciones      — botón "Editar" standalone
- *
- * La columna "Ver detalle" ya no existe como botón: el clic en la fila
- * COMPLETA abre el sheet (mismo comportamiento que el clic en el marcador
- * del mapa). El botón "Editar" Pestillo independiente sigue para no
- * obligar al usuario a pasar por el sheet.
+ *   8) Estado Op.    — texto plano, sin badge de color
+ *   9) Estado Fís.   — texto plano, sin badge de color
+ *  10) Criticidad    — badge de color (o '—' si el backend no la envía)
+ *  11) Acciones      — botón "Editar" standalone
  *
  * Variantes:
- *   - `gestion` → fila clickeable que abre el sheet (onOpenDetail
- *                 obligatorio) + solo botón Editar. Es la variante por
- *                 defecto y la única usada actualmente.
- *   - `mapa`    → variante legacy (mantenida por compat con `ComponentsTable`
- *                 del panel del mapa, ya retirado del flujo principal). Sin
- *                 acción de apertura de sheet; el toggle selecciona.
+ *   - `gestion` → fila clickeable que abre el sheet (onOpenDetail).
+ *   - `mapa`    → variante legacy (toggle selección).
  */
 
 const CRITICIDAD_BADGE: Record<CriticidadComponente, string> = {
@@ -59,8 +55,6 @@ interface ComponentRowProps {
   onToggleSelect?: (id: string) => void;
   /** Abrir el sheet de detalle al clic en la fila (variante `gestion`). */
   onOpenDetail?: (componente: Componente) => void;
-  /** Si true, fija el ancho de cada celda (gestión con scroll horizontal). */
-  fixedWidths?: boolean;
   /** Variante. Default `gestion`. */
   variant?: ComponentRowVariant;
 }
@@ -70,7 +64,6 @@ export function ComponentRow({
   selected,
   onToggleSelect,
   onOpenDetail,
-  fixedWidths = false,
   variant = 'gestion',
 }: ComponentRowProps) {
   const navigate = useNavigate();
@@ -91,9 +84,8 @@ export function ComponentRow({
   }
 
   return (
-    <div
+    <tr
       onClick={handleRowClick}
-      role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -102,7 +94,7 @@ export function ComponentRow({
         }
       }}
       className={cn(
-        'self-stretch inline-flex items-stretch overflow-hidden cursor-pointer transition-colors',
+        'cursor-pointer transition-colors',
         'border-b border-input-stroke-main',
         selected
           ? 'bg-background-selected'
@@ -110,65 +102,59 @@ export function ComponentRow({
       )}
     >
       {/* 1. Código */}
-      <Cell minWidth="min-w-24" width="w-28" bold>
-        {c.codigo}
-      </Cell>
+      <Td bold>{c.codigo}</Td>
       {/* 2. Unidad Operativa */}
-      <Cell minWidth="min-w-32" width="w-40">{c.unidadOperativa}</Cell>
+      <Td>
+        <span className="truncate" title={c.unidadOperativa}>{c.unidadOperativa || '—'}</span>
+      </Td>
       {/* 3. Nombre */}
-      <Cell minWidth="min-w-40" width="w-56">
+      <Td>
         <span className="truncate" title={c.nombre}>{c.nombre || '—'}</span>
-      </Cell>
+      </Td>
       {/* 4. Tipo */}
-      <Cell minWidth="min-w-36" width="w-48">
+      <Td>
         <span className="truncate" title={TIPO_LABEL[c.tipo]}>{TIPO_LABEL[c.tipo]}</span>
-      </Cell>
+      </Td>
       {/* 5. Especificación */}
-      <Cell minWidth="min-w-40" width="w-56">
-        <span className="truncate text-text-secondary" title={c.especificacion}>
+      <Td secondary>
+        <span className="truncate" title={c.especificacion}>
           {c.especificacion || '—'}
         </span>
-      </Cell>
+      </Td>
       {/* 6. Este UTM */}
-      <Cell minWidth="min-w-28" width="w-32" mono>
-        {c.utmEasting != null ? formatUtm(c.utmEasting) : '—'}
-      </Cell>
+      <Td mono>{c.utmEasting != null ? formatUtm(c.utmEasting) : '—'}</Td>
       {/* 7. Norte UTM */}
-      <Cell minWidth="min-w-28" width="w-32" mono>
-        {c.utmNorthing != null ? formatUtm(c.utmNorthing) : '—'}
-      </Cell>
+      <Td mono>{c.utmNorthing != null ? formatUtm(c.utmNorthing) : '—'}</Td>
       {/* 8. Estado Operacional (texto plano, sin badge) */}
-      <Cell minWidth="min-w-28" width="w-32">
+      <Td>
         <span className="truncate" title={c.estadoOperacional ?? ''}>
           {c.estadoOperacional ?? '—'}
         </span>
-      </Cell>
+      </Td>
       {/* 9. Estado Físico (texto plano, sin badge) */}
-      <Cell minWidth="min-w-28" width="w-32">
+      <Td>
         <span className="truncate" title={c.estadoFisico ?? ''}>
           {c.estadoFisico ?? '—'}
         </span>
-      </Cell>
-      {/* 10. Criticidad (badge de color) */}
-      <div className={cn(
-        'inline-flex justify-center items-center gap-2.5 px-3 py-2',
-        fixedWidths ? 'w-28' : 'flex-1 min-w-28',
-      )}>
-        <div
-          className={cn(
-            'px-2 py-0.5 rounded-md text-xs font-bold font-sans',
-            CRITICIDAD_BADGE[c.criticidad],
-          )}
-        >
-          {CRITICIDAD_LABEL[c.criticidad]}
-        </div>
-      </div>
+      </Td>
+      {/* 10. Criticidad (badge de color, o '—' si el backend no la envía) */}
+      <td className="h-11 px-3 py-2 text-center align-middle">
+        {c.criticidad ? (
+          <span
+            className={cn(
+              'inline-block px-2 py-0.5 rounded-md text-xs font-bold font-sans',
+              CRITICIDAD_BADGE[c.criticidad],
+            )}
+          >
+            {CRITICIDAD_LABEL[c.criticidad]}
+          </span>
+        ) : (
+          <span className="text-text-secondary text-xs font-sans">—</span>
+        )}
+      </td>
 
-      {/* 10. Acciones — botón Editar standalone */}
-      <div className={cn(
-        'inline-flex justify-center items-center px-3',
-        fixedWidths ? 'w-20' : 'flex-1 min-w-20',
-      )}>
+      {/* 11. Acciones — botón Editar standalone */}
+      <td className="h-11 px-3 py-2 text-center align-middle">
         <button
           type="button"
           aria-label="Editar componente"
@@ -181,45 +167,43 @@ export function ComponentRow({
         >
           <Pencil className="size-4" strokeWidth={2} aria-hidden="true" />
         </button>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
-/** Celda de texto. `bold` para identidad (código). `mono` para UTM. */
-function Cell({
+/**
+ * Celda de texto (`<td>`) — sin ancho propio (lo define el `<colgroup>` de
+ * la tabla). `bold` para identidad (código). `mono` para UTM. `secondary`
+ * para texto atenuado. El contenido trunca con title tooltip.
+ */
+function Td({
   children,
-  minWidth,
-  width,
   bold = false,
   mono = false,
+  secondary = false,
 }: {
   children: React.ReactNode;
-  minWidth: string;
-  width?: string;
   bold?: boolean;
   mono?: boolean;
+  secondary?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        'h-11 px-3 py-2 inline-flex items-center',
-        width ?? 'flex-1',
-        minWidth,
-      )}
-    >
+    <td className="h-11 px-3 py-2 align-middle">
       <span
         className={cn(
-          'text-sm font-sans truncate',
+          'block text-sm font-sans truncate',
           bold
             ? 'text-primary-main font-bold'
-            : 'text-text-primary font-normal',
+            : secondary
+              ? 'text-text-secondary font-normal'
+              : 'text-text-primary font-normal',
           mono && 'font-mono tabular-nums',
         )}
       >
         {children}
       </span>
-    </div>
+    </td>
   );
 }
 

@@ -1,16 +1,12 @@
 import { httpClient } from './httpClient';
 import { cachedGet } from './requestCache';
-import type {
-  GfsCellFeatureCollection,
-  GfsClusterFeatureCollection,
-} from '@/features/mapa/types/gfs';
+import type { GfsClusterFeatureCollection } from '@/features/mapa/types/gfs';
 
 /**
  * Cliente del endpoint de clústeres espacio-temporales GFS.
  *
- * Endpoints:
+ * Endpoint:
  *   - /gfs-clusters-snapshots/historic-window/  (~300 clústeres disueltos, 500 KB)
- *   - /gfs-active-cells/latest/             (~12 000 celdas, 7 MB)  [v2]
  */
 export const apiGFS = {
   /** Trae la ventana 18h (T-6h .. T+12h) de la última corrida GFS. */
@@ -29,32 +25,5 @@ export const apiGFS = {
       },
       10 * 60_000,
     );
-  },
-
-  /**
-   * Trae las celdas individuales de la última corrida GFS (~12 000).
-   * Endpoint pesado (~7 MB): usar sólo para comparación visual con clusters.
-   */
-  async getLatestCells(): Promise<GfsCellFeatureCollection> {
-    const res = await httpClient.get(
-      '/core_predictive/gfs-active-cells/latest/',
-    );
-    return res.data as GfsCellFeatureCollection;
-  },
-
-  /**
-   * Trae las celdas individuales de la ventana 18h (T-6h .. T+12h).
-   * Une la corrida previa (HISTORIC, ~12 000 celdas) + la corrida actual
-   * (FORECAST, ~12 000 celdas). Cada celda trae `temporal_status`,
-   * `threshold_names` y `district_ubigeos` para que el frontend clasifique
-   * con los umbrales del backend (no los hardcodeados de Pichanaqui).
-   *
-   * Sin caché localStorage (payload ~14 MB excede el límite de 5-10 MB).
-   */
-  async getHistoricWindowCells(): Promise<GfsCellFeatureCollection> {
-    const res = await httpClient.get(
-      '/core_predictive/gfs-active-cells/historic-window/',
-    );
-    return res.data as GfsCellFeatureCollection;
   },
 };

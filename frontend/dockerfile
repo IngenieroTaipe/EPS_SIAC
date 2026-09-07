@@ -1,7 +1,7 @@
 # ==========================================
 # Base
 # ==========================================
-FROM node:26-alpine as base
+FROM node:26-alpine AS base
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN npm ci
 # ==========================================
 # Development
 # ==========================================
-FROM base as dev
+FROM base AS dev
 
 COPY . .
 
@@ -26,7 +26,7 @@ CMD ["npm", "run", "dev", "--host"]
 # ==========================================
 # Pre-Production (Build)
 # ==========================================
-FROM base as build-stage
+FROM base AS build-stage
 
 COPY . .
 
@@ -45,7 +45,7 @@ RUN npm run build
 # ==========================================
 # Production
 # ==========================================
-FROM caddy:2.11.4-alpine as prod
+FROM caddy:2.11.4-alpine AS prod
 
 # Copiamos los archivos estáticos al directorio de Caddy
 COPY --from=build-stage /app/dist /srv

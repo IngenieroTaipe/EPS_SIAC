@@ -1,4 +1,5 @@
 import { httpClient } from './httpClient';
+import { cachedGet, invalidateCachePrefix } from './requestCache';
 
 // ============================================================================
 // Helpers de paginación (consistentes con apiComponentes.ts)
@@ -22,6 +23,16 @@ export interface BackendAlertHistoryEntry {
   created_at: string;
 }
 
+/**
+ * Ubigeo + nombre legible de una unidad operativa afectada por una alerta.
+ * Viene DIRECTO en el listado y detalle (contrato post-cambios: antes vivía
+ * anidado en `alert_clusters[].affected_ubigeos`, que ya no se expone).
+ */
+export interface BackendOperationalUbigeo {
+  ubigeo: string;
+  name: string | null;
+}
+
 export interface BackendAlertListItem {
   id: number;
   code: string;
@@ -29,50 +40,19 @@ export interface BackendAlertListItem {
   natural_phenomena_name: string | null;
   max_intensity_mm_h: number;
   max_threshold: string;
-  /**
-   * Historial de transiciones de estado/fase de la alerta (ordenado desc
-   * por `created_at` desde el backend). El primer elemento representa el
-   * estado actual. Se usa para derivar `Alerta.estado` en el mapa y para
-   * pintar el histórico en el `AlertaDetailSheet`.
-   */
-  historic_alert: BackendAlertHistoryEntry[];
+  /** Estado actual de la alerta (top-level; ya NO viene en historic_alert). */
+  status_name: string | null;
+  /** Fase actual de la alerta (top-level). */
+  phase_name: string | null;
   start_time_local: string | null;
   end_time_local: string | null;
-  alert_clusters: {
-    representative_point: {
-      type: 'Point';
-      coordinates: [number, number];
-    } | null;
-    /**
-     * UBIGEOs de los distritos afectados por este cluster, con su nombre
-     * legible. El backend los entrega como `[{ ubigeo, name }]`; se usan
-     * para resolver la Unidad Operativa (Branch) asociada a cada distrito.
-     */
-    affected_ubigeos: { ubigeo: string; name: string | null }[];
-  }[];
+  /** Unidades operativas afectadas (ubigeo + nombre), directo. */
+  operational_ubigeos: BackendOperationalUbigeo[];
 }
 
 // ============================================================================
 // INTERFACES — Respuesta del detalle (AlertDetailSerializer)
 // ============================================================================
-
-export interface BackendAlertClusterComponent {
-  component: string;
-}
-
-export interface BackendAlertCluster {
-  max_intensity_mm_h: number;
-  timestamp_str: string;
-  threshold: string | null;
-  /**
-   * UBIGEOs de los distritos afectados por este cluster, en formato
-   * `{ ubigeo, name }` (ver `AlertDetailSerializer.get_reached_ubigeos`
-   * del backend). Se usan para resolver la Unidad Operativa (Branch).
-   */
-  affected_districts: { ubigeo: string; name: string | null }[];
-}
-
-/** `BackendAlertHistoryEntry` ya definido más arriba para el listado. */
 
 export interface BackendAlertResult {
   has_damage: boolean;
@@ -80,28 +60,80 @@ export interface BackendAlertResult {
   taken_actions: string | null;
 }
 
+/** Notificación enviada por el historial de una alerta (telegram, etc.).
+ *  `sent_at` puede ser null (notificación pendiente de envío). */
+export interface BackendAlertNotification {
+  channel: string;
+  notification_type: string;
+  sent_at: string | null;
+}
+
 export interface BackendAlertDetail {
   id: number;
   code: string;
   /**
    * El `AlertDetailSerializer` actual NO expone `status`/`phase` a nivel
-   * top-level (solo dentro de `historic_alert[]`). Estos campos se
+   * top-level (solo dentro de `alert_history[]`). Estos campos se
    * declaran como opcionales para no romper el tipo si el backend los
    * reincorpora en el futuro; el adapter deriva el estado actual
-   * directamente desde `historic_alert[0]`.
+   * directamente desde `alert_history[0]`.
    */
   status?: string;
   phase?: string;
   max_intensity_mm_h: number;
   max_threshold: string;
+  /** Hora PREDICHA de inicio de la lluvia (hora del fenómeno, GFS). */
   start_time_local: string | null;
   end_time_local: string | null;
-  alert_cluster_components: BackendAlertClusterComponent[];
-  clusters: BackendAlertCluster[];
-  historic_alert: BackendAlertHistoryEntry[];
+  /**
+   * Hora REAL de inicio del fenómeno (reportada al CONFIRMAR la alerta).
+   * Null si aún no fue confirmada — el sheet sólo muestra "Inicio real
+   * del fenómeno" cuando existe.
+   */
+  real_start_time_local?: string | null;
+  /** Unidades operativas afectadas (ubigeo + nombre), directo. */
+  operational_ubigeos: BackendOperationalUbigeo[];
+  /**
+   * Historial de transiciones (ordenado desc por `created_at`). Antes se
+   * llamaba `historic_alert`; renombrado por el backend.
+   */
+  alert_history: BackendAlertHistoryEntry[];
+  /** Historial de notificaciones enviadas (nuevo, post-cambios). */
+  alert_notification: BackendAlertNotification[];
   result: BackendAlertResult | null;
   /** El backend expone el nombre del fenómeno como texto (SlugRelatedField). */
   natural_phenomena_name: string | null;
+}
+
+// ============================================================================
+// Endpoint `/alerts/alerts/map` — capa ligera para el visor cartográfico
+// ============================================================================
+
+/**
+ * Item del endpoint `GET /alerts/alerts/map/` (array plano, sin paginación,
+ * compilado en PostgreSQL). Pensado para el mapa: trae el
+ * `representative_point` del clúster más severo de cada alerta.
+ *
+ * `representative_point` es un GeoJSON **Point directo** con
+ * `coordinates: [lng, lat]` top-level (lo que emite `ST_AsGeoJSON` del SQL
+ * del builder — ver `cambios.md`). OJO: el docstring del builder muestra
+ * un Feature con `geometry` adentro, pero NO coincide con el SQL real.
+ */
+export interface BackendAlertMapItem {
+  id: number;
+  code: string;
+  natural_phenomena_name: string | null;
+  /** TO_CHAR de Postgres → string con 2 decimales (ej. "8.00"). */
+  max_intensity_mm_h: string;
+  max_threshold: string | null;
+  status_name: string | null;
+  phase_name: string | null;
+  start_time_local: string | null;
+  end_time_local: string | null;
+  representative_point: {
+    type: 'Point';
+    coordinates: [number, number]; // [lng, lat] top-level
+  } | null;
 }
 
 // ============================================================================
@@ -161,15 +193,38 @@ export const apiAlerts = {
   },
 
   /**
+   * Capa ligera para el visor cartográfico: `GET /alerts/alerts/map/`.
+   * Array plano (sin paginación) compilado en PostgreSQL con el
+   * `representative_point` del clúster más severo de cada alerta activa.
+   * El backend ya excluye 'NO CONFIRMADO' y las ATENDIDO con más de
+   * MAXIMUM_DAYS_TO_SHOW_ATTENDED_ALERTS días.
+   */
+  async listAlertsForMap(): Promise<BackendAlertMapItem[]> {
+    const res = await httpClient.get<BackendAlertMapItem[]>('/alerts/alerts/map/');
+    return Array.isArray(res.data) ? res.data : [];
+  },
+
+  /**
    * Obtener detalle de una alerta por `id` (PK numérica del backend).
    * El backend cambió `lookup_field` de `code` a `id`; el parámetro puede
    * venir como number o string-castable (route param). Los callers que
    * todavía no migren a backendId pueden pasar el code string mientras
    * coincida con el PK; preferido: pasar el `id` real.
+   *
+   * Cacheado (memoria + localStorage, TTL 2 min): el sheet de detalle lo
+   * pide al abrir — así abrir/cerrar repetidamente no re-fetchea. Se
+   * invalida tras `transitionState` / `updateDamageReport`.
    */
   async getAlertDetail(id: number | string): Promise<BackendAlertDetail> {
-    const res = await httpClient.get<BackendAlertDetail>(`/alerts/alerts/${id}/`);
-    return res.data;
+    const key = `alerts:detail:${id}`;
+    return cachedGet<BackendAlertDetail>(
+      key,
+      async () => {
+        const res = await httpClient.get<BackendAlertDetail>(`/alerts/alerts/${id}/`);
+        return res.data;
+      },
+      2 * 60_000,
+    );
   },
 
   /**
@@ -182,6 +237,9 @@ export const apiAlerts = {
    */
   async transitionState(id: number | string, payload: AlertTransitionPayload): Promise<void> {
     await httpClient.patch(`/alerts/transitions/${id}/`, payload);
+    // El detalle cambió (estado/fase/historial): invalida su caché para que
+    // el sheet muestre las transiciones frescas al reabrir.
+    invalidateCachePrefix('alerts:detail:');
   },
 
   /**
@@ -190,5 +248,7 @@ export const apiAlerts = {
    */
   async updateDamageReport(alertId: number | string, payload: AlertUpdateResultPayload): Promise<void> {
     await httpClient.patch(`/alerts/update-results/${alertId}/`, payload);
+    // El detalle cambió (reportes): invalida su caché.
+    invalidateCachePrefix('alerts:detail:');
   },
 };

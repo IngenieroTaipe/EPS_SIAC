@@ -14,28 +14,33 @@ import { EditorUmbral } from './EditorUmbral';
 /**
  * GestionUmbrales — página de gestión de Umbrales de Fenómenos Naturales.
  *
- * Lógica (consolidada con el backend `core_predictive`):
+ * Lógica (lazy loading, consolidada con el backend `core_predictive`):
  *
- *   1. Al montar se cargan TODOS los umbrales una sola vez; de ahí se derivan
- *      los distritos que tienen al menos un umbral registrado.
- *   2. El selector local "Unidad Operativa" lista SOLO esos distritos (sin
- *      opción "Todas"); se pre-selecciona el que tenga el máximo umbral
- *      registrado en GFS Clusters (ventana 18h).
- *   3. Para el distrito seleccionado se muestran en gris sus umbrales
- *      (filtrados en memoria) ordenados de menor a mayor rango.
+ *   1. El selector de distritos se puebla desde los branches del contexto
+ *      `useUnidadOperativa` (cargados al arrancar la app); NO se cargan
+ *      umbrales al montar. Se pre-selecciona el distrito de la Unidad
+ *      Operativa activa (persistida en localStorage); fallback al primer
+ *      distrito operativo alfabético.
+ *   2. Al seleccionar un distrito se cargan SOLO sus umbrales vía
+ *      `apiUmbrales.listUmbrales({ district__ubigeo })` (caché 1h). Si el
+ *      distrito no tiene umbrales, el panel derecho lo indica.
+ *   3. Para el distrito seleccionado se muestran sus umbrales ordenados de
+ *      menor a mayor rango.
  *   4. El máximo umbral registrado (max_intensity_mm_h de los clústeres cuyo
  *      `affected_ubigeos` incluye el distrito) se muestra en el panel;
  *      la fila del umbral cuyo rango [min,max) contiene ese valor se
  *      resalta en negrita / color de marca.
  *   5. Botón "Agregar umbral" abre el modal que hace POST al endpoint
  *      `/core_predictive/thresholds-natural-phenomenas/` (admite editar /
- *      eliminar un registro existente).
+ *      eliminar un registro existente). El modal carga sus propios
+ *      hermanos del combo al abrir (no recibe pool global).
  */
 export function GestionUmbrales() {
-  const { branches } = useUnidadOperativa();
-  const [todosUmbrales, setTodosUmbrales] = useState<UmbralFenomeno[]>([]);
+  const { branches, ubigeo: unidadUbigeo } = useUnidadOperativa();
+  // Umbrales del distrito seleccionado (carga lazy, no global).
+  const [umbrales, setUmbrales] = useState<UmbralFenomeno[]>([]);
   const [clusters, setClusters] = useState<GfsClusterFeatureCollection | null>(null);
-  const [loadingUmbrales, setLoadingUmbrales] = useState(true);
+  const [loadingUmbrales, setLoadingUmbrales] = useState(false);
   const [loadingClusters, setLoadingClusters] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,19 +53,25 @@ export function GestionUmbrales() {
     districtUbigeo: string;
   } | null>(null);
 
-  // 1. Cargar todos los umbrales una sola vez (para saber qué distritos
-  //    tienen umbrales y operar el resto por filtro en memoria).
+  // 1. Cargar los umbrales SOLO del distrito seleccionado (lazy loading).
+  //    El selector de distritos proviene de los branches del contexto
+  //    (Unidad Operativa), así que no hace falta cargar todos los umbrales
+  //    para saber qué distritos existen. Caché de 1h en apiUmbrales.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- secuencia de carga
-       (loading true → fetch → loading false), patrón React canónico. */
+       (reset/load true → fetch → loading false), patrón React canónico. */
+    if (!selectedUbigeo) {
+      setUmbrales([]);
+      return;
+    }
     setLoadingUmbrales(true);
     apiUmbrales
-      .listUmbrales()
-      .then((all) => setTodosUmbrales(all))
-      .catch(() => setError('No se pudieron cargar los umbrales.'))
+      .listUmbrales({ 'district__ubigeo': selectedUbigeo })
+      .then((rows) => setUmbrales(rows))
+      .catch(() => setError('No se pudieron cargar los umbrales del distrito.'))
       .finally(() => setLoadingUmbrales(false));
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+  }, [selectedUbigeo]);
 
   // 2. Cargar clústeres GFS (ventana 18h) una sola vez al montar.
   useEffect(() => {
@@ -68,80 +79,46 @@ export function GestionUmbrales() {
        (loading true → fetch → loading false), patrón React canónico. */
     setLoadingClusters(true);
     apiGFS
-      .getWindow18h()
+      .getHistoricWindowClusters()
       .then((fc) => setClusters(fc))
       .catch(() => setClusters(null))
       .finally(() => setLoadingClusters(false));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  // 3. Distritos con umbrales registrados (lista única ordenada) + nombre
-  //    legible (mapeando ubigeo → nombre del branch asociado).
-  const distritosConUmbrales = useMemo(() => {
+  // 3. Distritos operativos (vía branches del contexto) — lista única
+  //    ordenada. Mapea ubigeo → nombre legible del branch. No requiere
+  //    fetch porque el contexto ya cargó los branches al arrancar la app.
+  const distritos = useMemo(() => {
     const map = new Map<string, string>(); // ubigeo → nombre legible
-    for (const u of todosUmbrales) {
-      const ub = u.district.ubigeo;
-      if (!map.has(ub)) {
-        const branch = branches.find((b) => {
-          const bUb = typeof b.district === 'string' ? b.district : b.district?.ubigeo;
-          return bUb === ub;
-        });
-        const nombreAmigable = branch?.name ?? u.district.name;
-        map.set(ub, nombreAmigable);
-      }
+    for (const b of branches) {
+      const ub = typeof b.district === 'string' ? b.district : b.district?.ubigeo;
+      if (typeof ub !== 'string' || !ub) continue;
+      if (!map.has(ub)) map.set(ub, b.name);
     }
     return Array.from(map.entries())
       .map(([ubigeo, nombre]) => ({ ubigeo, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [todosUmbrales, branches]);
+  }, [branches]);
 
-  // 4. Máximo umbral registrado por distrito (GFS Clusters) — para
-  //    pre-seleccionar el distrito con el mayor valor pico al cargar.
-  const maxPorDistrito = useMemo<Record<string, number>>(() => {
-    const out: Record<string, number> = {};
-    if (!clusters) return out;
-    const feats = clusters.features ?? [];
-    for (const f of feats) {
-      const v = f.properties.max_intensity_mm_h;
-      if (typeof v !== 'number' || !Number.isFinite(v)) continue;
-      const ubgs = (f.properties.affected_ubigeos ?? []) as Array<string | null>;
-      for (const ub of ubgs) {
-        if (typeof ub !== 'string') continue;
-        if (out[ub] === undefined || v > out[ub]) out[ub] = v;
-      }
-    }
-    return out;
-  }, [clusters]);
-
-  // Pre-selección automática:
-  //   - Prioriza el distrito con umbrales y mayor valor pico registrado.
-  //   - Si ningún distrito con umbrales tiene clúster, toma el primer distrito
-  //     con umbrales (orden alfabético).
+  // 4. Pre-selección automática: el distrito de la Unidad Operativa activa
+  //    (vía contexto, persistido en localStorage). Fallback al primer
+  //    distrito operativo alfabético. One-shot: si el usuario ya eligió
+  //    manualmente, no se sobreescribe.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- auto-selección del
-       distrito con mayor valor pico al cargar la página (one-shot). */
+       distrito de la Unidad Operativa activa al cargar (one-shot). */
     if (selectedUbigeo !== null) return; // ya elegido manualmente
-    if (distritosConUmbrales.length === 0) return;
-    let candidato = distritosConUmbrales[0].ubigeo;
-    let mejor = -Infinity;
-    for (const d of distritosConUmbrales) {
-      const v = maxPorDistrito[d.ubigeo];
-      if (v !== undefined && v > mejor) {
-        mejor = v;
-        candidato = d.ubigeo;
-      }
+    if (distritos.length === 0) return;
+    if (unidadUbigeo && distritos.some((d) => d.ubigeo === unidadUbigeo)) {
+      setSelectedUbigeo(unidadUbigeo);
+    } else {
+      setSelectedUbigeo(distritos[0].ubigeo);
     }
-    setSelectedUbigeo(candidato);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [distritosConUmbrales, maxPorDistrito, selectedUbigeo]);
+  }, [distritos, unidadUbigeo, selectedUbigeo]);
 
-  // 5. Umbrales del distrito seleccionado (filtro en memoria, sin fetch).
-  const umbrales = useMemo<UmbralFenomeno[]>(() => {
-    if (selectedUbigeo === null) return [];
-    return todosUmbrales.filter((u) => u.district.ubigeo === selectedUbigeo);
-  }, [todosUmbrales, selectedUbigeo]);
-
-  // 6. Máximo umbral registrado GFS para el distrito seleccionado.
+  // 5. Máximo umbral registrado GFS para el distrito seleccionado.
   //    Sólo considera los clústeres cuyo `affected_ubigeos` incluye al
   //    distrito. Si la corrida GFS actual no genera lluvia sobre la zona,
   //    no hay nada que mostrar (comportamiento original).
@@ -183,15 +160,15 @@ export function GestionUmbrales() {
   /**
    * Recibe la lista COMPLETA de filas resultantes del bulk (escalera nueva
    * del distrito + fenómeno + variable editado). Sustituye todas las filas
-   * previas del mismo combo en `todosUmbrales`, dejando el resto del estado
-   * intacto (otros distritos / fenómenos / variables).
+   * previas del mismo combo en `umbrales` (sólo del distrito seleccionado),
+   * dejando el resto intacto.
    */
   function handleSaved(rows: UmbralFenomeno[]) {
     if (rows.length === 0) return;
     const npId = rows[0].natural_phenomena.id;
     const varId = rows[0].variable.id;
     const ubigeo = rows[0].district.ubigeo;
-    setTodosUmbrales((prev) => {
+    setUmbrales((prev) => {
       const restantes = prev.filter(
         (u) =>
           !(
@@ -221,13 +198,13 @@ export function GestionUmbrales() {
           <FilterableSelect
             value={selectedUbigeo ?? ''}
             onChange={(v) => setSelectedUbigeo(v || null)}
-            options={distritosConUmbrales.map((d) => ({
+            options={distritos.map((d) => ({
               value: d.ubigeo,
               label: d.nombre,
             }))}
             placeholder="Buscar distrito…"
-            emptyLabel="— Sin umbrales registrados —"
-            disabled={distritosConUmbrales.length === 0}
+            emptyLabel="— Sin distritos operativos —"
+            disabled={distritos.length === 0}
           />
         </div>
 
@@ -279,7 +256,7 @@ export function GestionUmbrales() {
             <p className="text-text-secondary text-sm font-sans">
               {selectedUbigeo
                 ? 'No hay clústeres activos que afecten este distrito.'
-                : 'Seleccione un distrito con umbrales para ver su máximo registrado.'}
+                : 'Seleccione un distrito para ver su máximo registrado.'}
             </p>
           ) : (
             <>
@@ -331,7 +308,7 @@ export function GestionUmbrales() {
 
           {selectedUbigeo === null ? (
             <p className="text-text-secondary text-sm font-sans">
-              Seleccione un distrito con umbrales para ver su detalle.
+              Seleccione un distrito para ver su detalle.
             </p>
           ) : (
             <UmbralesTable
@@ -349,7 +326,6 @@ export function GestionUmbrales() {
         defaultDistrictUbigeo={editingCombo?.districtUbigeo ?? selectedUbigeo ?? undefined}
         defaultNaturalPhenomenaId={editingCombo?.naturalPhenomenaId}
         defaultVariableId={editingCombo?.variableId}
-        siblingsPool={todosUmbrales}
         onClose={() => setModalOpen(false)}
         onSaved={handleSaved}
       />
