@@ -1,7 +1,7 @@
 services:
   # =========== DATABASE =========== 
   db_postgis:
-    image: postgis/postgis:18-3.6
+    image: imresamu/postgis:18-3.6-alpine
     container_name: eps_siac_db_postgis
     volumes:
       - eps_siac_data_db:/var/lib/postgresql
