@@ -105,10 +105,30 @@ export function cachedGet<T>(
   return promise;
 }
 
+/**
+ * Notifica a los consumidores de la MISMA pestaña que una clave/prefijo de
+ * caché cambió (los providers pueden re-fetchear al escuchar este evento).
+ * Para OTRAS pestañas del mismo navegador, el propio `removeItem` de
+ * localStorage dispara el evento nativo `storage` (los listeners miran
+ * ambas señales; ver `UnidadOperativaContextProvider`).
+ */
+const CACHE_INVALIDATED_EVENT = 'eps:cache-invalidated';
+
+function emitCacheInvalidated(keyOrPrefix: string): void {
+  try {
+    window.dispatchEvent(
+      new CustomEvent<string>(CACHE_INVALIDATED_EVENT, { detail: keyOrPrefix }),
+    );
+  } catch {
+    /* noop: entorno sin window (SSR/tests). */
+  }
+}
+
 /** Invalida una clave en memoria y localStorage (p. ej. tras un POST/DELETE). */
 export function invalidateCache(key: string): void {
   memStore.delete(key);
   removePersisted(key);
+  emitCacheInvalidated(key);
 }
 
 /** Invalida todas las claves que empiezan por el prefijo (mem + localStorage). */
@@ -126,4 +146,5 @@ export function invalidateCachePrefix(prefix: string): void {
   } catch {
     /* noop */
   }
+  emitCacheInvalidated(prefix);
 }

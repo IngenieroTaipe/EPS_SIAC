@@ -21,6 +21,7 @@ import { apiComponentes } from '@/services/apiComponentes';
 import { apiOrganization } from '@/services/apiOrganization';
 import { mapTipo } from '@/services/adaptadores';
 import { FilterableSelect } from '@/shared/components/FilterableSelect';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import type { BackendComponentListCoord } from '@/services/apiComponentes';
 
 // Iconos del componente (SVG importados como URL para el icono delSidebar).
@@ -28,6 +29,8 @@ import CaptacionIconUrl from '@/assets/icons/captacion.svg?url';
 import ReservorioIconUrl from '@/assets/icons/reservorio.svg?url';
 import PlantaTratamientoIconUrl from '@/assets/icons/planta-tratamiento.svg?url';
 import LineaConduccionIconUrl from '@/assets/icons/linea-conduccion.svg?url';
+import DesinfeccionIconUrl from '@/assets/icons/desinfeccion.svg?url';
+import EstacionIconUrl from '@/assets/icons/estacion.svg?url';
 import CircleIconUrl from '@/assets/icons/circle.svg?url';
 
 /**
@@ -72,9 +75,9 @@ const ICON_URL_BY_TIPO: Record<TipoComponente, string> = {
   'reservorio': ReservorioIconUrl,
   'linea-conduccion': LineaConduccionIconUrl,
   'linea-aduccion': LineaConduccionIconUrl,
-  'estacion-bombeo': CircleIconUrl,
-  'desinfeccion': CircleIconUrl,
-  'purgado-redes': CircleIconUrl,
+  'estacion-bombeo': EstacionIconUrl,
+  'desinfeccion': DesinfeccionIconUrl,
+  'purgado-redes': DesinfeccionIconUrl,
   'otro': CircleIconUrl,
 };
 
@@ -380,16 +383,29 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
     }
   }
 
-  async function handleEliminar() {
+  // ── Eliminación con ConfirmDialog (mismo estilo que la gestión) ─────
+  const [confirmEliminar, setConfirmEliminar] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+
+  /** Clic en "Eliminar" del footer → abre el flotante de confirmación. */
+  function handleEliminarClick() {
     if (!initial?.id) return;
-    if (!confirm('¿Está seguro de eliminar este componente? Esta acción no se puede deshacer.')) return;
+    setErrorEliminar(null);
+    setConfirmEliminar(true);
+  }
+
+  /** Confirmó el flotante → DELETE al backend y vuelve al histórico. */
+  async function handleConfirmEliminar() {
+    if (!initial?.id || guardando) return;
     setGuardando(true);
-    setErrorGuardar(null);
+    setErrorEliminar(null);
     try {
       await apiComponentes.deleteComponente(Number(initial.id));
       navigate('/componentes/gestion');
     } catch (err: unknown) {
-      setErrorGuardar(extraerErrorGuardar(err, 'Error al eliminar el componente.'));
+      // El backend bloquea la eliminación si tiene registros relacionados
+      // (alertas/clústers): se muestra dentro del mismo flotante.
+      setErrorEliminar(extraerErrorGuardar(err, 'Error al eliminar el componente.'));
     } finally {
       setGuardando(false);
     }
@@ -620,14 +636,23 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
               {esLinea ? (
               /* Tabla de vértices (LÍNEA) — scroll horizontal compartido
                  (header + filas) via `overflow-x-auto` en el wrapper.
-                 Header sticky vertical (se mantiene al scrollear y).
-                 Columnas con width MINIMO via `min-w-*` para que cuando
-                 haya menos ancho aparezca scroll horizontal en lugar de
-                 comprimirse. */
+                 Scroll VERTICAL también compartido: el header navy vive
+                 DENTRO del contenedor `overflow-y-auto` (sticky top-0) para
+                 que header y filas compartan el MISMO gutter del scrollbar
+                 — antes el header estaba fuera y, al aparecer el scrollbar,
+                 las columnas se desalineaban (el azul "se cortaba" respecto
+                 al Lon). Columnas Lat/Lon de 8rem: el lon (-75.123456) es
+                 más largo y con 7rem quedaba justo/truncado. */
               <div className="rounded-lg border border-input-stroke-main overflow-x-auto">
-                <div className="min-w-[44rem]">
-                  {/* Header navy — sticky top */}
-                  <div className="grid grid-cols-[2.5rem_8rem_8rem_9rem_7rem_7rem_2.5rem]
+                <div
+                  className={cn(
+                    'min-w-[46rem] bg-background-main overflow-y-auto',
+                    '[scrollbar-gutter:stable]',
+                    puntos.length > 6 ? 'max-h-72' : '',
+                  )}
+                >
+                  {/* Header navy — sticky al scroll vertical compartido */}
+                  <div className="grid grid-cols-[2.5rem_8rem_8rem_9rem_8rem_8rem_2.5rem]
                                   bg-primary-main sticky top-0 z-10">
                     <HeaderCell>#</HeaderCell>
                     <HeaderCell>Este</HeaderCell>
@@ -637,20 +662,13 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
                     <HeaderCell>Lon</HeaderCell>
                     <div className="h-8" />
                   </div>
-                  <div
-                    className={cn(
-                      'bg-background-main overflow-y-auto',
-                      puntos.length > 6 ? 'max-h-72' : '',
-                      '[scrollbar-gutter:stable]',
-                    )}
-                  >
-                    {puntos.map((p, idx) => {
+                  {puntos.map((p, idx) => {
                       const geo = puntosGeo[idx];
                       const puedeQuitar = puntos.length > minPuntos;
                       return (
                         <div
                           key={p.id ?? `new-${idx}`}
-                          className="grid grid-cols-[2.5rem_8rem_8rem_9rem_7rem_7rem_2.5rem]
+                          className="grid grid-cols-[2.5rem_8rem_8rem_9rem_8rem_8rem_2.5rem]
                                      items-center border-b border-input-stroke-main last:border-b-0
                                      hover:bg-primary-states-hover-main/10 transition-colors"
                         >
@@ -695,14 +713,15 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
                         </div>
                       );
                     })}
-                  </div>
                 </div>
               </div>
             ) : (
-              /* Modo PUNTO: misma estructura con scroll horizontal compartido. */
+              /* Modo PUNTO: misma estructura con scroll horizontal compartido.
+                 Lat/Lon de 8rem (el lon es más largo) y min-w acorde a la
+                 suma real de columnas (41rem). */
               <div className="rounded-lg border border-input-stroke-main overflow-x-auto">
-                <div className="min-w-[36rem]">
-                  <div className="grid grid-cols-[8rem_8rem_9rem_7rem_7rem]
+                <div className="min-w-[41rem]">
+                  <div className="grid grid-cols-[8rem_8rem_9rem_8rem_8rem]
                                   bg-primary-main sticky top-0 z-10">
                     <HeaderCell>Este</HeaderCell>
                     <HeaderCell>Norte</HeaderCell>
@@ -716,7 +735,7 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
                       return (
                         <div
                           key={p.id ?? `new-${idx}`}
-                          className="grid grid-cols-[8rem_8rem_9rem_7rem_7rem] items-center
+                          className="grid grid-cols-[8rem_8rem_9rem_8rem_8rem] items-center
                                      border-b border-input-stroke-main last:border-b-0"
                         >
                           <CoordCellInput
@@ -761,15 +780,15 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
           {initial?.id && (
             <button
               type="button"
-              onClick={handleEliminar}
+              onClick={handleEliminarClick}
               disabled={guardando}
               className="px-6 py-2.5 rounded-xl bg-secondary-main text-white text-sm font-medium font-sans
                          hover:bg-secondary-hover transition-colors
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-main focus-visible:ring-offset-2
                          disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
 >
-               {guardando ? 'Eliminando…' : 'Eliminar'}
-             </button>
+              {guardando && confirmEliminar ? 'Eliminando…' : 'Eliminar'}
+            </button>
           )}
           <button
             type="button"
@@ -805,7 +824,33 @@ export function EditorComponente({ initial, initialBackend }: EditorComponentePr
           </button>
         </div>
       </div>
-    
+
+      {/* Confirmación de eliminación (mismo flotante que la gestión:
+          overlay + botón rojo "Eliminar" + "Cancelar", Escape/clic fuera). */}
+      <ConfirmDialog
+        open={confirmEliminar}
+        title="Eliminar componente"
+        message={
+          <>
+            ¿Está seguro de eliminar el componente{' '}
+            <strong className="text-primary-main">{initial?.id ? codigo : ''}</strong>? Esta
+            acción no se puede deshacer.
+            {errorEliminar && (
+              <span className="block mt-2 text-danger-main font-bold" role="alert">
+                {errorEliminar}
+              </span>
+            )}
+          </>
+        }
+        confirmText={guardando ? 'Eliminando…' : 'Eliminar'}
+        cancelText="Cancelar"
+        onConfirm={handleConfirmEliminar}
+        onClose={() => {
+          if (guardando) return; // no cerrar mientras viaja el DELETE.
+          setConfirmEliminar(false);
+          setErrorEliminar(null);
+        }}
+      />
     </div>
   );
 }

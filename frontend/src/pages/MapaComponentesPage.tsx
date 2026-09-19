@@ -12,20 +12,23 @@ import { useMapLayers } from '@/features/mapa/context/useMapLayers';
 /**
  * MapaComponentesPage — vista "Mapa de Componentes".
  *
- * El `<BaseMap>` y `PrecipitationLayer` (capa pesada) viven en `MapLayout`
- * y NO se re-montan al navegar entre rutas de mapa. Esta página sólo
- * inyecta su capa específica (`ComponentLayer`) y el sheet de detalle
- * vía el `<Outlet />` del layout.
+ * El mapa vive en `MapLayout` (keep-alive: SIEMPRE montado en el AppLayout,
+ * oculto fuera de las rutas de mapa) y NO se re-monta nunca. Esta página
+ * REGISTRA sus overlays (capa de componentes, capa cruzada de alertas y
+ * el sheet de detalle) en el `MapLayersContext`. No renderiza contenido
+ * propio (el mapa ES la vista).
  *
- * Al montar, configura el `MapLayersContext` con sus capas por defecto
- * (distritos + precipitaciones + componentes) y la variante de leyenda.
- *
- * Capa cruzada: el LayerControl permite activar "Mapa de Alertas" también
- * en esta ruta. Se renderiza con la capa ligera `/alerts/alerts/map`
- * (representative_point por alerta) y clic = resaltar marcador (toggle).
+ * Al montar, configura el contexto con sus capas por defecto (distritos +
+ * precipitaciones + componentes) y la variante de leyenda.
  */
 export function MapaComponentesPage() {
-  const { activeLayers, setActiveLayers, setLegendVariant } = useMapLayers();
+  const {
+    activeLayers,
+    setActiveLayers,
+    setLegendVariant,
+    registerOverlay,
+    unregisterOverlay,
+  } = useMapLayers();
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(
     null,
   );
@@ -85,32 +88,50 @@ export function MapaComponentesPage() {
     setSelectedAlertId((prev) => (prev === id ? null : id));
   }
 
-  return (
-    <>
-      {activeLayers.has('componentes') && (
-        <ComponentLayer
-          data={data}
-          selectedComponentId={selectedComponentId}
-          onComponenteClick={handleComponenteClick}
-        />
-      )}
+  // ── Registrar overlays en el mapa (keep-alive) ───────────────────────
+  // Re-registra cuando cambian capas/datos/selección: la key estable
+  // ("page-componentes") hace que React reconcilie SIN remontar las capas.
+  // El cleanup des-registra al desmontar la página (navegar fuera).
+  useEffect(() => {
+    registerOverlay('page-componentes', (
+      <>
+        {activeLayers.has('componentes') && (
+          <ComponentLayer
+            data={data}
+            selectedComponentId={selectedComponentId}
+            onComponenteClick={handleComponenteClick}
+          />
+        )}
 
-      {/* Capa cruzada de alertas (activable desde el LayerControl). */}
-      {activeLayers.has('alertas') && (
-        <ClusterAlertLayer
-          alertas={mapAlertas}
-          selectedAlertId={selectedAlertId}
-          onAlertaClick={handleAlertaClick}
-        />
-      )}
+        {/* Capa cruzada de alertas (activable desde el LayerControl). */}
+        {activeLayers.has('alertas') && (
+          <ClusterAlertLayer
+            alertas={mapAlertas}
+            selectedAlertId={selectedAlertId}
+            onAlertaClick={handleAlertaClick}
+          />
+        )}
 
-      {/* Sheet de detalle montado dentro del contenedor del mapa (overlay
-          absoluto): deja al mapa interactivo (drag, zoom y clic en otros
-          marcadores para cambiar el componente en vivo). */}
-      <ComponenteDetailSheet
-        componente={selectedComponente}
-        onClose={() => setSelectedComponentId(null)}
-      />
-    </>
-  );
+        {/* Sheet de detalle: overlay absoluto DENTRO del mapa; bloquea
+            los gestos del mapa sobre él (useBlockMapGestures interno). */}
+        <ComponenteDetailSheet
+          componente={selectedComponente}
+          onClose={() => setSelectedComponentId(null)}
+        />
+      </>
+    ));
+    return () => unregisterOverlay('page-componentes');
+  }, [
+    activeLayers,
+    data,
+    mapAlertas,
+    selectedComponentId,
+    selectedComponente,
+    selectedAlertId,
+    registerOverlay,
+    unregisterOverlay,
+  ]);
+
+  // La vista ES el mapa (keep-alive en el AppLayout): sin contenido propio.
+  return null;
 }

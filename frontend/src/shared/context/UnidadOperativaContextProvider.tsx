@@ -50,12 +50,14 @@ export function UnidadOperativaProvider({ children }: { children: ReactNode }) {
   const [districts, setDistricts] = useState<BackendDistrict[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cargar branches activos + geojson de sus distritos en una sola request.
-  // Se re-dispara al cambiar `isAuthenticated` para recuperarse de un fetch
-  // inicial fallido (p. ej. boot con token expirado → login posterior).
+  // ── Carga de branches activos + geojson de sus distritos ─────────────
+  // Una sola request (capa /branches/map/, compilada en PostGIS, SIN caché
+  // → siempre fresca del backend). Se re-dispara al cambiar
+  // `isAuthenticated` (recuperación de boot con token expirado) y por las
+  // suscripciones de revalidación de abajo.
   const { isAuthenticated } = useAuth();
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
 
     apiOrganization
@@ -106,7 +108,46 @@ export function UnidadOperativaProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+  }, []);
+
+  // Carga inicial (+ recuperación al cambiar isAuthenticated).
+  useEffect(() => {
+    return load();
+  }, [load, isAuthenticated]);
+
+  // ── Revalidación (eventual, SOLO ante escrituras — sin polling) ──────
+  // El provider vive en main.tsx: navegar entre rutas NO lo re-monta, así
+  // que sin esto un usuario no vería las UO creadas/editadas hasta
+  // recargar. Dos señales (ambas reaccionan a escrituras reales, NUNCA al
+  // foco ni a timers — eso congelaba el mapa al volver de pestaña):
+  //   1. 'eps:cache-invalidated' (misma pestaña): createBranch/updateBranch/
+  //      deleteBranch invalidan 'branches:' y emiten el evento → el
+  //      selector del TopBar refresca al instante en la propia sesión.
+  //   2. 'storage' (otras pestañas del MISMO navegador): el removeItem de
+  //      la invalidación dispara el evento nativo en las demás pestañas.
+  // Para otros usuarios/navegadores: F5 (el endpoint del provider no tiene
+  // caché → siempre fresco).
+  useEffect(() => {
+    const onCacheInvalidated = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === 'string' && detail.startsWith('branches:')) {
+        load();
+      }
+    };
+    const onStorage = (e: StorageEvent) => {
+      // Otra pestaña invalidó la caché de branches (creó/editó/eliminó UO).
+      if (e.key === null || e.key.startsWith('eps_cache:branches:')) {
+        load();
+      }
+    };
+
+    window.addEventListener('eps:cache-invalidated', onCacheInvalidated);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('eps:cache-invalidated', onCacheInvalidated);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [load]);
 
   // Validar que el nombre guardado exista entre los branches cargados.
   // Si no (rename, eliminación, o leftover del modelo anterior con 5

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { EditorComponente } from '@/features/componentes/components/EditorComponente';
 import { apiComponentes, type BackendComponent, type BackendComponentListCoord } from '@/services/apiComponentes';
 import { mapTipo } from '@/services/adaptadores';
@@ -25,6 +25,7 @@ export function EditorComponentePage() {
     coords?: BackendComponentListCoord[];
   } | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(!!id);
+  const [notFound, setNotFound] = useState<boolean>(false);
 
   useEffect(() => {
     if (!id) {
@@ -32,6 +33,7 @@ export function EditorComponentePage() {
          desmontar la edicion (mismo patron que el resto del codigo). */
       setInitial(undefined);
       setInitialBackend(undefined);
+      setNotFound(false);
       setLoading(false);
       /* eslint-enable react-hooks/set-state-in-effect */
       return;
@@ -39,6 +41,7 @@ export function EditorComponentePage() {
 
     let cancelled = false;
     setLoading(true);
+    setNotFound(false);
 
     apiComponentes
       .getComponente(Number(id))
@@ -91,6 +94,7 @@ export function EditorComponentePage() {
         if (cancelled) return;
         setInitial(undefined);
         setInitialBackend(undefined);
+        setNotFound(true);
         setLoading(false);
       });
 
@@ -103,6 +107,22 @@ export function EditorComponentePage() {
     return (
       <div className="h-full flex items-center justify-center text-text-secondary">
         Cargando componente…
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-3 text-text-secondary">
+        <p className="text-base font-sans">
+          Componente no encontrado (puede haber sido eliminado).
+        </p>
+        <Link
+          to="/componentes/gestion"
+          className="px-4 py-2 rounded-lg outline outline-1 outline-offset-[-1px] outline-button-stroke text-text-primary text-sm font-medium font-sans hover:bg-primary-states-hover-main/30 transition-colors"
+        >
+          Volver a gestión
+        </Link>
       </div>
     );
   }

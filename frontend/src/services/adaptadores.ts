@@ -12,6 +12,14 @@ import type {
 } from '@/features/mapa/types/componente';
 import { TIPO_LINEA } from '@/features/mapa/types/componente';
 
+/**
+ * Nombres del backend → slug interno. Incluye AMBAS formas:
+ *   - El nombre legible del catálogo (con variantes con/sin tilde).
+ *   - La CLAVE slug en UPPER ("PLANTA-TRATAMIENTO"): el EditorComponentePage
+ *     precarga el tipo como slug (mapTipo(comp.type.name)) y sin estas
+ *     entradas caía a 'otro' → el icono del editor/mapa mostraba el círculo
+ *     genérico en vez del icono del tipo.
+ */
 const TIPO_NAME_TO_ID: Record<string, TipoComponente> = {
   FUENTE: 'fuente',
   CAPTACIÓN: 'captacion',
@@ -28,6 +36,14 @@ const TIPO_NAME_TO_ID: Record<string, TipoComponente> = {
   'LINEA DE CONDUCCION': 'linea-conduccion',
   'LÍNEA DE ADUCCIÓN': 'linea-aduccion',
   'LINEA DE ADUCCION': 'linea-aduccion',
+  // Claves slug en UPPER (precarga del editor / cualquier consumidor):
+  'PLANTA-TRATAMIENTO': 'planta-tratamiento',
+  'PLANTA-AGUAS-RESIDUALES': 'planta-aguas-residuales',
+  'LINEA-CONDUCCION': 'linea-conduccion',
+  'LINEA-ADUCCION': 'linea-aduccion',
+  'ESTACION-BOMBEO': 'estacion-bombeo',
+  'DESINFECCION': 'desinfeccion',
+  'PURGADO-REDES': 'purgado-redes',
 };
 
 export function mapTipo(backendName: string): TipoComponente {

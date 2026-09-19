@@ -32,6 +32,8 @@ import CaptacionIconUrl from '@/assets/icons/captacion.svg?url';
 import ReservorioIconUrl from '@/assets/icons/reservorio.svg?url';
 import PlantaTratamientoIconUrl from '@/assets/icons/planta-tratamiento.svg?url';
 import LineaConduccionIconUrl from '@/assets/icons/linea-conduccion.svg?url';
+import DesinfeccionIconUrl from '@/assets/icons/desinfeccion.svg?url';
+import EstacionIconUrl from '@/assets/icons/estacion.svg?url';
 import CircleIconUrl from '@/assets/icons/circle.svg?url';
 import { TIPO_LINEA } from '../types/componente';
 import { useComponentesMap } from '@/services/useComponentes';
@@ -65,9 +67,9 @@ const ICON_BY_TIPO: Record<Componente['tipo'], string> = {
   'planta-aguas-residuales': PlantaTratamientoIconUrl,
   'linea-conduccion': LineaConduccionIconUrl,
   'linea-aduccion': LineaConduccionIconUrl,
-  'estacion-bombeo': CircleIconUrl,
-  desinfeccion: CircleIconUrl,
-  'purgado-redes': CircleIconUrl,
+  'estacion-bombeo': EstacionIconUrl,
+  desinfeccion: DesinfeccionIconUrl,
+  'purgado-redes': DesinfeccionIconUrl,
   otro: CircleIconUrl,
 };
 
@@ -229,7 +231,10 @@ export function ComponentLayer({
         );
       })}
 
-      {/* ── Componentes tipo línea (conducción/aducción) como polyline ─ */}
+      {/* ── Componentes tipo línea (conducción/aducción) como polyline ─ ──
+          ROJAS (TRAMO_COLOR = secondary-main), igual que su SVG de la
+          leyenda del mapa — antes se pintaban por estado (navy) y no
+          coincidían con la leyenda. */}
       {comps
         .filter((c) => TIPO_LINEA.includes(c.tipo) && c.puntos && c.puntos.length >= 2)
         .map((comp) => {
@@ -239,7 +244,7 @@ export function ComponentLayer({
               key={comp.id}
               positions={comp.puntos!}
               pathOptions={{
-                color: COLOR_BY_ESTADO[comp.estado],
+                color: TRAMO_COLOR,
                 weight: isSelected ? 5 : TRAMO_WEIGHT,
                 opacity: 0.9,
               }}

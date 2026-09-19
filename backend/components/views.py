@@ -178,6 +178,10 @@ class ComponentViewSet(viewsets.ModelViewSet):
         if self.action in ('create', 'update', 'partial_update', 'retrieve'):
             return ComponentSerializer
         return ComponentListSerializer
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        ComponentGeoJSONBuilder.invalidate_cache()
     
     @extend_schema(
         tags=['Infrastructure / Components'],
@@ -357,6 +361,18 @@ class ComponentCoordViewSet(viewsets.ModelViewSet):
             'component',
             'criticality'
         ).order_by('id')
+
+    def perform_create(self, serializer):
+        serializer.save()
+        ComponentGeoJSONBuilder.invalidate_cache()
+
+    def perform_update(self, serializer):
+        serializer.save()
+        ComponentGeoJSONBuilder.invalidate_cache()
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        ComponentGeoJSONBuilder.invalidate_cache()
 
     @extend_schema(
         request=ComponentSerializer,

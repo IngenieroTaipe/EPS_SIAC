@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import {
   CRITICIDAD_LABEL,
@@ -55,6 +55,9 @@ interface ComponentRowProps {
   onToggleSelect?: (id: string) => void;
   /** Abrir el sheet de detalle al clic en la fila (variante `gestion`). */
   onOpenDetail?: (componente: Componente) => void;
+  /** Eliminar componente (tachito). La página confirma antes vía
+   *  ConfirmDialog; el row sólo dispara el intento. */
+  onDelete?: (componente: Componente) => void;
   /** Variante. Default `gestion`. */
   variant?: ComponentRowVariant;
 }
@@ -64,6 +67,7 @@ export function ComponentRow({
   selected,
   onToggleSelect,
   onOpenDetail,
+  onDelete,
   variant = 'gestion',
 }: ComponentRowProps) {
   const navigate = useNavigate();
@@ -81,6 +85,11 @@ export function ComponentRow({
   function handleEditClick(e: React.MouseEvent) {
     e.stopPropagation();
     navigate(`/componentes/${encodeURIComponent(c.id)}/editar`);
+  }
+
+  function handleDeleteClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    onDelete?.(c);
   }
 
   return (
@@ -115,29 +124,23 @@ export function ComponentRow({
       <Td>
         <span className="truncate" title={TIPO_LABEL[c.tipo]}>{TIPO_LABEL[c.tipo]}</span>
       </Td>
-      {/* 5. Especificación */}
-      <Td secondary>
-        <span className="truncate" title={c.especificacion}>
-          {c.especificacion || '—'}
-        </span>
-      </Td>
-      {/* 6. Este UTM */}
+      {/* 5. Este UTM */}
       <Td mono>{c.utmEasting != null ? formatUtm(c.utmEasting) : '—'}</Td>
-      {/* 7. Norte UTM */}
+      {/* 6. Norte UTM */}
       <Td mono>{c.utmNorthing != null ? formatUtm(c.utmNorthing) : '—'}</Td>
-      {/* 8. Estado Operacional (texto plano, sin badge) */}
+      {/* 7. Estado Operacional (texto plano, sin badge) */}
       <Td>
         <span className="truncate" title={c.estadoOperacional ?? ''}>
           {c.estadoOperacional ?? '—'}
         </span>
       </Td>
-      {/* 9. Estado Físico (texto plano, sin badge) */}
+      {/* 8. Estado Físico (texto plano, sin badge) */}
       <Td>
         <span className="truncate" title={c.estadoFisico ?? ''}>
           {c.estadoFisico ?? '—'}
         </span>
       </Td>
-      {/* 10. Criticidad (badge de color, o '—' si el backend no la envía) */}
+      {/* 9. Criticidad (badge de color, o '—' si el backend no la envía) */}
       <td className="h-11 px-3 py-2 text-center align-middle">
         {c.criticidad ? (
           <span
@@ -153,20 +156,36 @@ export function ComponentRow({
         )}
       </td>
 
-      {/* 11. Acciones — botón Editar standalone */}
+      {/* 10. Acciones — Editar + Eliminar (con confirmación en la página) */}
       <td className="h-11 px-3 py-2 text-center align-middle">
-        <button
-          type="button"
-          aria-label="Editar componente"
-          onClick={handleEditClick}
-          className="size-8 inline-flex items-center justify-center rounded-lg
-                     outline outline-1 outline-offset-[-1px] outline-input-stroke-main
-                     text-text-primary bg-background-main
-                     hover:bg-primary-main hover:text-text-invert-primary transition-colors
-                     focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2"
-        >
-          <Pencil className="size-4" strokeWidth={2} aria-hidden="true" />
-        </button>
+        <div className="inline-flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Editar componente"
+            onClick={handleEditClick}
+            className="size-8 inline-flex items-center justify-center rounded-lg
+                       outline outline-1 outline-offset-[-1px] outline-input-stroke-main
+                       text-text-primary bg-background-main
+                       hover:bg-primary-main hover:text-text-invert-primary transition-colors
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2"
+          >
+            <Pencil className="size-4" strokeWidth={2} aria-hidden="true" />
+          </button>
+          {onDelete && (
+            <button
+              type="button"
+              aria-label="Eliminar componente"
+              onClick={handleDeleteClick}
+              className="size-8 inline-flex items-center justify-center rounded-lg
+                         outline outline-1 outline-offset-[-1px] outline-input-stroke-main
+                         text-text-primary bg-background-main
+                         hover:bg-secondary-main hover:text-text-invert-primary transition-colors
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary-main focus-visible:ring-offset-2"
+            >
+              <Trash2 className="size-4" strokeWidth={2} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   );

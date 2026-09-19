@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
-import { cn } from '@/shared/lib/cn';
 import { ComponentsTable } from '@/features/componentes/components/ComponentsTable';
 import { ComponenteDetailSheet } from '@/features/componentes/components/ComponenteDetailSheet';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import {
   CRITICIDAD_LABEL,
   TIPO_LABEL,
@@ -11,6 +11,7 @@ import {
   type CriticidadComponente,
   type TipoComponente,
 } from '@/features/mapa/types/componente';
+import { apiComponentes } from '@/services/apiComponentes';
 import { useComponentes } from '@/services/useComponentes';
 import { useInfiniteRows } from '@/shared/hooks/useInfiniteRows';
 import { FilterableSelect, type FilterableOption } from '@/shared/components/FilterableSelect';
@@ -55,7 +56,7 @@ export function HistoricoComponentesPage() {
   const [searchParams] = useSearchParams();
   const preselectId = searchParams.get('id');
 
-  const { data } = useComponentes();
+  const { data, refetch } = useComponentes();
   const todosComponentes = useMemo(() => data.componentes ?? [], [data]);
 
   // ── Filtros (single-select; "" = sin filtro) ──────────────────────
@@ -183,6 +184,48 @@ export function HistoricoComponentesPage() {
   /** Abrir el sheet desde una fila de la tabla. */
   function handleOpenDetail(c: Componente) {
     setSelectedId(c.id);
+  }
+
+  // ── Eliminación de componentes (con ConfirmDialog) ─────────────────
+  const [componenteAEliminar, setComponenteAEliminar] = useState<Componente | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+
+  /** Clic en el tachito de una fila → abre el ConfirmDialog. */
+  function handleDeleteClick(c: Componente) {
+    setErrorEliminar(null);
+    setComponenteAEliminar(c);
+  }
+
+  /** Confirmó el diálogo → DELETE al backend y refresco el listado. */
+  async function handleConfirmDelete() {
+    if (!componenteAEliminar || eliminando) return;
+    setEliminando(true);
+    setErrorEliminar(null);
+    try {
+      await apiComponentes.deleteComponente(Number(componenteAEliminar.id));
+      // El service ya invalida la caché del /map (mapa + editor ven el
+      // cambio al próximo acceso). Refrescamos el listado (1 request) y
+      // cerramos el sheet si mostraba al eliminado.
+      if (selectedId === componenteAEliminar.id) setSelectedId(null);
+      setComponenteAEliminar(null);
+      refetch();
+    } catch (err) {
+      // El backend bloquea la eliminación si tiene registros relacionados
+      // (alertas/clústers): mostramos el detalle dentro del mismo diálogo.
+      const e = err as { response?: { data?: Record<string, unknown> | string } };
+      const data = e?.response?.data;
+      let msg = 'No se pudo eliminar el componente.';
+      if (typeof data === 'string' && data) msg = data;
+      else if (data && typeof data === 'object') {
+        const detail = (data as { detail?: string }).detail;
+        if (detail) msg = detail;
+        else msg = JSON.stringify(data);
+      }
+      setErrorEliminar(msg);
+    } finally {
+      setEliminando(false);
+    }
   }
 
   // ── Flags para mostrar "Limpiar filtros" + estado activo ──────────
@@ -345,21 +388,16 @@ export function HistoricoComponentesPage() {
       </div>
 
       <div className="flex flex-1 gap-4 min-h-0">
-        <div
-          className={cn(
-            'flex-1 overflow-auto min-w-0 rounded-xl border border-input-stroke-main',
-            // Scroll horizontal funcional pero SIN barra visible: el sheet
-            // lateral reduce el ancho y la tabla (min-w fijo) necesita
-            // scroll para ver todas las columnas, sin la "línea inferior".
-            '[scrollbar-width:none] [-ms-overflow-style:none]',
-            '[&::-webkit-scrollbar]:hidden',
-          )}
-        >
+        {/* Scroll horizontal con BARRA VISIBLE en la parte inferior: la
+            tabla tiene min-w fijo (89rem) y con el sheet lateral abierto
+            hace falta scrollear — la barra da affordance con el mouse. */}
+        <div className="flex-1 overflow-auto min-w-0 rounded-xl border border-input-stroke-main">
           <ComponentsTable
             componentes={componentesVisibles}
             selectedId={selectedId}
             onToggleSelect={handleToggleSelect}
             onOpenDetail={handleOpenDetail}
+            onDelete={handleDeleteClick}
             sortSelectedFirst
             variant="gestion"
           />
@@ -401,6 +439,35 @@ export function HistoricoComponentesPage() {
           <strong className="text-primary-main">{preselectId}</strong>
         </div>
       )}
+
+      {/* Confirmación de eliminación (mismo estilo que el resto de la app:
+          overlay + botón rojo "Eliminar" + "Cancelar", Escape/clic fuera). */}
+      <ConfirmDialog
+        open={componenteAEliminar !== null}
+        title="Eliminar componente"
+        message={
+          <>
+            ¿Está seguro de eliminar el componente{' '}
+            <strong className="text-primary-main">
+              {componenteAEliminar?.codigo}
+            </strong>{' '}
+            ({componenteAEliminar?.nombre})? Esta acción no se puede deshacer.
+            {errorEliminar && (
+              <span className="block mt-2 text-danger-main font-bold" role="alert">
+                {errorEliminar}
+              </span>
+            )}
+          </>
+        }
+        confirmText={eliminando ? 'Eliminando…' : 'Eliminar'}
+        cancelText="Cancelar"
+        onConfirm={handleConfirmDelete}
+        onClose={() => {
+          if (eliminando) return; // no cerrar mientras viaja el DELETE.
+          setComponenteAEliminar(null);
+          setErrorEliminar(null);
+        }}
+      />
     </div>
   );
 }

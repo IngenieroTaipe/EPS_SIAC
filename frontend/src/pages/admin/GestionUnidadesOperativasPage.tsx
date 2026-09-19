@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Building2, Plus, X, Pencil, Power } from 'lucide-react';
 import { apiOrganization, type BackendBranch } from '@/services/apiOrganization';
+import { invalidateCachePrefix } from '@/services/requestCache';
 import { apiPlaces, type BackendDistrict } from '@/services/apiPlaces';
 import { FilterableSelect, type FilterableOption } from '@/shared/components/FilterableSelect';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
@@ -59,11 +60,17 @@ export function GestionUnidadesOperativasPage() {
   const [form, setForm] = useState<BranchCreatePayload>(EMPTY_FORM);
 
   // ── Carga inicial: branches + distritos (catálogo para conversión) ──
+  // La tabla de GESTIÓN siempre trae datos frescos: invalida la caché de
+  // branches ANTES de listar (así el F5 ve las UO creadas por otros
+  // usuarios/navegadores, cuya invalidación local no nos llegó). El resto
+  // de la app conserva la caché de 5 min — sólo esta vista paga el
+  // refresco, que es justo donde se administran.
   useEffect(() => {
     let cancelled = false;
     /* eslint-disable react-hooks/set-state-in-effect -- secuencia de carga
        canónica (loading true → fetch → loading false). */
     setBranchesLoading(true);
+    invalidateCachePrefix('branches:');
     apiOrganization
       .listBranches()
       .then((list) => !cancelled && setBranches(list))

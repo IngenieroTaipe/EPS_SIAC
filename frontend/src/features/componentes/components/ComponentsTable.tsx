@@ -39,6 +39,9 @@ interface ComponentsTableProps {
   onToggleSelect?: (id: string) => void;
   /** Abrir el sheet al clic en fila (variante `gestion`). */
   onOpenDetail?: (componente: Componente) => void;
+  /** Eliminar componente (clic en el tachito de la fila). La página
+   *  muestra el ConfirmDialog antes de confirmar. */
+  onDelete?: (componente: Componente) => void;
   /** Si true (default), el row seleccionado se mueve al inicio. */
   sortSelectedFirst?: boolean;
   /** Variante. Default `gestion`. */
@@ -51,7 +54,6 @@ const HEADER_LABELS = [
   'Unidad Operativa',
   'Nombre',
   'Tipo',
-  'Especificación',
   'Este UTM',
   'Norte UTM',
   'Estado Op.',
@@ -66,23 +68,23 @@ const COL_WIDTHS = [
   'w-40', // Unidad Operativa
   'w-56', // Nombre
   'w-48', // Tipo
-  'w-56', // Especificación
   'w-32', // Este UTM
   'w-32', // Norte UTM
   'w-32', // Estado Op.
   'w-32', // Estado Fís.
   'w-28', // Criticidad
-  'w-20', // Acciones
+  'w-28', // Acciones (editar + eliminar)
 ] as const;
 
-/** Suma de los anchos del colgroup (101rem) — mínimo de la tabla. */
-const TABLE_MIN_WIDTH = 'min-w-[101rem]';
+/** Suma de los anchos del colgroup (89rem) — mínimo de la tabla. */
+const TABLE_MIN_WIDTH = 'min-w-[89rem]';
 
 export function ComponentsTable({
   componentes,
   selectedId,
   onToggleSelect,
   onOpenDetail,
+  onDelete,
   sortSelectedFirst = true,
   variant = 'gestion',
 }: ComponentsTableProps) {
@@ -138,6 +140,7 @@ export function ComponentsTable({
             selected={selectedId === c.id}
             onToggleSelect={onToggleSelect}
             onOpenDetail={onOpenDetail}
+            onDelete={onDelete}
             variant={variant}
           />
         ))}

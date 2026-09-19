@@ -54,9 +54,11 @@ export const apiOrganization = {
   /**
    * Lista TODAS las sucursales (unidades operativas). Opcionalmente filtra
    * por `status` (true = sólo operativas). Sin paginación server-side: se
-   * recorre `next` hasta agotar resultados. Cacheado 30 min (memoria +
-   * localStorage) porque las branches casi nunca cambian y varias páginas
-   * la piden por su cuenta; los writes de este mismo módulo invalidan.
+   * recorre `next` hasta agotar resultados. Cacheado 5 min (memoria +
+   * localStorage): payload chico (~1-2 KB) y TTL corto para que las UO
+   * creadas por OTROS usuarios (otro navegador — la invalidación local no
+   * les llega) aparezcan rápido en los filtros; los writes de este mismo
+   * módulo invalidan al instante en la sesión actual.
    */
   async listBranches(params?: { status?: boolean }): Promise<BackendBranch[]> {
     const cacheKey = `branches:list:${
@@ -77,7 +79,7 @@ export const apiOrganization = {
       } while (next);
       return all;
     };
-    return cachedGet(cacheKey, fetchAll, 30 * 60 * 1000);
+    return cachedGet(cacheKey, fetchAll, 5 * 60 * 1000);
   },
 
   /**

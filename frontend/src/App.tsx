@@ -1,7 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { GuestLayout } from '@/layouts/GuestLayout';
 import { AppLayout } from '@/layouts/AppLayout';
-import { MapLayout } from '@/layouts/MapLayout';
 import { PrecipitationTimelineProvider } from '@/features/mapa/timeline/PrecipitationTimelineProvider';
 import { RequireAdmin } from '@/shared/components/RequireAdmin';
 import { HomePage } from '@/pages/HomePage';
@@ -51,12 +50,10 @@ function App() {
 
         {/* ── Páginas protegidas (sidebar + topbar) ──────────────────── */}
         <Route element={<AppLayout />}>
-          {/* Rutas de mapa: BaseMap persistente (no se re-monta al navegar
-              entre ellas). PrecipitationLayer vive una sola vez. */}
-          <Route element={<MapLayout />}>
-            <Route path="/alertas" element={<MapaAlertasPage />} />
-            <Route path="/componentes" element={<MapaComponentesPage />} />
-          </Route>
+          {/* Rutas de mapa: el mapa (keep-alive) vive en el AppLayout; estas
+              páginas sólo registran sus overlays en el MapLayersContext. */}
+          <Route path="/alertas" element={<MapaAlertasPage />} />
+          <Route path="/componentes" element={<MapaComponentesPage />} />
           <Route path="/umbrales/gestion" element={<GestionUmbralesPage />} />
           <Route path="/componentes/gestion" element={<HistoricoComponentesPage />} />
           <Route path="/componentes/:id/editar" element={<EditorComponentePage />} />

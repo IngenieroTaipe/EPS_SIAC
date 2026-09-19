@@ -16,16 +16,24 @@ import { useMapLayers } from '@/features/mapa/context/useMapLayers';
 /**
  * MapaAlertasPage — vista "Mapa de Alertas Climáticas".
  *
- * El `<BaseMap>` y `PrecipitationLayer` (capa pesada) viven en `MapLayout`
- * y NO se re-montan al navegar entre rutas de mapa. Esta página sólo
- * inyecta su capa específica (`ClusterAlertLayer`) y el sheet de detalle
- * vía el `<Outlet />` del layout.
+ * El mapa vive en `MapLayout` (keep-alive: SIEMPRE montado en el AppLayout,
+ * oculto fuera de las rutas de mapa) y NO se re-monta nunca. Esta página
+ * REGISTRA sus overlays (capa de alertas, capa cruzada de componentes y
+ * el sheet de detalle) en el `MapLayersContext`; el MapLayout los
+ * renderiza dentro del `<BaseMap>`. No renderiza contenido propio (el
+ * mapa ES la vista).
  *
- * Al montar, configura el `MapLayersContext` con sus capas por defecto
- * (distritos + precipitaciones + alertas) y la variante de leyenda.
+ * Al montar, configura el contexto con sus capas por defecto (distritos +
+ * precipitaciones + alertas) y la variante de leyenda.
  */
 export function MapaAlertasPage() {
-  const { activeLayers, setActiveLayers, setLegendVariant } = useMapLayers();
+  const {
+    activeLayers,
+    setActiveLayers,
+    setLegendVariant,
+    registerOverlay,
+    unregisterOverlay,
+  } = useMapLayers();
   // ID de alerta seleccionada (single-selection). Null si ninguna.
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
@@ -94,29 +102,45 @@ export function MapaAlertasPage() {
     setSelectedAlertId((prev) => (prev === id ? null : id));
   }
 
-  return (
-    <>
-      {activeLayers.has('alertas') && (
-        <ClusterAlertLayer
-          alertas={mapAlertas}
-          selectedAlertId={selectedAlertId}
-          onAlertaClick={handleAlertaClick}
+  // ── Registrar overlays en el mapa (keep-alive) ───────────────────────
+  // Re-registra cuando cambian capas/datos/selección: la key estable
+  // ("page-alertas") hace que React reconcilie SIN remontar las capas.
+  // El cleanup des-registra al desmontar la página (navegar fuera).
+  useEffect(() => {
+    registerOverlay('page-alertas', (
+      <>
+        {activeLayers.has('alertas') && (
+          <ClusterAlertLayer
+            alertas={mapAlertas}
+            selectedAlertId={selectedAlertId}
+            onAlertaClick={handleAlertaClick}
+          />
+        )}
+
+        {/* Capa de componentes cruzada: el LayerControl permite activar
+            "Mapa de Componentes" también en esta ruta. Sin `data` → el
+            ComponentLayer consume el endpoint `/map` internamente
+            (cacheado en useComponentesMap). */}
+        {activeLayers.has('componentes') && <ComponentLayer />}
+
+        {/* Sheet de detalle: overlay absoluto DENTRO del mapa; bloquea
+            los gestos del mapa sobre él (useBlockMapGestures interno). */}
+        <AlertaDetailSheet
+          alerta={selectedAlerta}
+          onClose={() => setSelectedAlertId(null)}
         />
-      )}
+      </>
+    ));
+    return () => unregisterOverlay('page-alertas');
+  }, [
+    activeLayers,
+    mapAlertas,
+    selectedAlertId,
+    selectedAlerta,
+    registerOverlay,
+    unregisterOverlay,
+  ]);
 
-      {/* Capa de componentes cruzada: el LayerControl permite activar
-          "Mapa de Componentes" también en esta ruta. Sin `data` → el
-          ComponentLayer consume el endpoint `/map` internamente (cacheado
-          en useComponentesMap), igual que pre-refactor del MapLayout. */}
-      {activeLayers.has('componentes') && <ComponentLayer />}
-
-      {/* Sheet de detalle montado dentro del contenedor del mapa (overlay
-          absoluto): deja al mapa interactivo (drag, zoom y clic en otros
-          marcadores para cambiar la alerta en vivo). */}
-      <AlertaDetailSheet
-        alerta={selectedAlerta}
-        onClose={() => setSelectedAlertId(null)}
-      />
-    </>
-  );
+  // La vista ES el mapa (keep-alive en el AppLayout): sin contenido propio.
+  return null;
 }

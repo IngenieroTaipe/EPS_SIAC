@@ -53,8 +53,12 @@ async function fetchAllPages<T>(
  * Desduplica registros de umbrales por contenido (manteniendo el primer id
  * visto). El backend no impone unicidad, así que pueden existir varias filas
  * idénticas con distintos ids cuando se repiten POSTs.
+ *
+ * Exportado para que `GestionUmbrales.handleSaved` desduplique las rows
+ * del `bulkSave` con el MISMO criterio que usa el listado — sin esto, la
+ * tabla derecha duplicaba filas idénticas hasta recargar.
  */
-function dedupeUmbrales(items: UmbralFenomeno[]): UmbralFenomeno[] {
+export function dedupeUmbrales(items: UmbralFenomeno[]): UmbralFenomeno[] {
   const seen = new Set<string>();
   const out: UmbralFenomeno[] = [];
   for (const u of items) {

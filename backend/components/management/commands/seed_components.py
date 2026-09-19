@@ -50,20 +50,41 @@ class Command(BaseCommand):
             )
             operational_status = OperationalStatus.objects.get(code=component['operational_status'])
 
-            comp_obj, created = Component.objects.update_or_create(
-                code = component['code'],
-                district = district,
-                type = type,
-                defaults = {
-                    'specification': component['specification'],
-                    'name': component['name'].upper(),
-                    'operational_status': operational_status,
-                    'physical_status': physical_status
-                }
-            )
+            # === FIX idempotencia con soft-delete ===
+            # `objects` (SoftDeleteManager) filtra las filas borradas, así que
+            # un `update_or_create` no ve un componente eliminado por un
+            # usuario e intenta INSERTarlo de nuevo → viola la constraint
+            # única (district, type, code), que TAMBIÉN aplica a filas
+            # borradas → IntegrityError → el entrypoint (set -e) mataba el
+            # contenedor en cada arranque.
+            # Solución: buscar con `all_objects` (incluye borrados):
+            #   - No existe → crear (primera vez).
+            #   - Existe activo → refrescar defaults (idempotente).
+            #   - Existe borrado → RESPETAR el delete del usuario (ni
+            #     revivir ni duplicar).
+            existing = Component.all_objects.filter(
+                code=component['code'],
+                district=district,
+                type=type,
+            ).first()
 
-            if (created):
-                comp_count+=1
+            if existing is None:
+                Component.objects.create(
+                    code=component['code'],
+                    district=district,
+                    type=type,
+                    specification=component['specification'],
+                    name=component['name'].upper(),
+                    operational_status=operational_status,
+                    physical_status=physical_status,
+                )
+                comp_count += 1
+            elif existing.deleted_at is None:
+                existing.specification = component['specification']
+                existing.name = component['name'].upper()
+                existing.operational_status = operational_status
+                existing.physical_status = physical_status
+                existing.save()
 
         self.stdout.write(
             "Components insertados"

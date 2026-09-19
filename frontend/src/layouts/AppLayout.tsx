@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { cn } from '@/shared/lib/cn';
 import { Sidebar } from '@/layouts/sidebar/Sidebar';
 import { TopBar } from '@/layouts/topbar/TopBar';
+import { MapLayout } from '@/layouts/MapLayout';
+import { MapLayersProvider } from '@/features/mapa/context/MapLayersProvider';
 import { useAuth } from '@/shared/context/AuthContext.hooks';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { PrecipitationTimelineFooter } from '@/features/mapa/timeline/PrecipitationTimelineFooter';
+
+/** Rutas con vista geoespacial: el mapa se muestra (y las páginas sólo
+ *  registran overlays). En el resto, el mapa queda oculto (keep-alive). */
+const MAP_ROUTES = new Set(['/alertas', '/componentes']);
 
 /**
  * AppLayout: contenedor para páginas PROTEGIDAS (requieren auth).
@@ -62,6 +69,10 @@ export function AppLayout() {
     };
   }, [isDesktop, mobileSidebarOpen]);
 
+  // ¿La ruta actual es una vista de mapa? (decide qué capa se ve: el mapa
+  // keep-alive o el contenido de la ruta — ambos siempre montados).
+  const esRutaMapa = MAP_ROUTES.has(location.pathname);
+
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
@@ -86,9 +97,39 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar onOpenSidebar={() => setMobileSidebarOpen(true)} />
         <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <Outlet />
-          </div>
+          <MapLayersProvider>
+            <div className="relative flex-1 min-h-0 overflow-hidden">
+              {/* ── Mapa KEEP-ALIVE: SIEMPRE montado ─────────────────────
+                  Oculto con `visibility` (NO `display: none`: colapsaría
+                  el tamaño del contenedor de Leaflet y exigiría
+                  invalidateSize al volver). Al volver de cualquier pestaña
+                  está exactamente como se dejó — cero re-dibujo de los
+                  ~300 polígonos de precipitaciones (parpadeo de ~1s). */}
+              <div
+                className={cn(
+                  'absolute inset-0',
+                  !esRutaMapa && 'invisible',
+                )}
+                aria-hidden={!esRutaMapa}
+              >
+                <MapLayout />
+              </div>
+
+              {/* ── Contenido de la ruta (Outlet) ────────────────────────
+                  Encima del mapa (cada página trae fondo opaco) cuando la
+                  ruta NO es de mapa; invisible en rutas de mapa (las
+                  páginas de mapa sólo registran overlays en el contexto
+                  y no renderizan contenido propio). */}
+              <div
+                className={cn(
+                  'absolute inset-0 overflow-hidden',
+                  esRutaMapa && 'invisible pointer-events-none',
+                )}
+              >
+                <Outlet />
+              </div>
+            </div>
+          </MapLayersProvider>
           <PrecipitationTimelineFooter />
         </main>
       </div>
