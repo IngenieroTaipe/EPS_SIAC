@@ -10,6 +10,9 @@ if [ "$CONTAINER_ROLE" = "api" ]; then
     python manage.py makemigrations --noinput
     python manage.py migrate --noinput
 
+    if [ "$SKIP_SEEDERS" = "1" ]; then
+        echo "=== [SKIP_SEEDERS=1] Omitiendo Seeders (datos vivos en la BD) ==="
+    else
     echo "Aplicando Seeders..."
     python manage.py seed_auths
     python manage.py seed_places
@@ -33,6 +36,7 @@ if [ "$CONTAINER_ROLE" = "api" ]; then
     # python manage.py shell -c "from alerts_management.tasks import process_forecast_and_adapt_alerts_task; result = process_forecast_and_adapt_alerts_task(1); print(result)"
 
     echo "=== [ROLE: API] Inicialización de Base de Datos Completada ==="
+    fi
 else
     echo "[ROLE: $CONTAINER_ROLE] Omitiendo migraciones/seeders (Delegado a la API)."
 fi
