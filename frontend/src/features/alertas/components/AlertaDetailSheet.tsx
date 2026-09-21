@@ -124,7 +124,9 @@ export function AlertaDetailSheet({
       aria-label={`Detalle de la alerta ${a.id}`}
       className={cn(
         floating
-          ? 'absolute inset-y-0 right-0 z-[1000] w-full max-w-md'
+          // z-[1100]: por encima del LayerControl (z-1000) y la leyenda —
+          // el sheet de detalle debe taparlos, no al revés.
+          ? 'absolute inset-y-0 right-0 z-[1100] w-full max-w-md'
           : 'h-full w-full max-w-md',
         'bg-background-main shadow-[-4px_0_8px_0px_rgba(0,0,0,0.20)] border-l border-input-stroke-main',
         'flex flex-col pointer-events-auto',

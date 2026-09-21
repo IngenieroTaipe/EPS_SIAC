@@ -223,7 +223,11 @@ def _resolve_type(name: str) -> int:
     n = name.strip().upper()
     qs = ComponentType.objects.filter(name__iexact=name)
     if not qs.exists():
-        raise ValueError(f"Tipo de componente '{name}' no encontrado.")
+        raise ValueError(
+            f"Tipo de componente '{name}' no reconocido. "
+            "Escríbalo tal cual como aparece en la plantilla "
+            "(con tildes, ej: LÍNEA DE CONDUCCIÓN)."
+        )
     return qs.first().pk
 
 
@@ -514,7 +518,11 @@ def parse_xlsx(
         if required_lower.issubset({v for v in row_lower if v}):
             header_row_idx = ri
             for ci, val in enumerate(row_lower):
-                if val in required_lower or val in CSV_OPTIONAL:
+                # FIX: era `CSV_OPTIONAL` (nombre inexistente → NameError →
+                # 500 en cualquier XLSX con columnas opcionales, incluida
+                # la plantilla oficial). El nombre real de la constante es
+                # CSV_OPTIONAL_HEADERS.
+                if val in required_lower or val in CSV_OPTIONAL_HEADERS:
                     headers_map[val] = ci
             break
 
@@ -601,59 +609,95 @@ def build_xlsx_template() -> bytes:
     # Estilos
     navy_fill = PatternFill("solid", fgColor="070B5B")
     white_bold = Font(color="FFFFFF", bold=True, size=11, name="Calibri")
-    bold = Font(bold=True, name="Calibri")
+    title_font = Font(bold=True, size=12, name="Calibri", color="070B5B")
     small_italic = Font(italic=True, color="6F6C8F", size=9, name="Calibri")
     normal = Font(name="Calibri", size=10)
     thin = Side(border_style="thin", color="ABB5BE")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    # ── Fila 1: instrucciones ──
+    # ── Fila 1: título + instrucciones simples (sin jerga técnica) ──────
     ws["A1"] = (
-        "INSTRUCCIONES: Complete UNA fila por componente (o por vértice si es línea). "
-        "Elimine las filas de ejemplo (code=ELIMINAR) antes de subir. "
-        "Consulse la hoja 'Valores válidos' para conocer los valores permitidos."
+        "MODELO DE ARCHIVO PARA CARGAR COMPONENTES\n"
+        "Complete UNA fila por componente (si es una línea, repita el código en una fila por cada vértice).\n"
+        "Escriba los valores tal cual como se explican en la fila de arriba de cada título.\n"
+        "Las filas de ejemplo (código ELIMINAR) se ignoran solas: puede borrarlas o dejarlas.\n"
+        "Consulte la hoja 'Valores válidos' si tiene dudas."
     )
-    ws["A1"].font = small_italic
+    ws["A1"].font = title_font
+    ws["A1"].alignment = Alignment(wrap_text=True, vertical="center", horizontal="left")
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=10)
-    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[1].height = 70
 
-    # ── Filas 2-3: descripción por columna ──
-    # Encabezado de "descriptor" en columna K, "valor" en L (fuera de la
-    # grilla de datos). Pero más claro: dejamos la descripción en filas
-    # puestas arriba de cada header.
-    # Estructura más simple:
-    #   Fila 2: descripción de cada columna (qué formato/values).
-    #   Fila 3: headers reales (code, name, ...).
-    #   Fila 4+: ejemplos con code=ELIMINAR.
-
+    # ── Fila 2: descripción amigable por columna, CON las opciones ──────
+    # (estilo planilla AFP: "aquí va esto, con estas opciones"). Sin jerga
+    # técnica (sin "backend", "branches", "type_id", etc.).
     descriptions = [
         ("code",
-         "4 dígitos numéricos. Ej: '0001'.\n"
-         "Requerido. Unique por (district + type + code)."),
+         "Obligatorio.\n"
+         "Número de 4 dígitos.\n"
+         "Ej: 0001\n"
+         "No repita el mismo número para el mismo distrito y tipo."),
         ("name",
-         "Texto hasta 50 caracteres.\nRequerido. Ej: 'CAPTACION PUCUSANI'."),
+         "Obligatorio.\n"
+         "Nombre del componente.\n"
+         "Ej: CAPTACIÓN RÍO PUCUSANI"),
         ("type",
-         "Nombre del tipo de componente (ver hoja 'Valores válidos').\n"
-         "Requerido. Ej: 'CAPTACIÓN', 'RESERVORIO', 'LÍNEA DE CONDUCCIÓN'."),
+         "Obligatorio. Escriba el tipo TAL CUAL (con tilde):\n"
+         "FUENTE\n"
+         "CAPTACIÓN\n"
+         "RESERVORIO\n"
+         "ESTACIÓN DE BOMBEO Y REBOMBEO DE AGUA POTABLE\n"
+         "PLANTA DE TRATAMIENTO DE AGUA POTABLE\n"
+         "PLANTA DE TRATAMIENTO DE AGUAS RESIDUALES\n"
+         "UNIDADES DE DESINFECCIÓN\n"
+         "PUNTO DE PURGADO DE REDES\n"
+         "LÍNEA DE CONDUCCIÓN\n"
+         "LÍNEA DE ADUCCIÓN"),
         ("district_ubigeo",
-         "6 dígitos ubigeo del distrito. Requerido. Ej: '120303'.\n"
-         "Valores válidos: branches activas del backend."),
+         "Obligatorio.\n"
+         "Código de 6 dígitos del distrito.\n"
+         "Ejemplos:\n"
+         "120301 = Chanchamayo\n"
+         "120305 = San Ramón\n"
+         "120303 = Pichanaqui\n"
+         "120601 = Satipo\n"
+         "190301 = Oxapampa\n"
+         "190307 = Villa Rica\n"
+         "Si no conoce el código de su distrito, pregunte al administrador."),
         ("criticality",
-         "ALTA / MEDIA / BAJA. Requerido. Por vértice."),
+         "Obligatorio.\n"
+         "Escriba solo la palabra:\n"
+         "ALTA\n"
+         "MEDIA\n"
+         "BAJA\n"
+         "(Un valor por punto o vértice)."),
         ("easting",
-         "Número UTM Este (metros). Rango válido: 100000–900000.\n"
-         "Requerido. Si es línea, una fila por vértice."),
+         "Obligatorio.\n"
+         "Coordenada UTM Este, en metros.\n"
+         "Ej: 463529\n"
+         "(Entre 100000 y 900000)."),
         ("northing",
-         "Número UTM Norte (metros). Rango válido: 0–10000000.\n"
-         "Requerido."),
+         "Obligatorio.\n"
+         "Coordenada UTM Norte, en metros.\n"
+         "Ej: 8777285\n"
+         "(Entre 0 y 10000000)."),
         ("operational_status",
-         "3 dígitos, código del estado operativo. Opcional.\n"
-         "Valores: ver hoja 'Valores válidos'."),
+         "Opcional (puede quedar vacío).\n"
+         "Escriba solo el código:\n"
+         "001 = OPERATIVO\n"
+         "002 = INOPERATIVO\n"
+         "003 = EN RESERVA"),
         ("physical_status",
-         "1 letra mayúscula A-Z. Opcional.\n"
-         "Valores: ver hoja 'Valores válidos'."),
+         "Opcional (puede quedar vacío).\n"
+         "Escriba solo la letra:\n"
+         "B = BUENO\n"
+         "R = REGULAR\n"
+         "M = MALO"),
         ("specification",
-         "Texto libre (max 300). Opcional; puede quedar vacío (= NULL)."),
+         "Opcional.\n"
+         "Descripción u observaciones.\n"
+         "Máximo 300 letras.\n"
+         "Puede quedar vacío."),
     ]
 
     # Descripciones (fila 2)
@@ -664,7 +708,9 @@ def build_xlsx_template() -> bytes:
             wrap_text=True, vertical="top", horizontal="left"
         )
         cell.border = border
-    ws.row_dimensions[2].height = 70
+    # Altura generosa: la columna 'type' lista los 10 tipos con salto de
+    # línea (~14 líneas) y district_ubigeo ~9.
+    ws.row_dimensions[2].height = 200
 
     # Headers reales (fila 3)
     headers = [h for h, _ in descriptions]
@@ -680,17 +726,17 @@ def build_xlsx_template() -> bytes:
     examples = [
         ("ELIMINAR", "Captación Río Pichanaqui (EJEMPLO)", "CAPTACIÓN",
          "120303", "ALTA", 506961, 8788264, "001", "B",
-         "Captación superficial — borre esta fila antes de subir"),
+         "Ejemplo — puede borrar esta fila"),
         ("ELIMINAR", "Reservorio San Ramón (EJEMPLO)", "RESERVORIO",
          "120305", "MEDIA", 465120, 8779850, "001", "B", ""),
         ("ELIMINAR", "Estación Bombeo Satipo (EJEMPLO)",
          "ESTACIÓN DE BOMBEO Y REBOMBEO DE AGUA POTABLE",
-         "120601", "ALTA", 471200, 8780050, "002", "C", ""),
+         "120601", "ALTA", 471200, 8780050, "002", "R", ""),
         # Línea con 2 vértices: repetir code en 2 filas.
         ("ELIMINAR", "Línea Conducción Tramo 1 (EJEMPLO)", "LÍNEA DE CONDUCCIÓN",
-         "120303", "ALTA", 463600, 8777300, "001", "A", "Tramo de ejemplo"),
+         "120303", "ALTA", 463600, 8777300, "001", "B", "Ejemplo — puede borrar esta fila"),
         ("ELIMINAR", "Línea Conducción Tramo 1 (EJEMPLO)", "LÍNEA DE CONDUCCIÓN",
-         "120303", "MEDIA", 463700, 8777350, "001", "A", "Tramo de ejemplo"),
+         "120303", "MEDIA", 463700, 8777350, "001", "B", "Ejemplo — puede borrar esta fila"),
     ]
     for ri, ex in enumerate(examples, start=4):
         for ci, v in enumerate(ex, start=1):
@@ -699,7 +745,7 @@ def build_xlsx_template() -> bytes:
             cell.border = border
 
     # Anchos de columna
-    widths = [12, 38, 42, 18, 12, 14, 14, 22, 18, 38]
+    widths = [12, 38, 42, 22, 12, 14, 14, 22, 18, 38]
     for ci, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(ci)].width = w
 
@@ -1130,9 +1176,9 @@ def persist_components(
         if exists:
             existing_errors.append(ImportError(
                 row=None, code=c.code,
-                message=f"Ya existe un componente con district="
-                        f"{c.district_ubigeo}, type_id={c.type_id}, "
-                        f"code={c.code}.",
+                message=f"Ya existe un componente con el código '{c.code}' "
+                        f"para ese distrito y tipo. Cámbiele el código o "
+                        f"elimine el componente existente.",
             ))
     if existing_errors:
         return 0, existing_errors

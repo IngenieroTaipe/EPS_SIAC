@@ -79,7 +79,14 @@ const COLOR_BY_ESTADO: Record<Componente['estado'], string> = {
   critico: 'var(--eps-danger-main)',
 };
 
-const TRAMO_COLOR = 'var(--eps-secondary-main)';
+/**
+ * Color de las líneas de conducción/aducción — HEX directo (NO var(--...)):
+ * las `pathOptions` de Leaflet se aplican como atributo SVG `stroke`, y los
+ * atributos SVG no resuelven variables CSS → con var() el color resultaba
+ * inválido y Leaflet caía a su default azul (#3388ff). Rojo = secondary-main
+ * (#ff0000), igual que el SVG de línea de conducción de la leyenda.
+ */
+const TRAMO_COLOR = '#ff0000';
 const TRAMO_WEIGHT = 3;
 
 /**

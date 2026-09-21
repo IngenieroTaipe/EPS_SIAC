@@ -670,18 +670,17 @@ function CriteriosBlock({ format }: { format: Formato }) {
     return (
       <div className="flex flex-col gap-2 p-4 rounded-lg bg-primary-main/5 border border-input-stroke-main">
         <span className="text-text-primary text-sm font-bold font-sans">
-          Criterios del Excel
+          Cómo cargar con Excel
         </span>
-        <ul className="text-text-secondary text-xs font-sans list-disc list-inside flex flex-col gap-1 leading-relaxed">
-          <li>Descargá la <strong>plantilla</strong> — ya tiene descripción por columna, dropdowns con los valores válidos (tipo, criticidad, estados) y filas de ejemplo.</li>
-          <li>Mantené la fila de headers (navy) tal cual.</li>
-          <li>Borrá las filas con <code>code = ELIMINAR</code> antes de subir (son ejemplos; el parser también las saltea automáticamente, pero queda más limpio).</li>
-          <li>Completá UNA fila por componente. Para líneas (LÍNEA DE CONDUCCIÓN / ADUCCIÓN): repetí el <code>code</code> en N filas, una por vértice.</li>
-          <li>Usá los <strong>dropdowns</strong> en <code>type</code>, <code>criticality</code>, <code>operational_status</code> y <code>physical_status</code> para evitar errores de tipeo.</li>
-          <li>Consultá la hoja <strong>"Valores"</strong> del mismo archivo para conocer los tipos / criticidades / estados disponibles y sus códigos.</li>
-          <li><code>specification</code> puede quedar vacío (= NULL en la DB).</li>
-          <li>Encoding UTF-8 nativo de .xlsx (tildes y ñ no son problema).</li>
-        </ul>
+        <ol className="text-text-secondary text-xs font-sans list-decimal list-inside flex flex-col gap-1 leading-relaxed">
+          <li>Descargue la <strong>plantilla</strong> y ábrala en Excel.</li>
+          <li>Arriba de cada título hay una <strong>explicación con todas las opciones</strong> que puede escribir (tipos, criticidad, estados, ejemplos de códigos de distrito).</li>
+          <li>Agregue <strong>una fila por cada componente</strong>. Si es una línea (tubería de conducción o aducción), repita el <strong>mismo código</strong> en varias filas: una por cada punto de la línea.</li>
+          <li>En Tipo, Criticidad y Estados use la <strong>lista desplegable</strong> de la celda (flechita a la derecha) — así el valor siempre es correcto.</li>
+          <li>Las filas de ejemplo vienen con el código <strong>ELIMINAR</strong>: puede borrarlas o dejarlas, <strong>no se cargan</strong>.</li>
+          <li>No borre las filas de explicación ni la fila de títulos (azul oscuro).</li>
+          <li>Guarde el archivo y súbelo aquí. Primero verá una <strong>vista previa</strong>: si todo está bien, confirme para cargarlo.</li>
+        </ol>
       </div>
     );
   }
@@ -689,32 +688,32 @@ function CriteriosBlock({ format }: { format: Formato }) {
     return (
       <div className="flex flex-col gap-2 p-4 rounded-lg bg-primary-main/5 border border-input-stroke-main">
         <span className="text-text-primary text-sm font-bold font-sans">
-          Criterios del CSV
+          Cómo cargar con CSV
         </span>
-        <ul className="text-text-secondary text-xs font-sans list-disc list-inside flex flex-col gap-1 leading-relaxed">
-          <li>Columnas obligatorias: <code className="text-primary-main">{CSV_HEADERS.join(', ')}</code></li>
-          <li>Opcionales: <code>{CSV_OPTIONAL.join(', ')}</code></li>
-          <li>Encoding UTF-8. Valores separados por coma.</li>
-          <li><strong>Líneas</strong>: repetí el <code>code</code> en N filas, una por vértice. El <code>type</code> debe ser <code>LÍNEA DE CONDUCCIÓN</code> o <code>LÍNEA DE ADUCCIÓN</code>.</li>
-          <li><code>type</code> y <code>criticality</code> por nombre (ej. "CAPTACIÓN", "ALTA").</li>
-          <li><code>district_ubigeo</code> ubigeo del distrito (ej. "120303").</li>
-        </ul>
+        <ol className="text-text-secondary text-xs font-sans list-decimal list-inside flex flex-col gap-1 leading-relaxed">
+          <li>Descargue la <strong>plantilla</strong> y ábrala en Excel.</li>
+          <li>Los títulos de la primera fila son las columnas obligatorias (<code className="text-primary-main">{CSV_HEADERS.join(', ')}</code>). <strong>No los renombre ni los reordene</strong>; las 3 últimas (estados y descripción) pueden quedar vacías.</li>
+          <li>Agregue <strong>una fila por cada componente</strong>. Si es una línea (tubería), repita el <strong>mismo código</strong> en varias filas: una por cada punto, y el tipo debe ser <strong>LÍNEA DE CONDUCCIÓN</strong> o <strong>LÍNEA DE ADUCCIÓN</strong>.</li>
+          <li>Escriba el <strong>tipo y la criticidad tal cual, con tilde</strong> (ej: "CAPTACIÓN", "ALTA").</li>
+          <li>La columna <code>district_ubigeo</code> es el <strong>código de 6 números del distrito</strong> (ej: 120303 = Pichanaqui). Si no lo conoce, pregunte al administrador.</li>
+          <li>Al guardar en Excel, elija <strong>"CSV UTF-8"</strong> (Guardar como → CSV UTF-8) — así las tildes se cargan bien.</li>
+          <li>Súbalo aquí: primero verá una <strong>vista previa</strong> y luego confirma.</li>
+        </ol>
       </div>
     );
   }
   return (
     <div className="flex flex-col gap-2 p-4 rounded-lg bg-primary-main/5 border border-input-stroke-main">
       <span className="text-text-primary text-sm font-bold font-sans">
-        Criterios del GeoJSON
+        Cómo cargar con GeoJSON
       </span>
       <ul className="text-text-secondary text-xs font-sans list-disc list-inside flex flex-col gap-1 leading-relaxed">
-        <li>Raíz: <code>FeatureCollection</code>. Cada <code>Feature</code> = un componente.</li>
-        <li>Properties obligatorias: <code>code</code>, <code>name</code>, <code>type</code>, <code>district_ubigeo</code>, <code>criticality</code>, y <strong>UTM arrays</strong>: <code>utm_eastings</code>, <code>utm_northings</code> (paralelos, en metros).</li>
-        <li>Opcionales: <code>operational_status</code> (código), <code>physical_status</code> (código), <code>specification</code>, <code>utm_zone</code> (default 18).</li>
-        <li>UTM es la <strong>unidad principal</strong>. Si properties trae <code>utm_eastings</code>/<code>utm_northings</code>, se usan esos arrays (1 = puntual; 2+ = línea).</li>
-        <li>Alternativa (fallback): si NO trae UTM arrays, usar <code>geometry.coordinates</code> estándar GeoJSON (<code>[lng, lat]</code> WGS84) con type <code>Point</code> / <code>LineString</code> / <code>MultiPoint</code>.</li>
-        <li><code>type</code> y <code>criticality</code> por nombre. Para varios vértices, todos comparten la misma <code>criticality</code> de properties; si querés criticidad por vértice, usá CSV.</li>
-        <li><code>specification</code> se puede omitir o dejar vacío (<code>""</code> / <code>null</code>) — el backend lo persiste como null.</li>
+        <li>Formato para usuarios avanzados (Sistemas de Información Geográfica). Para uso general, prefiera Excel o CSV.</li>
+        <li>Cada componente es un <code>Feature</code> dentro del <code>FeatureCollection</code>.</li>
+        <li>Datos obligatorios por componente: <code>code</code>, <code>name</code>, <code>type</code> (con tilde, tal cual el catálogo), <code>district_ubigeo</code>, <code>criticality</code> y las coordenadas UTM: <code>utm_eastings</code> y <code>utm_northings</code> (listas en paralelo, en metros; 1 valor = punto, 2 o más = línea).</li>
+        <li>Opcionales: <code>operational_status</code>, <code>physical_status</code>, <code>specification</code> y <code>utm_zone</code> (por defecto 18).</li>
+        <li>Si no incluye coordenadas UTM, puede usar la geometría estándar (<code>Point</code> para puntos, <code>LineString</code> para líneas) con coordenadas [longitud, latitud].</li>
+        <li>Para líneas, todos los puntos comparten la misma criticidad; si necesita una distinta por punto, use CSV o Excel.</li>
       </ul>
     </div>
   );
